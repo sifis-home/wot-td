@@ -1,0 +1,100 @@
+# Stages are run sequentially by the CI but each of them can contain
+# parallel tasks
+stages:
+    - style # Code style
+    - build # Build the code
+    - test # Test the code
+    - docs # Code Documents
+
+# Configuration for a specific machine.
+# 1. Docker image containing all the neeeded software
+# 2. Default stage where the image will be run
+# 4. Tags to specify which kind of GitLab runners will be used in order to
+#    run the image
+.rust-stable:
+    image: rust:latest
+    stage: build
+    tags:
+        - docker
+
+.rust-nightly:
+    image: rustlang/rust:nightly
+    stage: build
+    tags:
+        - docker
+
+.rust-beta:
+    image: instrumentisto/rust:beta
+    stage: build
+    tags:
+        - docker
+
+# Run style checks
+clippy-rustfmt:
+    stage: style
+    extends: .rust-stable
+    before_script:
+        - rustup component add rustfmt clippy
+    script:
+        - cargo fmt -- --check --verbose
+        - cargo clippy --tests --benches -- -D warnings
+
+# Build Rust stable code
+build-stable:
+    extends: .rust-stable
+    script:
+        - cargo build --verbose --tests --benches
+
+# Build Rust nightly code
+build-nightly:
+    extends: .rust-nightly
+    script:
+        - cargo build --verbose --tests --benches
+
+# Build Rust beta code
+build-beta:
+    extends: .rust-beta
+    script:
+        - cargo build --verbose --tests --benches
+
+# Test Rust stable code
+test-stable:
+    stage: test
+    extends: .rust-stable
+    script:
+        - cargo test --verbose
+
+# Test Rust nightly code
+test-nightly:
+    stage: test
+    extends: .rust-nightly
+    script:
+        - cargo test --verbose
+
+# Test Rust beta code
+test-beta:
+    stage: test
+    extends: .rust-beta
+    script:
+        - cargo test --verbose
+
+# Generate Rust stable documents
+docs-stable:
+    stage: docs
+    extends: .rust-stable
+    script:
+        - cargo doc --no-deps
+
+# Generate Rust nightly documents
+docs-nightly:
+    stage: docs
+    extends: .rust-nightly
+    script:
+        - cargo doc --no-deps
+
+# Generate Rust beta documents
+docs-beta:
+    stage: docs
+    extends: .rust-beta
+    script:
+        - cargo doc --no-deps
