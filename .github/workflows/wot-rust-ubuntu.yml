@@ -116,8 +116,9 @@ jobs:
 
     - name: Get total coverage
       run: |
-        grcov . --binary-path ./target/debug/ -t covdir -s . \
-              --token YOUR_COVDIR_TOKEN > covdir.json
+        grcov . --binary-path ./target/debug/ -s . -t covdir --branch \
+              --token YOUR_COVDIR_TOKEN --ignore-not-existing --ignore "/*" \
+              --ignore "../*"  > covdir.json
 
     - name: Evaluate code coverage value
       shell: bash
@@ -174,6 +175,7 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Cache produced data
+      id: cache-data
       uses: actions/cache@v3
       with:
         path: |
@@ -193,6 +195,7 @@ jobs:
 
     # FIXME Use binaries
     - name: Install cargo-fuzz
+      if: steps.cache-data.outputs.cache-hit != 'true'
       run: |
         cargo install cargo-fuzz
 
@@ -219,8 +222,6 @@ jobs:
     - name: Run cargo-fuzz
       run: cargo fuzz build
 
-    # Usage of the `help` command as base command, please replace it
-    # with the effective command that AddressSanitizer has to analyze
     - name: Run AddressSanitizer
       env:
         RUSTFLAGS: -Zsanitizer=address
