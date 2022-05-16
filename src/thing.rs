@@ -8,6 +8,8 @@ use time::OffsetDateTime;
 type MultiLanguage = HashMap<String, String>;
 type DataSchemaMap = HashMap<String, DataSchema>;
 
+const TD_CONTEXT: &str = "https://www.w3.org/2019/wot/td/v1";
+
 /// Connected thing
 #[serde_as]
 #[skip_serializing_none]
@@ -17,7 +19,7 @@ pub struct Thing {
     // The context can be arbitrarily complex
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
-    #[serde(rename = "@context")]
+    #[serde(rename = "@context", default = "Thing::default_context")]
     pub context: Value,
 
     pub id: Option<String>,
@@ -62,6 +64,12 @@ pub struct Thing {
     pub security: Vec<String>,
 
     pub security_definitions: HashMap<String, SecurityScheme>,
+}
+
+impl Thing {
+    fn default_context() -> Value {
+        TD_CONTEXT.into()
+    }
 }
 
 #[serde_as]
@@ -504,7 +512,7 @@ mod test {
         }"#;
 
         let expected_thing = Thing {
-            context: "https://www.w3.org/2019/wot/td/v1".into(),
+            context: TD_CONTEXT.into(),
             id: Some("urn:dev:ops:32473-WoTLamp-1234".to_string()),
             title: "MyLampThing".to_string(),
             security_definitions: [(
@@ -624,7 +632,7 @@ mod test {
         }"#;
 
         let expected_thing = Thing {
-            context: "https://www.w3.org/2019/wot/td/v1".into(),
+            context: TD_CONTEXT.into(),
             id: Some("urn:dev:ops:32473-WoTLamp-1234".to_string()),
             attype: Some(vec!["Thing".to_string(), "LampThing".to_string()]),
             title: "MyLampThing".to_string(),
@@ -793,6 +801,58 @@ mod test {
         assert_eq!(thing, expected_thing);
 
         let thing: Thing = serde_json::from_value(serde_json::to_value(thing).unwrap()).unwrap();
+        assert_eq!(thing, expected_thing);
+    }
+
+    #[test]
+    fn default_context() {
+        const RAW: &str = r#"
+        {
+          "title": "MyLampThing",
+          "securityDefinitions": {
+            "nosec": {
+              "scheme": "nosec"
+            }
+          },
+          "security": [
+            "nosec"
+          ]
+        }"#;
+
+        let expected_thing = Thing {
+            context: TD_CONTEXT.into(),
+            id: None,
+            title: "MyLampThing".to_string(),
+            security_definitions: [(
+                "nosec".to_string(),
+                SecurityScheme {
+                    attype: None,
+                    description: None,
+                    descriptions: None,
+                    proxy: None,
+                    subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::NoSec),
+                },
+            )]
+            .into_iter()
+            .collect(),
+            security: vec!["nosec".to_string()],
+            attype: None,
+            titles: None,
+            description: None,
+            descriptions: None,
+            version: None,
+            created: None,
+            modified: None,
+            support: None,
+            base: None,
+            properties: None,
+            actions: None,
+            events: None,
+            links: None,
+            forms: None,
+        };
+
+        let thing: Thing = serde_json::from_str(RAW).unwrap();
         assert_eq!(thing, expected_thing);
     }
 }
