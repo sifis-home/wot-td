@@ -20,8 +20,7 @@ pub struct Thing {
     #[serde(rename = "@context")]
     pub context: Value,
 
-    #[serde(default)]
-    pub id: String,
+    pub id: Option<String>,
 
     #[serde(rename = "@type", default)]
     #[serde_as(deserialize_as = "Option<OneOrMany<_>>")]
@@ -506,7 +505,7 @@ mod test {
 
         let expected_thing = Thing {
             context: "https://www.w3.org/2019/wot/td/v1".into(),
-            id: "urn:dev:ops:32473-WoTLamp-1234".to_string(),
+            id: Some("urn:dev:ops:32473-WoTLamp-1234".to_string()),
             title: "MyLampThing".to_string(),
             security_definitions: [(
                 "nosec".to_string(),
@@ -626,7 +625,7 @@ mod test {
 
         let expected_thing = Thing {
             context: "https://www.w3.org/2019/wot/td/v1".into(),
-            id: "urn:dev:ops:32473-WoTLamp-1234".to_string(),
+            id: Some("urn:dev:ops:32473-WoTLamp-1234".to_string()),
             attype: Some(vec!["Thing".to_string(), "LampThing".to_string()]),
             title: "MyLampThing".to_string(),
             titles: Some(
