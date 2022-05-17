@@ -5,10 +5,12 @@ use serde_json::Value;
 use serde_with::{serde_as, skip_serializing_none, DeserializeAs, OneOrMany, Same};
 use time::OffsetDateTime;
 
-type MultiLanguage = HashMap<String, String>;
-type DataSchemaMap = HashMap<String, DataSchema>;
+use crate::builder::ThingBuilder;
 
-const TD_CONTEXT: &str = "https://www.w3.org/2019/wot/td/v1";
+pub(crate) type MultiLanguage = HashMap<String, String>;
+pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
+
+pub(crate) const TD_CONTEXT: &str = "https://www.w3.org/2019/wot/td/v1";
 
 /// Connected thing
 #[serde_as]
@@ -67,8 +69,38 @@ pub struct Thing {
 }
 
 impl Thing {
+    #[inline]
+    pub fn build(title: impl Into<String>) -> ThingBuilder {
+        ThingBuilder::new(title)
+    }
+
     fn default_context() -> Value {
         TD_CONTEXT.into()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn empty() -> Self {
+        Self {
+            context: Default::default(),
+            id: None,
+            title: Default::default(),
+            security_definitions: Default::default(),
+            security: Default::default(),
+            attype: None,
+            titles: None,
+            description: None,
+            descriptions: None,
+            version: None,
+            created: None,
+            modified: None,
+            support: None,
+            base: None,
+            properties: None,
+            actions: None,
+            events: None,
+            links: None,
+            forms: None,
+        }
     }
 }
 
