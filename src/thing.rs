@@ -173,6 +173,16 @@ pub struct VersionInfo {
     instance: String,
 }
 
+impl<S> From<S> for VersionInfo
+where
+    S: Into<String>,
+{
+    fn from(instance: S) -> Self {
+        let instance = instance.into();
+        Self { instance }
+    }
+}
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -310,6 +320,15 @@ pub struct BasicSecurityScheme {
     pub name: Option<String>,
 }
 
+impl Default for BasicSecurityScheme {
+    fn default() -> Self {
+        Self {
+            location: SecurityAuthenticationLocation::Header,
+            name: Default::default(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SecurityAuthenticationLocation {
@@ -340,11 +359,27 @@ pub struct DigestSecurityScheme {
     pub name: Option<String>,
 }
 
+impl Default for DigestSecurityScheme {
+    fn default() -> Self {
+        Self {
+            qop: Default::default(),
+            location: SecurityAuthenticationLocation::Header,
+            name: Default::default(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum QualityOfProtection {
     Auth,
     AuthInt,
+}
+
+impl Default for QualityOfProtection {
+    fn default() -> Self {
+        Self::Auth
+    }
 }
 
 #[skip_serializing_none]
@@ -354,6 +389,15 @@ pub struct ApiKeySecurityScheme {
     pub location: SecurityAuthenticationLocation,
 
     pub name: Option<String>,
+}
+
+impl Default for ApiKeySecurityScheme {
+    fn default() -> Self {
+        Self {
+            location: SecurityAuthenticationLocation::Query,
+            name: Default::default(),
+        }
+    }
 }
 
 #[skip_serializing_none]
@@ -374,6 +418,18 @@ pub struct BearerSecurityScheme {
     pub name: Option<String>,
 }
 
+impl Default for BearerSecurityScheme {
+    fn default() -> Self {
+        Self {
+            authorization: Default::default(),
+            alg: BearerSecurityScheme::default_alg(),
+            format: BearerSecurityScheme::default_format(),
+            location: SecurityAuthenticationLocation::Header,
+            name: Default::default(),
+        }
+    }
+}
+
 impl BearerSecurityScheme {
     const fn default_alg() -> Cow<'static, str> {
         Cow::Borrowed("ES256")
@@ -385,7 +441,7 @@ impl BearerSecurityScheme {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct PskSecurityScheme {
     pub identity: Option<String>,
 }
@@ -408,6 +464,19 @@ pub struct OAuth2SecurityScheme {
     pub scopes: Option<Vec<String>>,
 
     pub flow: String,
+}
+
+impl OAuth2SecurityScheme {
+    pub fn new(flow: impl Into<String>) -> Self {
+        let flow = flow.into();
+        Self {
+            authorization: Default::default(),
+            token: Default::default(),
+            refresh: Default::default(),
+            scopes: Default::default(),
+            flow,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
