@@ -525,7 +525,7 @@ pub struct Form {
 }
 
 impl Form {
-    const fn default_content_type() -> Cow<'static, str> {
+    pub(crate) const fn default_content_type() -> Cow<'static, str> {
         Cow::Borrowed("application/json")
     }
 }

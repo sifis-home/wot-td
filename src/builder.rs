@@ -1,14 +1,15 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, ops::Not};
 
 use serde_json::Value;
 use time::OffsetDateTime;
 
 use crate::thing::{
     ActionAffordance, ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme,
-    DigestSecurityScheme, EventAffordance, Form, KnownSecuritySchemeSubtype, Link, MultiLanguage,
-    OAuth2SecurityScheme, PropertyAffordance, PskSecurityScheme, QualityOfProtection,
-    SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype, Thing,
-    UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT,
+    DefaultedFormOperations, DigestSecurityScheme, EventAffordance, ExpectedResponse, Form,
+    FormOperation, KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme,
+    PropertyAffordance, PskSecurityScheme, QualityOfProtection, SecurityAuthenticationLocation,
+    SecurityScheme, SecuritySchemeSubtype, Thing, UnknownSecuritySchemeSubtype, VersionInfo,
+    TD_CONTEXT,
 };
 
 #[must_use]
@@ -29,7 +30,7 @@ pub struct ThingBuilder {
     actions: Option<HashMap<String, ActionAffordance>>,
     events: Option<HashMap<String, EventAffordance>>,
     links: Option<Vec<Link>>,
-    forms: Option<Vec<Form>>,
+    forms: Option<Vec<FormBuilder<String>>>,
     security: Vec<String>,
     security_definitions: Vec<(String, SecurityScheme)>,
 }
@@ -49,6 +50,15 @@ macro_rules! opt_field_builder {
 pub enum Error {
     #[error("Two security definitions use the name \"{0}\"")]
     DuplicatedSecurityDefinition(String),
+
+    #[error("A Form directly placed in a Thing must contain at least one relevant operation")]
+    MissingOpInForm,
+
+    #[error("The operation of a Form directly placed in a Thing can only be one or more of the following: readallproperties, writeallproperties, readmultipleproperties, writemultipleproperties")]
+    InvalidOpInForm,
+
+    #[error("Security \"{0}\" is not specified in Thing security definitions")]
+    UndefinedSecurity(String),
 }
 
 impl ThingBuilder {
@@ -116,6 +126,17 @@ impl ThingBuilder {
             }
         }
 
+        let forms = forms
+            .map(|forms| {
+                forms
+                    .into_iter()
+                    .map(|form_builder| {
+                        Self::build_form_from_builder(form_builder, &security_definitions)
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?;
+
         let context = {
             // TODO: improve this
             if context.len() == 1 {
@@ -154,6 +175,69 @@ impl ThingBuilder {
             forms,
             security,
             security_definitions,
+        })
+    }
+
+    fn build_form_from_builder(
+        form_builder: FormBuilder<String>,
+        security_definitions: &HashMap<String, SecurityScheme>,
+    ) -> Result<Form, Error> {
+        use DefaultedFormOperations::*;
+        use FormOperation::*;
+
+        let FormBuilder {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            mut security,
+            scopes,
+            response,
+        } = form_builder;
+
+        security
+            .as_mut()
+            .map(|security| {
+                security.iter_mut().try_for_each(|security| {
+                    if security_definitions.contains_key(security) {
+                        Ok(())
+                    } else {
+                        Err(Error::UndefinedSecurity(std::mem::take(security)))
+                    }
+                })
+            })
+            .transpose()?;
+
+        match &op {
+            Default => return Err(Error::MissingOpInForm),
+            Custom(operations) => {
+                let allowed_ops = operations.iter().all(|op| {
+                    matches!(
+                        op,
+                        ReadAllProperties
+                            | WriteAllProperties
+                            | ReadMultipleProperties
+                            | WriteMultipleProperties
+                    )
+                });
+
+                if allowed_ops.not() {
+                    return Err(Error::InvalidOpInForm);
+                }
+            }
+        }
+
+        let content_type = content_type.unwrap_or(Form::default_content_type());
+        Ok(Form {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
         })
     }
 
@@ -236,6 +320,16 @@ impl ThingBuilder {
 
     pub fn security(self) -> SecurityConfigBuilder {
         SecurityConfigBuilder::new(self)
+    }
+
+    pub fn form<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(FormBuilder<()>) -> FormBuilder<String>,
+    {
+        self.forms
+            .get_or_insert_with(Default::default)
+            .push(f(FormBuilder::new()));
+        self
     }
 }
 
@@ -807,6 +901,102 @@ impl SecuritySchemeBuilder<OAuth2SecurityScheme> {
 impl SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
     pub fn data(mut self, value: impl Into<Value>) -> Self {
         self.subtype.data = value.into();
+        self
+    }
+}
+
+pub struct FormBuilder<Href> {
+    op: DefaultedFormOperations,
+    href: Href,
+    content_type: Option<Cow<'static, str>>,
+    content_coding: Option<String>,
+    subprotocol: Option<String>,
+    security: Option<Vec<String>>,
+    scopes: Option<Vec<String>>,
+    response: Option<ExpectedResponse>,
+}
+
+impl FormBuilder<()> {
+    fn new() -> Self {
+        Self {
+            op: Default::default(),
+            href: (),
+            content_type: Default::default(),
+            content_coding: Default::default(),
+            subprotocol: Default::default(),
+            security: Default::default(),
+            scopes: Default::default(),
+            response: Default::default(),
+        }
+    }
+
+    pub fn href(self, value: impl Into<String>) -> FormBuilder<String> {
+        let Self {
+            op,
+            href: (),
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
+        } = self;
+
+        let href = value.into();
+        FormBuilder {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
+        }
+    }
+}
+
+impl<T> FormBuilder<T> {
+    opt_field_builder!(
+        content_type: Cow<'static, str>,
+        content_coding: String,
+        subprotocol: String,
+    );
+
+    pub fn op(mut self, new_op: FormOperation) -> Self {
+        match &mut self.op {
+            ops @ DefaultedFormOperations::Default => {
+                *ops = DefaultedFormOperations::Custom(vec![new_op])
+            }
+            DefaultedFormOperations::Custom(ops) => ops.push(new_op),
+        }
+
+        self
+    }
+
+    pub fn security(mut self, value: impl Into<String>) -> Self {
+        self.security
+            .get_or_insert_with(Default::default)
+            .push(value.into());
+        self
+    }
+
+    pub fn scope(mut self, value: impl Into<String>) -> Self {
+        self.scopes
+            .get_or_insert_with(Default::default)
+            .push(value.into());
+        self
+    }
+
+    pub fn response(
+        mut self,
+        content_type: impl Into<String>,
+        other_fields: impl Into<Value>,
+    ) -> Self {
+        self.response = Some(ExpectedResponse {
+            content_type: content_type.into(),
+            other: other_fields.into(),
+        });
         self
     }
 }
@@ -1662,5 +1852,188 @@ mod tests {
             err,
             Error::DuplicatedSecurityDefinition("basic".to_string())
         );
+    }
+
+    #[test]
+    fn simple_form() {
+        let thing = ThingBuilder::new("MyLampThing")
+            .form(|form| form.href("href").op(FormOperation::ReadAllProperties))
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT.into(),
+                title: "MyLampThing".to_string(),
+                forms: Some(vec![Form {
+                    op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
+                    href: "href".to_string(),
+                    content_type: Form::default_content_type(),
+                    content_coding: Default::default(),
+                    subprotocol: Default::default(),
+                    security: Default::default(),
+                    scopes: Default::default(),
+                    response: Default::default(),
+                }]),
+                ..Thing::empty()
+            }
+        );
+    }
+
+    #[test]
+    fn complete_form() {
+        let thing = ThingBuilder::new("MyLampThing")
+            .form(|form| {
+                form.href("href")
+                    .op(FormOperation::ReadAllProperties)
+                    .content_type("text/plain")
+                    .content_coding("coding")
+                    .subprotocol("subprotocol")
+                    .security("digest")
+                    .security("basic")
+                    .scope("scope1")
+                    .scope("scope2")
+                    .response(
+                        "application/json",
+                        json!({
+                            "response": {
+                                "test1": 1,
+                                "test2": "2",
+                            },
+                        }),
+                    )
+            })
+            .security()
+            .append(|sec| sec.digest())
+            .required(false)
+            .append(|sec| sec.basic())
+            .required(false)
+            .finish_security()
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT.into(),
+                title: "MyLampThing".to_string(),
+                forms: Some(vec![Form {
+                    op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
+                    href: "href".to_string(),
+                    content_type: "text/plain".into(),
+                    content_coding: Some("coding".to_string()),
+                    subprotocol: Some("subprotocol".to_string()),
+                    security: Some(vec!["digest".to_string(), "basic".to_string()]),
+                    scopes: Some(vec!["scope1".to_string(), "scope2".to_string()]),
+                    response: Some(ExpectedResponse {
+                        content_type: "application/json".to_string(),
+                        other: json!({
+                            "response": {
+                                "test1": 1,
+                                "test2": "2",
+                            },
+                        })
+                    }),
+                }]),
+                security_definitions: [
+                    (
+                        "digest".to_string(),
+                        SecurityScheme {
+                            attype: Default::default(),
+                            description: Default::default(),
+                            descriptions: Default::default(),
+                            proxy: Default::default(),
+                            subtype: SecuritySchemeSubtype::Known(
+                                KnownSecuritySchemeSubtype::Digest(DigestSecurityScheme::default())
+                            )
+                        }
+                    ),
+                    (
+                        "basic".to_string(),
+                        SecurityScheme {
+                            attype: Default::default(),
+                            description: Default::default(),
+                            descriptions: Default::default(),
+                            proxy: Default::default(),
+                            subtype: SecuritySchemeSubtype::Known(
+                                KnownSecuritySchemeSubtype::Basic(BasicSecurityScheme::default())
+                            )
+                        }
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+                ..Thing::empty()
+            }
+        );
+    }
+
+    #[test]
+    fn form_with_multiple_ops() {
+        let thing = ThingBuilder::new("MyLampThing")
+            .form(|form| {
+                form.href("href")
+                    .op(FormOperation::ReadAllProperties)
+                    .op(FormOperation::ReadMultipleProperties)
+            })
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT.into(),
+                title: "MyLampThing".to_string(),
+                forms: Some(vec![Form {
+                    op: DefaultedFormOperations::Custom(vec![
+                        FormOperation::ReadAllProperties,
+                        FormOperation::ReadMultipleProperties
+                    ]),
+                    href: "href".to_string(),
+                    content_type: Form::default_content_type(),
+                    content_coding: Default::default(),
+                    subprotocol: Default::default(),
+                    security: Default::default(),
+                    scopes: Default::default(),
+                    response: Default::default(),
+                }]),
+                ..Thing::empty()
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_form_without_op() {
+        let err = ThingBuilder::new("MyLampThing")
+            .form(|form| form.href("href"))
+            .build()
+            .unwrap_err();
+
+        assert_eq!(err, Error::MissingOpInForm);
+    }
+
+    #[test]
+    fn invalid_form_with_invalid_op() {
+        let err = ThingBuilder::new("MyLampThing")
+            .form(|form| form.href("href").op(FormOperation::ReadProperty))
+            .build()
+            .unwrap_err();
+
+        assert_eq!(err, Error::InvalidOpInForm);
+    }
+
+    #[test]
+    fn invalid_form_with_missing_security() {
+        let err = ThingBuilder::new("MyLampThing")
+            .form(|form| {
+                form.href("href")
+                    .op(FormOperation::ReadAllProperties)
+                    .security("basic")
+            })
+            .build()
+            .unwrap_err();
+
+        assert_eq!(err, Error::UndefinedSecurity("basic".to_string()));
     }
 }
