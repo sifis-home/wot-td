@@ -1,7 +1,11 @@
 [package]
-name = "wot-rust"
+name = "wot-td"
 version = "0.1.0"
 edition = "2021"
+description = "Web of Things (WoT) Thing Description manipulation"
+license = "MIT"
+repository = "https://github.com/sifis-home/wot-rust"
+keywords = ["wot", "thing description"]
 
 [dependencies]
 serde = { version = "1.0.137", features = ["derive"] }
