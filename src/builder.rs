@@ -1,3 +1,6 @@
+pub mod data_schema;
+pub mod human_readable_info;
+
 use std::{borrow::Cow, collections::HashMap, ops::Not};
 
 use serde_json::Value;
@@ -59,6 +62,14 @@ pub enum Error {
 
     #[error("Security \"{0}\" is not specified in Thing security definitions")]
     UndefinedSecurity(String),
+
+    /// When both min and max are specified, min must be less or equal than max
+    #[error("Min value greater than max value")]
+    InvalidMinMax,
+
+    /// Neither minimum or maximum value can be NaN
+    #[error("Min or Max value is NaN")]
+    NanMinMax,
 }
 
 impl ThingBuilder {
