@@ -1,3 +1,5 @@
+pub mod data_schema;
+
 use std::{borrow::Cow, collections::HashMap, ops::Not};
 
 use serde_json::Value;
