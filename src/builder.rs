@@ -278,8 +278,17 @@ impl ThingBuilder {
         self
     }
 
-    pub fn titles(self) -> MultiLanguageBuilder<Self, String> {
-        MultiLanguageBuilder::new(self, |this, titles| this.titles = Some(titles))
+    pub fn titles<F>(mut self, f: F) -> Self
+    where
+        F: for<'a> FnOnce(
+            &'a mut MultiLanguageBuilder<String>,
+        ) -> &'a mut MultiLanguageBuilder<String>,
+    {
+        let mut builder = MultiLanguageBuilder::default();
+        f(&mut builder);
+
+        self.titles = Some(builder.values);
+        self
     }
 
     pub fn link(mut self, href: impl Into<String>) -> Self {
@@ -365,35 +374,15 @@ impl ContextMapBuilder {
     }
 }
 
-pub struct MultiLanguageBuilder<B, T> {
+#[derive(Default)]
+pub struct MultiLanguageBuilder<T> {
     values: HashMap<String, T>,
-    parent_builder: B,
-    finalizer: fn(&mut B, HashMap<String, T>),
 }
 
-impl<B, T> MultiLanguageBuilder<B, T> {
-    fn new(parent_builder: B, finalizer: fn(&mut B, HashMap<String, T>)) -> Self {
-        Self {
-            values: Default::default(),
-            parent_builder,
-            finalizer,
-        }
-    }
-
-    pub fn add(mut self, language: impl Into<String>, value: impl Into<T>) -> Self {
+impl<T> MultiLanguageBuilder<T> {
+    pub fn add(&mut self, language: impl Into<String>, value: impl Into<T>) -> &mut Self {
         self.values.insert(language.into(), value.into());
         self
-    }
-
-    pub fn finish_multilang(self) -> B {
-        let Self {
-            values,
-            mut parent_builder,
-            finalizer,
-        } = self;
-
-        finalizer(&mut parent_builder, values);
-        parent_builder
     }
 }
 
@@ -703,10 +692,14 @@ impl<T> SecuritySchemeBuilder<T> {
         self
     }
 
-    pub fn descriptions(self) -> MultiLanguageBuilder<Self, String> {
-        MultiLanguageBuilder::new(self, |this, descriptions| {
-            this.descriptions = Some(descriptions)
-        })
+    pub fn descriptions<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
+    {
+        let mut builder = MultiLanguageBuilder::default();
+        f(&mut builder);
+        self.descriptions = Some(builder.values);
+        self
     }
 }
 
@@ -1148,10 +1141,7 @@ mod tests {
     #[test]
     fn titles() {
         let thing = ThingBuilder::new("MyLampThing")
-            .titles()
-            .add("en", "My lamp")
-            .add("it", "La mia lampada")
-            .finish_multilang()
+            .titles(|ml| ml.add("en", "My lamp").add("it", "La mia lampada"))
             .build()
             .unwrap();
 
@@ -1282,10 +1272,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions()
-                    .add("en", "desc_en")
-                    .add("it", "desc_it")
-                    .finish_multilang()
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
             })
             .required(true)
@@ -1334,10 +1321,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions()
-                    .add("en", "desc_en")
-                    .add("it", "desc_it")
-                    .finish_multilang()
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
             })
             .required(true)
@@ -1392,10 +1376,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions()
-                    .add("en", "desc_en")
-                    .add("it", "desc_it")
-                    .finish_multilang()
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
             })
             .required(true)
@@ -1450,10 +1431,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions()
-                    .add("en", "desc_en")
-                    .add("it", "desc_it")
-                    .finish_multilang()
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
             })
             .required(true)
@@ -1510,10 +1488,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions()
-                    .add("en", "desc_en")
-                    .add("it", "desc_it")
-                    .finish_multilang()
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
             })
             .required(true)
@@ -1573,10 +1548,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions()
-                    .add("en", "desc_en")
-                    .add("it", "desc_it")
-                    .finish_multilang()
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
             })
             .required(true)
@@ -1635,10 +1607,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions()
-                    .add("en", "desc_en")
-                    .add("it", "desc_it")
-                    .finish_multilang()
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
             })
             .required(true)
