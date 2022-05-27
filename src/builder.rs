@@ -24,6 +24,9 @@ use self::{
     data_schema::{CheckableDataSchema, PartialDataSchemaBuilder},
 };
 
+/// Builder for WoT Thing
+///
+/// TODO: Write an example usage
 #[must_use]
 pub struct ThingBuilder {
     context: Vec<Context>,
@@ -58,17 +61,26 @@ macro_rules! opt_field_builder {
     };
 }
 
+/// Builder errors
+///
+/// Most of the Thing Description conflicts are caught at compile time.
+/// The few errors that may be discovered at only runtime are the following.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, thiserror::Error)]
 pub enum Error {
+    /// The WoT security definitions must have an unique name
     #[error("Two security definitions use the name \"{0}\"")]
     DuplicatedSecurityDefinition(String),
 
+    /// The forms have defaults that depend on the Affordance that contains them.
+    /// The Thing-level forms must be explicit on the operation
     #[error("A Form directly placed in a Thing must contain at least one relevant operation")]
     MissingOpInForm,
 
+    /// The Thing-level forms must work on the Thing properties collectively at once.
     #[error("The operation of a Form directly placed in a Thing can only be one or more of the following: readallproperties, writeallproperties, readmultipleproperties, writemultipleproperties")]
     InvalidOpInForm,
 
+    /// The security field must refer to existing security definitions.
     #[error("Security \"{0}\" is not specified in Thing security definitions")]
     UndefinedSecurity(String),
 
@@ -117,6 +129,7 @@ impl fmt::Display for AffordanceType {
 }
 
 impl ThingBuilder {
+    /// Create a new default builder with a specified title
     pub fn new(title: impl Into<String>) -> Self {
         let title = title.into();
         let context = vec![Context::Simple(TD_CONTEXT.to_string())];
@@ -144,6 +157,9 @@ impl ThingBuilder {
         }
     }
 
+    /// Consume the builder to produce the configured Thing
+    ///
+    /// This step will perform the final validation of the builder state.
     pub fn build(self) -> Result<Thing, Error> {
         use std::collections::hash_map::Entry;
 
@@ -334,6 +350,7 @@ impl ThingBuilder {
         base: String,
     );
 
+    /// Add a new JSON-LD @context in the default namespace
     pub fn context<S>(mut self, value: S) -> Self
     where
         S: Into<String> + AsRef<str>,
@@ -347,6 +364,7 @@ impl ThingBuilder {
         self
     }
 
+    /// Add a new JSON-LD @context with a custom namespace
     pub fn context_map<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut ContextMapBuilder) -> &mut ContextMapBuilder,
@@ -358,6 +376,7 @@ impl ThingBuilder {
         self
     }
 
+    /// Add a JSON-LD @type to the thing
     pub fn attype(mut self, value: impl Into<String>) -> Self {
         self.attype
             .get_or_insert_with(Default::default)
@@ -365,6 +384,7 @@ impl ThingBuilder {
         self
     }
 
+    /// Set multi-language titles
     pub fn titles<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
@@ -376,6 +396,7 @@ impl ThingBuilder {
         self
     }
 
+    /// Add an additional link to the Thing Description
     pub fn link(mut self, href: impl Into<String>) -> Self {
         let href = href.into();
 
@@ -390,6 +411,7 @@ impl ThingBuilder {
         self
     }
 
+    /// Add an additional link to the Thing Description, with specified optional fields.
     pub fn link_with<F>(mut self, f: F) -> Self
     where
         F: FnOnce(LinkBuilder<()>) -> LinkBuilder<String>,
@@ -412,6 +434,7 @@ impl ThingBuilder {
         self
     }
 
+    /// Add a security definition and, eventually, a required security
     pub fn security<F, T>(mut self, f: F) -> Self
     where
         F: FnOnce(SecuritySchemeBuilder<()>) -> SecuritySchemeBuilder<T>,
@@ -470,6 +493,11 @@ impl ThingBuilder {
         self
     }
 
+    /// Add a Thing-level form
+    ///
+    /// NOTE:
+    ///     - It must explicitly state its operation
+    ///     - It must use an `all` operation
     pub fn form<F>(mut self, f: F) -> Self
     where
         F: FnOnce(FormBuilder<()>) -> FormBuilder<String>,
@@ -587,28 +615,37 @@ impl Context {
     }
 }
 
+/// Builder to create a structured JSON-LD @context with multiple namespaces
+///
+/// It is instantiated by [`ThingBuilder::context_map`]
 #[must_use]
 pub struct ContextMapBuilder(HashMap<String, String>);
 
 impl ContextMapBuilder {
+    /// Add a JSON-LD @context entry with a specific namespace
     pub fn context(&mut self, name: impl Into<String>, value: impl Into<String>) -> &mut Self {
         self.0.insert(name.into(), value.into());
         self
     }
 }
 
+/// Builder for language-specific variants of a field (e.g. titles, descriptions)
 #[derive(Default)]
 pub struct MultiLanguageBuilder<T> {
     values: HashMap<String, T>,
 }
 
 impl<T> MultiLanguageBuilder<T> {
+    /// Add the language-specific variant
+    ///
+    /// NOTE: The language key is currently free-form
     pub fn add(&mut self, language: impl Into<String>, value: impl Into<T>) -> &mut Self {
         self.values.insert(language.into(), value.into());
         self
     }
 }
 
+/// Builder for Thing Description Links
 pub struct LinkBuilder<Href> {
     href: Href,
     ty: Option<String>,
@@ -626,6 +663,7 @@ impl LinkBuilder<()> {
         }
     }
 
+    /// Create a builder with the defined href
     pub fn href(self, value: impl Into<String>) -> LinkBuilder<String> {
         let Self {
             href: (),
@@ -648,6 +686,7 @@ impl<T> LinkBuilder<T> {
     opt_field_builder!(ty: String, rel: String, anchor: String);
 }
 
+/// Builder for the Security Scheme
 pub struct SecuritySchemeBuilder<S> {
     attype: Option<Vec<String>>,
     description: Option<String>,
@@ -665,6 +704,7 @@ pub trait BuildableSecuritySchemeSubtype {
 }
 
 impl SecuritySchemeBuilder<()> {
+    /// Default no-security scheme
     pub fn no_sec(self) -> SecuritySchemeBuilder<SecuritySchemeNoSecTag> {
         let Self {
             attype,
@@ -687,6 +727,7 @@ impl SecuritySchemeBuilder<()> {
         }
     }
 
+    /// Basic Authentication RFC7617
     pub fn basic(self) -> SecuritySchemeBuilder<BasicSecurityScheme> {
         let Self {
             attype,
@@ -709,6 +750,7 @@ impl SecuritySchemeBuilder<()> {
         }
     }
 
+    /// Digest Assess Authentication RFC7616
     pub fn digest(self) -> SecuritySchemeBuilder<DigestSecurityScheme> {
         let Self {
             attype,
@@ -731,6 +773,7 @@ impl SecuritySchemeBuilder<()> {
         }
     }
 
+    /// Bearer Token RFC6750
     pub fn bearer(self) -> SecuritySchemeBuilder<BearerSecurityScheme> {
         let Self {
             attype,
@@ -753,6 +796,7 @@ impl SecuritySchemeBuilder<()> {
         }
     }
 
+    /// Pre-shared key authentication
     pub fn psk(self) -> SecuritySchemeBuilder<PskSecurityScheme> {
         let Self {
             attype,
@@ -775,6 +819,7 @@ impl SecuritySchemeBuilder<()> {
         }
     }
 
+    /// OAuth2 authentication RFC6749 and RFC8252
     pub fn oauth2(self, flow: impl Into<String>) -> SecuritySchemeBuilder<OAuth2SecurityScheme> {
         let Self {
             attype,
@@ -797,6 +842,7 @@ impl SecuritySchemeBuilder<()> {
         }
     }
 
+    /// API key authentication
     pub fn apikey(self) -> SecuritySchemeBuilder<ApiKeySecurityScheme> {
         let Self {
             attype,
@@ -819,6 +865,9 @@ impl SecuritySchemeBuilder<()> {
         }
     }
 
+    /// Security scheme defined by an additional Vocabulary
+    ///
+    /// NOTE: Its definition MUST be in the Thing @context.
     pub fn custom(
         self,
         scheme: impl Into<String>,
@@ -852,6 +901,7 @@ impl SecuritySchemeBuilder<()> {
 impl<T> SecuritySchemeBuilder<T> {
     opt_field_builder!(description: String, proxy: String);
 
+    /// JSON-LD @type
     pub fn attype(mut self, ty: impl Into<String>) -> Self {
         self.attype
             .get_or_insert_with(Default::default)
@@ -859,6 +909,7 @@ impl<T> SecuritySchemeBuilder<T> {
         self
     }
 
+    /// Multi-language descriptions
     pub fn descriptions<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
@@ -962,11 +1013,13 @@ impl<T> SecuritySchemeBuilder<T>
 where
     T: HasNameLocation,
 {
+    /// Name for query, header or cookie parameter
     pub fn name(mut self, value: impl Into<String>) -> Self {
         *self.subtype.name_mut() = Some(value.into());
         self
     }
 
+    /// Location of the security authentication information
     pub fn location(mut self, value: SecurityAuthenticationLocation) -> Self {
         *self.subtype.location_mut() = value;
         self
@@ -974,6 +1027,7 @@ where
 }
 
 impl SecuritySchemeBuilder<DigestSecurityScheme> {
+    /// Quality of protection
     pub fn qop(mut self, value: QualityOfProtection) -> Self {
         self.subtype.qop = value;
         self
@@ -981,16 +1035,19 @@ impl SecuritySchemeBuilder<DigestSecurityScheme> {
 }
 
 impl SecuritySchemeBuilder<BearerSecurityScheme> {
+    /// URI of the authorization server
     pub fn authorization(mut self, value: impl Into<String>) -> Self {
         self.subtype.authorization = Some(value.into());
         self
     }
 
+    /// Encoding, encryption or digest algorithm
     pub fn alg(mut self, value: impl Into<Cow<'static, str>>) -> Self {
         self.subtype.alg = value.into();
         self
     }
 
+    /// Format of the security authentication information
     pub fn format(mut self, value: impl Into<Cow<'static, str>>) -> Self {
         self.subtype.format = value.into();
         self
@@ -998,21 +1055,25 @@ impl SecuritySchemeBuilder<BearerSecurityScheme> {
 }
 
 impl SecuritySchemeBuilder<OAuth2SecurityScheme> {
+    /// URI of the authorization server
     pub fn authorization(mut self, value: impl Into<String>) -> Self {
         self.subtype.authorization = Some(value.into());
         self
     }
 
+    /// URI of the token server
     pub fn token(mut self, value: impl Into<String>) -> Self {
         self.subtype.token = Some(value.into());
         self
     }
 
+    /// URI of the refresh server
     pub fn refresh(mut self, value: impl Into<String>) -> Self {
         self.subtype.refresh = Some(value.into());
         self
     }
 
+    /// Authorization scope identifier
     pub fn scope(mut self, value: impl Into<String>) -> Self {
         self.subtype
             .scopes
@@ -1023,12 +1084,14 @@ impl SecuritySchemeBuilder<OAuth2SecurityScheme> {
 }
 
 impl SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
+    /// JSON Value to be merged into the Scheme
     pub fn data(mut self, value: impl Into<Value>) -> Self {
         self.subtype.data = value.into();
         self
     }
 }
 
+/// Builder for the Form
 pub struct FormBuilder<Href> {
     op: DefaultedFormOperations,
     href: Href,
@@ -1054,6 +1117,7 @@ impl FormBuilder<()> {
         }
     }
 
+    /// Create a new builder with the specified Href
     pub fn href(self, value: impl Into<String>) -> FormBuilder<String> {
         let Self {
             op,
@@ -1087,6 +1151,10 @@ impl<T> FormBuilder<T> {
         subprotocol: String,
     );
 
+    /// Set the form intended operation
+    ///
+    /// Depending on its parent the form may have a Default operation
+    /// or it must be explicitly set.
     pub fn op(mut self, new_op: FormOperation) -> Self {
         match &mut self.op {
             ops @ DefaultedFormOperations::Default => {
@@ -1098,6 +1166,9 @@ impl<T> FormBuilder<T> {
         self
     }
 
+    /// Set the security definitions that must be satisfied to access the resource
+    ///
+    /// They must be set beforehand by [Thing::security].
     pub fn security(mut self, value: impl Into<String>) -> Self {
         self.security
             .get_or_insert_with(Default::default)
@@ -1105,6 +1176,9 @@ impl<T> FormBuilder<T> {
         self
     }
 
+    /// Set the authorization scope identifiers
+    ///
+    /// It requires an OAuth2 Security Scheme
     pub fn scope(mut self, value: impl Into<String>) -> Self {
         self.scopes
             .get_or_insert_with(Default::default)
@@ -1112,6 +1186,10 @@ impl<T> FormBuilder<T> {
         self
     }
 
+    /// Set the expected response metadata
+    ///
+    /// It is optional if the input and output metadata are the same, e.g. the content_type
+    /// matches.
     pub fn response(
         mut self,
         content_type: impl Into<String>,
