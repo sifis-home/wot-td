@@ -6,4 +6,6 @@
 
 Rust crate to produce and consume Web Of Things [Thing Descriptions](https://www.w3.org/TR/wot-thing-description/).
 
+## Acknowledgements
 
+This software has been developed in the scope of the H2020 project SIFIS-Home with GA n. 952652.
