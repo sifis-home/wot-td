@@ -1,4 +1,4 @@
-name: wot-rust-ubuntu
+name: wot-td
 
 on:
   push:
@@ -93,7 +93,7 @@ jobs:
     - name: Run tests
       env:
         CARGO_INCREMENTAL: 0
-        LLVM_PROFILE_FILE: "wot-rust-%p-%m.profraw"
+        LLVM_PROFILE_FILE: "wot-td-%p-%m.profraw"
         RUSTFLAGS: >
           -Cinstrument-coverage -Ccodegen-units=1 -Clink-dead-code
           -Coverflow-checks=off
@@ -301,7 +301,7 @@ jobs:
     - name: Run tests
       env:
         RUSTFLAGS: "-Cinstrument-coverage"
-        LLVM_PROFILE_FILE: "wot-rust-%p-%m.profraw"
+        LLVM_PROFILE_FILE: "wot-td-%p-%m.profraw"
       run: |
         cargo test --verbose
 
