@@ -27,7 +27,7 @@ pub struct Thing {
     pub id: Option<String>,
 
     #[serde(rename = "@type", default)]
-    #[serde_as(deserialize_as = "Option<OneOrMany<_>>")]
+    #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
 
     pub title: String,
@@ -62,7 +62,7 @@ pub struct Thing {
 
     pub forms: Option<Vec<Form>>,
 
-    #[serde_as(deserialize_as = "OneOrMany<_>")]
+    #[serde_as(as = "OneOrMany<_>")]
     pub security: Vec<String>,
 
     pub security_definitions: HashMap<String, SecurityScheme>,
@@ -110,7 +110,7 @@ impl Thing {
 #[serde(rename_all = "camelCase")]
 pub struct InteractionAffordance {
     #[serde(rename = "@type", default)]
-    #[serde_as(deserialize_as = "Option<OneOrMany<_>>")]
+    #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
 
     pub title: Option<String>,
@@ -217,7 +217,7 @@ pub struct DataSchema {
     pub format: Option<String>,
 
     #[serde(flatten)]
-    pub subtype: DataSchemaSubtype,
+    pub subtype: Option<DataSchemaSubtype>,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -234,8 +234,12 @@ pub enum DataSchemaSubtype {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct ArraySchema {
+    #[serde(default)]
+    #[serde_as(as = "Option<OneOrMany<_>>")]
+    pub items: Option<Vec<DataSchema>>,
+
     pub min_items: Option<u32>,
 
     pub max_items: Option<u32>,
@@ -271,7 +275,7 @@ pub struct ObjectSchema {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct SecurityScheme {
     #[serde(rename = "@type", default)]
-    #[serde_as(deserialize_as = "Option<OneOrMany<_>>")]
+    #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
 
     pub description: Option<String>,
@@ -460,7 +464,7 @@ pub struct OAuth2SecurityScheme {
     pub refresh: Option<String>,
 
     #[serde(default)]
-    #[serde_as(deserialize_as = "Option<OneOrMany<_>>")]
+    #[serde_as(as = "Option<OneOrMany<_>>")]
     pub scopes: Option<Vec<String>>,
 
     pub flow: String,
@@ -514,11 +518,11 @@ pub struct Form {
 
     // FIXME: use variant names of KnownSecuritySchemeSubtype + "other" string variant
     #[serde(default)]
-    #[serde_as(deserialize_as = "Option<OneOrMany<_>>")]
+    #[serde_as(as = "Option<OneOrMany<_>>")]
     pub security: Option<Vec<String>>,
 
     #[serde(default)]
-    #[serde_as(deserialize_as = "Option<OneOrMany<_>>")]
+    #[serde_as(as = "Option<OneOrMany<_>>")]
     pub scopes: Option<Vec<String>>,
 
     pub response: Option<ExpectedResponse>,
@@ -794,7 +798,7 @@ mod test {
                             read_only: false,
                             write_only: false,
                             format: None,
-                            subtype: DataSchemaSubtype::String,
+                            subtype: Some(DataSchemaSubtype::String),
                         },
                         observable: None,
                     },
@@ -859,7 +863,7 @@ mod test {
                             read_only: false,
                             write_only: false,
                             format: None,
-                            subtype: DataSchemaSubtype::String,
+                            subtype: Some(DataSchemaSubtype::String),
                         }),
                         cancellation: None,
                     },
