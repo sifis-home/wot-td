@@ -1,3 +1,12 @@
+//! Thing Description data structures
+//!
+//! A Thing Description, or `TD`, stores the semantic metadata and the interface descriptions of
+//! a physical or virtual entity, called `Thing`.
+//!
+//! Use [Thing::build] to create a new `Thing`, [serde_json] to serialize or deserialize it.
+//!
+//! [Interaction Affordance]: https://www.w3.org/TR/wot-thing-description/#interactionaffordance
+
 use std::{borrow::Cow, collections::HashMap};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -12,7 +21,9 @@ pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
 
 pub(crate) const TD_CONTEXT: &str = "https://www.w3.org/2019/wot/td/v1";
 
-/// Connected thing
+/// An abstraction of a physical or a virtual entity
+///
+/// It contains metadata and a description of its interfaces.
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -21,54 +32,91 @@ pub struct Thing {
     // The context can be arbitrarily complex
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
+    /// A [JSON-LD @context](https://www.w3.org/TR/json-ld11/#the-context)
     #[serde(rename = "@context", default = "Thing::default_context")]
     pub context: Value,
 
+    /// A unique identifier
     pub id: Option<String>,
 
+    /// JSON-LD semantic keywords
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
 
+    /// Human-readable title to be displayed
     pub title: String,
 
+    /// Multi-language translations of the title
     pub titles: Option<MultiLanguage>,
 
+    /// Human-readable additional information
     pub description: Option<String>,
 
+    /// Multi-language translations of the description
     pub descriptions: Option<MultiLanguage>,
 
+    /// Version information
     pub version: Option<VersionInfo>,
 
+    /// Time of creation of this description
+    ///
+    /// It may be used for caching purposes.
     #[serde(with = "time::serde::rfc3339::option", default)]
     pub created: Option<OffsetDateTime>,
 
+    /// Time of last update of this description
+    ///
+    /// It may be used for caching purposes.
     #[serde(with = "time::serde::rfc3339::option", default)]
     pub modified: Option<OffsetDateTime>,
 
+    /// URI to the device maintainer
+    ///
+    /// To be used to ask for support.
     // FIXME: use AnyURI
     pub support: Option<String>,
 
+    /// Base URI to be used to resolve all the other relative URIs
+    ///
+    /// NOTE: the JSON-LD @context is excluded.
     // FIXME: use AnyURI
     pub base: Option<String>,
 
+    /// Property-based [Interaction Affordances]
     pub properties: Option<HashMap<String, PropertyAffordance>>,
 
+    /// Action-based [Interaction Affordances]
     pub actions: Option<HashMap<String, ActionAffordance>>,
 
+    /// Event-based [Interaction Affordances]
     pub events: Option<HashMap<String, EventAffordance>>,
 
+    /// Arbitrary resources that relate to the current Thing
+    ///
+    /// Its meaning depends on the @context and the semantic attributes attached.
     pub links: Option<Vec<Link>>,
 
+    /// Bulk-operations over the Thing properties
     pub forms: Option<Vec<Form>>,
 
+    /// Thing-wide Security constraints
+    ///
+    /// It is a list of names matching the Security Schemes defined in [Thing::security_definitions].
+    /// They must be all satisfied in order to access the Thing resources.
     #[serde_as(as = "OneOrMany<_>")]
     pub security: Vec<String>,
 
+    /// Security definitions
+    ///
+    /// A Map of Security Schemes, the name keys are used in [Form::security] and [Thing::security]
+    /// to express all the security constraints that must be satisfied in order to access the
+    /// resources.
     pub security_definitions: HashMap<String, SecurityScheme>,
 }
 
 impl Thing {
+    /// Shorthand for [ThingBuilder::new].
     #[inline]
     pub fn build(title: impl Into<String>) -> ThingBuilder {
         ThingBuilder::new(title)
