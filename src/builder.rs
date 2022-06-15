@@ -1,18 +1,27 @@
+pub mod affordance;
 pub mod data_schema;
 pub mod human_readable_info;
 
-use std::{borrow::Cow, collections::HashMap, ops::Not};
+use std::{borrow::Cow, collections::HashMap, fmt, ops::Not};
 
 use serde_json::Value;
 use time::OffsetDateTime;
 
 use crate::thing::{
-    ActionAffordance, ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme,
-    DefaultedFormOperations, DigestSecurityScheme, EventAffordance, ExpectedResponse, Form,
-    FormOperation, KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme,
-    PropertyAffordance, PskSecurityScheme, QualityOfProtection, SecurityAuthenticationLocation,
-    SecurityScheme, SecuritySchemeSubtype, Thing, UnknownSecuritySchemeSubtype, VersionInfo,
-    TD_CONTEXT,
+    ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchema,
+    DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
+    KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme, PskSecurityScheme,
+    QualityOfProtection, SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype,
+    Thing, UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT,
+};
+
+use self::{
+    affordance::{
+        ActionAffordanceBuilder, AffordanceBuilder, CheckableInteractionAffordanceBuilder,
+        EventAffordanceBuilder, PropertyAffordanceBuilder, UsableActionAffordanceBuilder,
+        UsableEventAffordanceBuilder, UsablePropertyAffordanceBuilder,
+    },
+    data_schema::{CheckableDataSchema, PartialDataSchemaBuilder},
 };
 
 #[must_use]
@@ -29,9 +38,9 @@ pub struct ThingBuilder {
     modified: Option<OffsetDateTime>,
     support: Option<String>,
     base: Option<String>,
-    properties: Option<HashMap<String, PropertyAffordance>>,
-    actions: Option<HashMap<String, ActionAffordance>>,
-    events: Option<HashMap<String, EventAffordance>>,
+    properties: Vec<AffordanceBuilder<UsablePropertyAffordanceBuilder>>,
+    actions: Vec<AffordanceBuilder<UsableActionAffordanceBuilder>>,
+    events: Vec<AffordanceBuilder<UsableEventAffordanceBuilder>>,
     links: Option<Vec<Link>>,
     forms: Option<Vec<FormBuilder<String>>>,
     security: Vec<String>,
@@ -70,6 +79,41 @@ pub enum Error {
     /// Neither minimum or maximum value can be NaN
     #[error("Min or Max value is NaN")]
     NanMinMax,
+
+    /// For each type of affordance, names must be unique
+    #[error("Two affordances of type {ty} use the name \"{name}\"")]
+    DuplicatedAffordance {
+        // The type of the affordance
+        ty: AffordanceType,
+
+        // The duplicated name
+        name: String,
+    },
+}
+
+/// The possible affordance types
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AffordanceType {
+    /// A property affordance
+    Property,
+
+    /// An action affordance
+    Action,
+
+    /// An event affordance
+    Event,
+}
+
+impl fmt::Display for AffordanceType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Property => "property",
+            Self::Action => "action",
+            Self::Event => "event",
+        };
+
+        f.write_str(s)
+    }
 }
 
 impl ThingBuilder {
@@ -165,6 +209,34 @@ impl ThingBuilder {
                     .collect()
             }
         };
+
+        let properties = try_build_affordance(
+            properties,
+            AffordanceType::Property,
+            |property| &property.interaction,
+            |property| [Some(&property.data_schema)],
+            &security_definitions,
+        )?;
+        let actions = try_build_affordance(
+            actions,
+            AffordanceType::Action,
+            |action| &action.interaction,
+            |action| [action.input.as_ref(), action.output.as_ref()],
+            &security_definitions,
+        )?;
+        let events = try_build_affordance(
+            events,
+            AffordanceType::Event,
+            |event| &event.interaction,
+            |event| {
+                [
+                    event.subscription.as_ref(),
+                    event.data.as_ref(),
+                    event.cancellation.as_ref(),
+                ]
+            },
+            &security_definitions,
+        )?;
 
         Ok(Thing {
             context,
@@ -407,6 +479,98 @@ impl ThingBuilder {
             .push(f(FormBuilder::new()));
         self
     }
+
+    pub fn property<F, T>(mut self, name: impl Into<String>, f: F) -> Self
+    where
+        F: FnOnce(PropertyAffordanceBuilder<PartialDataSchemaBuilder>) -> T,
+        T: Into<PropertyAffordanceBuilder<DataSchema>>,
+    {
+        let affordance = f(PropertyAffordanceBuilder::default()).into();
+        let affordance_builder = AffordanceBuilder {
+            name: name.into(),
+            affordance,
+        };
+        self.properties.push(affordance_builder);
+        self
+    }
+
+    pub fn action<F, T>(mut self, name: impl Into<String>, f: F) -> Self
+    where
+        F: FnOnce(ActionAffordanceBuilder<(), ()>) -> T,
+        T: Into<ActionAffordanceBuilder<Option<DataSchema>, Option<DataSchema>>>,
+    {
+        let affordance = f(ActionAffordanceBuilder::default()).into();
+        let affordance_builder = AffordanceBuilder {
+            name: name.into(),
+            affordance,
+        };
+        self.actions.push(affordance_builder);
+        self
+    }
+
+    pub fn event<F, T>(mut self, name: impl Into<String>, f: F) -> Self
+    where
+        F: FnOnce(EventAffordanceBuilder<(), (), ()>) -> T,
+        T: Into<EventAffordanceBuilder<Option<DataSchema>, Option<DataSchema>, Option<DataSchema>>>,
+    {
+        let affordance = f(EventAffordanceBuilder::default()).into();
+        let affordance_builder = AffordanceBuilder {
+            name: name.into(),
+            affordance,
+        };
+        self.events.push(affordance_builder);
+        self
+    }
+}
+
+fn try_build_affordance<A, F, IA, G, DS, T, const N: usize>(
+    affordances: Vec<AffordanceBuilder<A>>,
+    affordance_type: AffordanceType,
+    mut get_interaction: F,
+    mut get_data_schemas: G,
+    security_definitions: &HashMap<String, SecurityScheme>,
+) -> Result<Option<HashMap<String, T>>, Error>
+where
+    F: FnMut(&A) -> &IA,
+    IA: CheckableInteractionAffordanceBuilder,
+    G: FnMut(&A) -> [Option<&DS>; N],
+    DS: CheckableDataSchema,
+    A: Into<T>,
+{
+    use std::collections::hash_map::Entry;
+
+    affordances
+        .is_empty()
+        .not()
+        .then(|| {
+            let new_affordances = HashMap::with_capacity(affordances.len());
+            affordances
+                .into_iter()
+                .try_fold(new_affordances, |mut affordances, affordance| {
+                    let AffordanceBuilder { name, affordance } = affordance;
+
+                    get_interaction(&affordance).check(security_definitions)?;
+                    get_data_schemas(&affordance)
+                        .into_iter()
+                        .flatten()
+                        .try_for_each(CheckableDataSchema::check)?;
+
+                    match affordances.entry(name) {
+                        Entry::Vacant(entry) => {
+                            entry.insert(affordance.into());
+                            Ok(affordances)
+                        }
+                        Entry::Occupied(entry) => {
+                            let name = entry.key().to_owned();
+                            Err(Error::DuplicatedAffordance {
+                                ty: affordance_type,
+                                name,
+                            })
+                        }
+                    }
+                })
+        })
+        .transpose()
 }
 
 enum Context {
@@ -961,10 +1125,49 @@ impl<T> FormBuilder<T> {
     }
 }
 
+impl From<FormBuilder<String>> for Form {
+    fn from(builder: FormBuilder<String>) -> Self {
+        let FormBuilder {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
+        } = builder;
+
+        let content_type = content_type.unwrap_or(Form::default_content_type());
+
+        Self {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
     use time::macros::datetime;
+
+    use crate::{
+        builder::{
+            affordance::BuildableInteractionAffordance, data_schema::SpecializableDataSchema,
+            human_readable_info::BuildableHumanReadableInfo,
+        },
+        thing::{
+            ActionAffordance, DataSchemaSubtype, EventAffordance, InteractionAffordance,
+            PropertyAffordance,
+        },
+    };
 
     use super::*;
 
@@ -1930,5 +2133,330 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(err, Error::UndefinedSecurity("basic".to_string()));
+    }
+
+    #[test]
+    fn with_property_affordance() {
+        let thing = ThingBuilder::new("MyLampThing")
+            .property("on", |b| b.bool().observable(true).title("title"))
+            .property("prop", |b| b.null())
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT.into(),
+                title: "MyLampThing".to_string(),
+                properties: Some(
+                    [
+                        (
+                            "on".to_owned(),
+                            PropertyAffordance {
+                                interaction: InteractionAffordance {
+                                    attype: None,
+                                    title: Some("title".to_owned()),
+                                    titles: None,
+                                    description: None,
+                                    descriptions: None,
+                                    forms: vec![],
+                                    uri_variables: None,
+                                },
+                                data_schema: DataSchema {
+                                    attype: None,
+                                    title: Some("title".to_owned()),
+                                    titles: None,
+                                    description: None,
+                                    descriptions: None,
+                                    constant: None,
+                                    unit: None,
+                                    one_of: None,
+                                    enumeration: None,
+                                    read_only: false,
+                                    write_only: false,
+                                    format: None,
+                                    subtype: Some(DataSchemaSubtype::Boolean)
+                                },
+                                observable: Some(true),
+                            }
+                        ),
+                        (
+                            "prop".to_owned(),
+                            PropertyAffordance {
+                                interaction: InteractionAffordance {
+                                    attype: None,
+                                    title: None,
+                                    titles: None,
+                                    description: None,
+                                    descriptions: None,
+                                    forms: vec![],
+                                    uri_variables: None,
+                                },
+                                data_schema: DataSchema {
+                                    attype: None,
+                                    title: None,
+                                    titles: None,
+                                    description: None,
+                                    descriptions: None,
+                                    constant: None,
+                                    unit: None,
+                                    one_of: None,
+                                    enumeration: None,
+                                    read_only: false,
+                                    write_only: false,
+                                    format: None,
+                                    subtype: Some(DataSchemaSubtype::Null)
+                                },
+                                observable: None,
+                            }
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                ),
+                ..Thing::empty()
+            }
+        );
+    }
+
+    #[test]
+    fn with_action_affordance() {
+        let thing = ThingBuilder::new("MyLampThing")
+            .action("fade", |b| b)
+            .action("action", |b| {
+                b.title("title").idempotent().input(|b| b.null())
+            })
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT.into(),
+                title: "MyLampThing".to_string(),
+                actions: Some(
+                    [
+                        (
+                            "fade".to_owned(),
+                            ActionAffordance {
+                                interaction: InteractionAffordance {
+                                    attype: None,
+                                    title: None,
+                                    titles: None,
+                                    description: None,
+                                    descriptions: None,
+                                    forms: vec![],
+                                    uri_variables: None,
+                                },
+                                input: None,
+                                output: None,
+                                safe: false,
+                                idempotent: false,
+                            }
+                        ),
+                        (
+                            "action".to_owned(),
+                            ActionAffordance {
+                                interaction: InteractionAffordance {
+                                    attype: None,
+                                    title: Some("title".to_owned()),
+                                    titles: None,
+                                    description: None,
+                                    descriptions: None,
+                                    forms: vec![],
+                                    uri_variables: None,
+                                },
+                                input: Some(DataSchema {
+                                    attype: None,
+                                    title: None,
+                                    titles: None,
+                                    description: None,
+                                    descriptions: None,
+                                    constant: None,
+                                    unit: None,
+                                    one_of: None,
+                                    enumeration: None,
+                                    read_only: false,
+                                    write_only: false,
+                                    format: None,
+                                    subtype: Some(DataSchemaSubtype::Null)
+                                }),
+                                output: None,
+                                safe: false,
+                                idempotent: true,
+                            }
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                ),
+                ..Thing::empty()
+            }
+        );
+    }
+
+    #[test]
+    fn with_event_affordance() {
+        let thing = ThingBuilder::new("MyLampThing")
+            .event("overheat", |b| b)
+            .event("event", |b| b.title("title").cancellation(|b| b.null()))
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT.into(),
+                title: "MyLampThing".to_string(),
+                events: Some(
+                    [
+                        (
+                            "overheat".to_owned(),
+                            EventAffordance {
+                                interaction: InteractionAffordance {
+                                    attype: None,
+                                    title: None,
+                                    titles: None,
+                                    description: None,
+                                    descriptions: None,
+                                    forms: vec![],
+                                    uri_variables: None,
+                                },
+                                subscription: None,
+                                data: None,
+                                cancellation: None,
+                            }
+                        ),
+                        (
+                            "event".to_owned(),
+                            EventAffordance {
+                                interaction: InteractionAffordance {
+                                    attype: None,
+                                    title: Some("title".to_owned()),
+                                    titles: None,
+                                    description: None,
+                                    descriptions: None,
+                                    forms: vec![],
+                                    uri_variables: None,
+                                },
+                                subscription: None,
+                                data: None,
+                                cancellation: Some(DataSchema {
+                                    attype: None,
+                                    title: None,
+                                    titles: None,
+                                    description: None,
+                                    descriptions: None,
+                                    constant: None,
+                                    unit: None,
+                                    one_of: None,
+                                    enumeration: None,
+                                    read_only: false,
+                                    write_only: false,
+                                    format: None,
+                                    subtype: Some(DataSchemaSubtype::Null)
+                                }),
+                            }
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                ),
+                ..Thing::empty()
+            }
+        );
+    }
+
+    #[test]
+    fn valid_affordance_security() {
+        let thing = ThingBuilder::new("MyLampThing")
+            .property("on", |b| {
+                b.bool().form(|b| b.security("basic").href("href"))
+            })
+            .security(|b| b.basic())
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT.into(),
+                title: "MyLampThing".to_string(),
+                properties: Some(
+                    [(
+                        "on".to_owned(),
+                        PropertyAffordance {
+                            interaction: InteractionAffordance {
+                                attype: None,
+                                title: None,
+                                titles: None,
+                                description: None,
+                                descriptions: None,
+                                forms: vec![Form {
+                                    op: DefaultedFormOperations::Default,
+                                    href: "href".to_owned(),
+                                    content_type: Form::default_content_type(),
+                                    content_coding: None,
+                                    subprotocol: None,
+                                    security: Some(vec!["basic".to_owned()]),
+                                    scopes: None,
+                                    response: None
+                                }],
+                                uri_variables: None,
+                            },
+                            data_schema: DataSchema {
+                                attype: None,
+                                title: None,
+                                titles: None,
+                                description: None,
+                                descriptions: None,
+                                constant: None,
+                                unit: None,
+                                one_of: None,
+                                enumeration: None,
+                                read_only: false,
+                                write_only: false,
+                                format: None,
+                                subtype: Some(DataSchemaSubtype::Boolean)
+                            },
+                            observable: None,
+                        }
+                    ),]
+                    .into_iter()
+                    .collect()
+                ),
+                security_definitions: [(
+                    "basic".to_owned(),
+                    SecurityScheme {
+                        attype: None,
+                        description: None,
+                        descriptions: None,
+                        proxy: None,
+                        subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Basic(
+                            BasicSecurityScheme {
+                                location: SecurityAuthenticationLocation::Header,
+                                name: None,
+                            }
+                        ))
+                    }
+                )]
+                .into_iter()
+                .collect(),
+                ..Thing::empty()
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_affordance_security() {
+        let error = ThingBuilder::new("MyLampThing")
+            .property("on", |b| {
+                b.bool().form(|b| b.security("oauth2").href("href"))
+            })
+            .security(|b| b.basic())
+            .build()
+            .unwrap_err();
+
+        assert_eq!(error, Error::UndefinedSecurity("oauth2".to_owned()));
     }
 }
