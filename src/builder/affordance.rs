@@ -19,7 +19,7 @@ use super::{
     Error, FormBuilder, MultiLanguageBuilder,
 };
 
-pub struct AffordanceBuilder<Affordance> {
+pub(super) struct AffordanceBuilder<Affordance> {
     pub(super) name: String,
     pub(super) affordance: Affordance,
 }
