@@ -708,9 +708,12 @@ pub struct SecuritySchemeBuilder<S> {
     required: bool,
 }
 
+/// Placeholder Type for the NoSecurity Scheme
 pub struct SecuritySchemeNoSecTag;
 
+/// Builder for the Security Scheme Subtype
 pub trait BuildableSecuritySchemeSubtype {
+    /// Consume the builder and produce the SecuritySchemeSubtype
     fn build(self) -> SecuritySchemeSubtype;
 }
 
@@ -975,8 +978,13 @@ impl BuildableSecuritySchemeSubtype for UnknownSecuritySchemeSubtype {
     }
 }
 
+/// Accessor for the Name and Location fields
+///
+/// All the Security Schemes but NoSec have the `name` and location (`in`) fields.
 pub trait HasNameLocation {
+    /// Specifies the location of security authentication information
     fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation;
+    /// Name for query, header, or cookie parameters
     fn name_mut(&mut self) -> &mut Option<String>;
 }
 
