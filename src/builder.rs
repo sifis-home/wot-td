@@ -396,6 +396,17 @@ impl ThingBuilder {
         self
     }
 
+    /// Set multi-language descriptions
+    pub fn descriptions<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
+    {
+        let mut builder = MultiLanguageBuilder::default();
+        f(&mut builder);
+        self.descriptions = Some(builder.values);
+        self
+    }
+
     /// Add an additional link to the Thing Description
     pub fn link(mut self, href: impl Into<String>) -> Self {
         let href = href.into();
@@ -1396,6 +1407,31 @@ mod tests {
                 context: TD_CONTEXT.into(),
                 title: "MyLampThing".to_string(),
                 titles: Some(
+                    [("en", "My lamp"), ("it", "La mia lampada")]
+                        .into_iter()
+                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .collect()
+                ),
+                ..Thing::empty()
+            }
+        );
+    }
+
+    #[test]
+    fn descriptions() {
+        let thing = ThingBuilder::new("MyLampThing")
+            .description("My Lamp")
+            .descriptions(|ml| ml.add("en", "My lamp").add("it", "La mia lampada"))
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT.into(),
+                title: "MyLampThing".to_string(),
+                description: Some("My Lamp".to_string()),
+                descriptions: Some(
                     [("en", "My lamp"), ("it", "La mia lampada")]
                         .into_iter()
                         .map(|(k, v)| (k.to_string(), v.to_string()))
