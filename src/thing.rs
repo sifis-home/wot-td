@@ -683,20 +683,7 @@ mod test {
             .into_iter()
             .collect(),
             security: vec!["nosec".to_string()],
-            attype: None,
-            titles: None,
-            description: None,
-            descriptions: None,
-            version: None,
-            created: None,
-            modified: None,
-            support: None,
-            base: None,
-            properties: None,
-            actions: None,
-            events: None,
-            links: None,
-            forms: None,
+            ..Thing::empty()
         };
 
         let thing: Thing = serde_json::from_str(RAW).unwrap();
@@ -991,20 +978,7 @@ mod test {
             .into_iter()
             .collect(),
             security: vec!["nosec".to_string()],
-            attype: None,
-            titles: None,
-            description: None,
-            descriptions: None,
-            version: None,
-            created: None,
-            modified: None,
-            support: None,
-            base: None,
-            properties: None,
-            actions: None,
-            events: None,
-            links: None,
-            forms: None,
+            ..Thing::empty()
         };
 
         let thing: Thing = serde_json::from_str(RAW).unwrap();
