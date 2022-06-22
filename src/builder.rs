@@ -257,6 +257,8 @@ impl ThingBuilder {
             &security_definitions,
         )?;
 
+        let other = HashMap::new();
+
         Ok(Thing {
             context,
             id,
@@ -278,6 +280,7 @@ impl ThingBuilder {
             security,
             security_definitions,
             uri_variables,
+            other,
         })
     }
 

@@ -115,6 +115,9 @@ pub struct Thing {
     pub security_definitions: HashMap<String, SecurityScheme>,
 
     pub uri_variables: Option<DataSchemaMap>,
+    /// Other fields
+    #[serde(flatten)]
+    pub other: HashMap<String, Value>,
 }
 
 impl Thing {
@@ -151,6 +154,7 @@ impl Thing {
             links: None,
             forms: None,
             uri_variables: None,
+            other: HashMap::new(),
         }
     }
 }
