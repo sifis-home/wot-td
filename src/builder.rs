@@ -21,7 +21,7 @@ use self::{
         EventAffordanceBuilder, PropertyAffordanceBuilder, UsableActionAffordanceBuilder,
         UsableEventAffordanceBuilder, UsablePropertyAffordanceBuilder,
     },
-    data_schema::{CheckableDataSchema, PartialDataSchemaBuilder},
+    data_schema::{CheckableDataSchema, DataSchemaBuilder, PartialDataSchemaBuilder},
 };
 
 /// Builder for WoT Thing
@@ -46,6 +46,7 @@ pub struct ThingBuilder {
     events: Vec<AffordanceBuilder<UsableEventAffordanceBuilder>>,
     links: Option<Vec<Link>>,
     forms: Option<Vec<FormBuilder<String>>>,
+    uri_variables: Option<HashMap<String, DataSchema>>,
     security: Vec<String>,
     security_definitions: Vec<(String, SecurityScheme)>,
 }
@@ -154,6 +155,7 @@ impl ThingBuilder {
             forms: Default::default(),
             security: Default::default(),
             security_definitions: Default::default(),
+            uri_variables: Default::default(),
         }
     }
 
@@ -183,6 +185,7 @@ impl ThingBuilder {
             forms,
             security,
             security_definitions: security_definitions_vec,
+            uri_variables,
         } = self;
 
         let mut security_definitions = HashMap::with_capacity(security_definitions_vec.len());
@@ -274,6 +277,7 @@ impl ThingBuilder {
             forms,
             security,
             security_definitions,
+            uri_variables,
         })
     }
 
@@ -516,6 +520,17 @@ impl ThingBuilder {
         self.forms
             .get_or_insert_with(Default::default)
             .push(f(FormBuilder::new()));
+        self
+    }
+
+    pub fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
+    where
+        F: FnOnce(DataSchemaBuilder) -> T,
+        T: Into<DataSchema>,
+    {
+        self.uri_variables
+            .get_or_insert_with(Default::default)
+            .insert(name.into(), f(DataSchemaBuilder::default()).into());
         self
     }
 
@@ -1261,8 +1276,8 @@ mod tests {
             human_readable_info::BuildableHumanReadableInfo,
         },
         thing::{
-            ActionAffordance, DataSchemaSubtype, EventAffordance, InteractionAffordance,
-            PropertyAffordance,
+            ActionAffordance, DataSchemaSubtype, EventAffordance, IntegerSchema,
+            InteractionAffordance, PropertyAffordance,
         },
     };
 
@@ -2105,6 +2120,58 @@ mod tests {
         );
     }
 
+    #[test]
+    fn simple_form_with_uri_variables() {
+        let thing = ThingBuilder::new("MyLampThing")
+            .form(|form| form.href("href/{foo}").op(FormOperation::ReadAllProperties))
+            .uri_variable("foo", |v| v.integer())
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT.into(),
+                title: "MyLampThing".to_string(),
+                forms: Some(vec![Form {
+                    op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
+                    href: "href/{foo}".to_string(),
+                    content_type: Form::default_content_type(),
+                    content_coding: Default::default(),
+                    subprotocol: Default::default(),
+                    security: Default::default(),
+                    scopes: Default::default(),
+                    response: Default::default(),
+                }]),
+                uri_variables: Some(
+                    [(
+                        "foo".to_string(),
+                        DataSchema {
+                            attype: None,
+                            title: None,
+                            titles: None,
+                            description: None,
+                            descriptions: None,
+                            constant: None,
+                            unit: None,
+                            one_of: None,
+                            enumeration: None,
+                            read_only: false,
+                            write_only: false,
+                            format: None,
+                            subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
+                                maximum: None,
+                                minimum: None,
+                            }))
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
+                ..Thing::empty()
+            }
+        );
+    }
     #[test]
     fn complete_form() {
         let thing = ThingBuilder::new("MyLampThing")
