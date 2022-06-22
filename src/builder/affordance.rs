@@ -461,6 +461,7 @@ impl From<InteractionAffordanceBuilder> for InteractionAffordance {
             descriptions,
             forms,
             uri_variables,
+            other: HashMap::new(),
         }
     }
 }
@@ -514,6 +515,7 @@ where
             descriptions,
         } = info.clone();
 
+        let other = HashMap::new();
         let data_schema = DataSchema {
             attype,
             title,
@@ -528,6 +530,7 @@ where
             write_only,
             format,
             subtype,
+            other,
         };
 
         Self {
@@ -561,6 +564,7 @@ impl From<UsablePropertyAffordanceBuilder> for PropertyAffordance {
 
         let forms = forms.into_iter().map(Form::from).collect();
         let uri_variables = uri_variables.is_empty().not().then(|| uri_variables);
+        let other = HashMap::new();
 
         let interaction = InteractionAffordance {
             attype,
@@ -570,6 +574,7 @@ impl From<UsablePropertyAffordanceBuilder> for PropertyAffordance {
             descriptions,
             forms,
             uri_variables,
+            other,
         };
 
         Self {

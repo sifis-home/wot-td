@@ -179,6 +179,9 @@ pub struct InteractionAffordance {
     pub forms: Vec<Form>,
 
     pub uri_variables: Option<DataSchemaMap>,
+
+    #[serde(flatten)]
+    pub other: HashMap<String, Value>,
 }
 
 #[skip_serializing_none]
@@ -223,9 +226,12 @@ pub struct EventAffordance {
     pub cancellation: Option<DataSchema>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct VersionInfo {
     instance: String,
+
+    #[serde(flatten)]
+    pub other: HashMap<String, Value>,
 }
 
 impl<S> From<S> for VersionInfo
@@ -234,7 +240,10 @@ where
 {
     fn from(instance: S) -> Self {
         let instance = instance.into();
-        Self { instance }
+        Self {
+            instance,
+            other: HashMap::new(),
+        }
     }
 }
 
@@ -275,6 +284,9 @@ pub struct DataSchema {
 
     #[serde(flatten)]
     pub subtype: Option<DataSchemaSubtype>,
+
+    #[serde(flatten)]
+    pub other: HashMap<String, Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -540,7 +552,7 @@ impl OAuth2SecurityScheme {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Link {
     pub href: String,
 
@@ -551,6 +563,9 @@ pub struct Link {
 
     // FIXME: use AnyURI
     pub anchor: Option<String>,
+
+    #[serde(flatten)]
+    pub other: HashMap<String, Value>,
 }
 
 #[serde_as]
@@ -583,6 +598,9 @@ pub struct Form {
     pub scopes: Option<Vec<String>>,
 
     pub response: Option<ExpectedResponse>,
+
+    #[serde(flatten)]
+    pub other: HashMap<String, Value>,
 }
 
 impl Form {

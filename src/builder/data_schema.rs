@@ -1,4 +1,4 @@
-use std::ops::Not;
+use std::{collections::HashMap, ops::Not};
 
 use crate::thing::{
     ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
@@ -750,6 +750,7 @@ where
         } = inner.into();
 
         let subtype = ty.map(Into::into);
+        let other = HashMap::new();
 
         DataSchema {
             attype,
@@ -765,6 +766,7 @@ where
             write_only,
             format,
             subtype,
+            other,
         }
     }
 }
@@ -838,7 +840,7 @@ where
             min_items,
             max_items,
         }));
-
+        let other = HashMap::new();
         DataSchema {
             attype,
             title,
@@ -853,6 +855,7 @@ where
             write_only,
             format,
             subtype,
+            other,
         }
     }
 }
@@ -930,7 +933,7 @@ where
         } = inner.into();
 
         let subtype = Some(DataSchemaSubtype::Number(NumberSchema { minimum, maximum }));
-
+        let other = HashMap::new();
         DataSchema {
             attype,
             title,
@@ -945,6 +948,7 @@ where
             write_only,
             format,
             subtype,
+            other,
         }
     }
 }
@@ -1019,6 +1023,7 @@ where
             minimum,
             maximum,
         }));
+        let other = HashMap::new();
 
         DataSchema {
             attype,
@@ -1034,6 +1039,7 @@ where
             write_only,
             format,
             subtype,
+            other,
         }
     }
 }
@@ -1117,6 +1123,7 @@ where
             required,
         }));
 
+        let other = HashMap::new();
         DataSchema {
             attype,
             title,
@@ -1131,6 +1138,7 @@ where
             write_only,
             format,
             subtype,
+            other,
         }
     }
 }
@@ -1257,6 +1265,7 @@ where
         } = builder.inner.into();
 
         let enumeration = Some(enumeration);
+        let other = HashMap::new();
         Self {
             attype,
             title,
@@ -1271,6 +1280,7 @@ where
             write_only,
             format,
             subtype: None,
+            other,
         }
     }
 }
@@ -1331,6 +1341,7 @@ where
         } = builder.inner.into();
 
         let one_of = Some(one_of);
+        let other = HashMap::new();
         Self {
             attype,
             title,
@@ -1345,6 +1356,7 @@ where
             write_only,
             format,
             subtype: None,
+            other,
         }
     }
 }

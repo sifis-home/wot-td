@@ -335,6 +335,7 @@ impl ThingBuilder {
         }
 
         let content_type = content_type.unwrap_or(Form::default_content_type());
+        let other = HashMap::new();
         Ok(Form {
             op,
             href,
@@ -344,6 +345,7 @@ impl ThingBuilder {
             security,
             scopes,
             response,
+            other,
         })
     }
 
@@ -423,6 +425,7 @@ impl ThingBuilder {
             ty: Default::default(),
             rel: Default::default(),
             anchor: Default::default(),
+            other: Default::default(),
         };
 
         self.links.get_or_insert_with(Default::default).push(link);
@@ -441,11 +444,13 @@ impl ThingBuilder {
             anchor,
         } = f(LinkBuilder::new());
 
+        let other = HashMap::new();
         let link = Link {
             href,
             ty,
             rel,
             anchor,
+            other,
         };
 
         self.links.get_or_insert_with(Default::default).push(link);
@@ -1254,6 +1259,7 @@ impl From<FormBuilder<String>> for Form {
         } = builder;
 
         let content_type = content_type.unwrap_or(Form::default_content_type());
+        let other = HashMap::new();
 
         Self {
             op,
@@ -1264,6 +1270,7 @@ impl From<FormBuilder<String>> for Form {
             security,
             scopes,
             response,
+            other,
         }
     }
 }
