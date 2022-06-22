@@ -113,6 +113,8 @@ pub struct Thing {
     /// to express all the security constraints that must be satisfied in order to access the
     /// resources.
     pub security_definitions: HashMap<String, SecurityScheme>,
+
+    pub uri_variables: Option<DataSchemaMap>,
 }
 
 impl Thing {
@@ -148,6 +150,7 @@ impl Thing {
             events: None,
             links: None,
             forms: None,
+            uri_variables: None,
         }
     }
 }
@@ -937,6 +940,7 @@ mod test {
             .into_iter()
             .collect(),
             security: vec!["nosec".to_string()],
+            uri_variables: None,
         };
 
         let thing: Thing = serde_json::from_str(RAW).unwrap();
