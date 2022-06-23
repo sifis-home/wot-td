@@ -461,7 +461,6 @@ impl From<InteractionAffordanceBuilder> for InteractionAffordance {
             descriptions,
             forms,
             uri_variables,
-            other: HashMap::new(),
         }
     }
 }
@@ -564,7 +563,6 @@ impl From<UsablePropertyAffordanceBuilder> for PropertyAffordance {
 
         let forms = forms.into_iter().map(Form::from).collect();
         let uri_variables = uri_variables.is_empty().not().then(|| uri_variables);
-        let other = HashMap::new();
 
         let interaction = InteractionAffordance {
             attype,
@@ -574,13 +572,15 @@ impl From<UsablePropertyAffordanceBuilder> for PropertyAffordance {
             descriptions,
             forms,
             uri_variables,
-            other,
         };
+
+        let other = HashMap::new();
 
         Self {
             interaction,
             data_schema,
             observable,
+            other,
         }
     }
 }
@@ -624,6 +624,7 @@ impl From<UsableActionAffordanceBuilder> for ActionAffordance {
         } = builder;
 
         let interaction = interaction.into();
+        let other = HashMap::new();
 
         Self {
             interaction,
@@ -631,6 +632,7 @@ impl From<UsableActionAffordanceBuilder> for ActionAffordance {
             output,
             safe,
             idempotent,
+            other,
         }
     }
 }
@@ -676,12 +678,13 @@ impl From<UsableEventAffordanceBuilder> for EventAffordance {
         } = builder;
 
         let interaction = interaction.into();
-
+        let other = HashMap::new();
         Self {
             interaction,
             subscription,
             data,
             cancellation,
+            other,
         }
     }
 }

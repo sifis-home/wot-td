@@ -179,9 +179,6 @@ pub struct InteractionAffordance {
     pub forms: Vec<Form>,
 
     pub uri_variables: Option<DataSchemaMap>,
-
-    #[serde(flatten)]
-    pub other: HashMap<String, Value>,
 }
 
 #[skip_serializing_none]
@@ -194,6 +191,9 @@ pub struct PropertyAffordance {
     pub data_schema: DataSchema,
 
     pub observable: Option<bool>,
+
+    #[serde(flatten)]
+    pub other: HashMap<String, Value>,
 }
 
 #[skip_serializing_none]
@@ -211,6 +211,9 @@ pub struct ActionAffordance {
 
     #[serde(default)]
     pub idempotent: bool,
+
+    #[serde(flatten)]
+    pub other: HashMap<String, Value>,
 }
 
 #[skip_serializing_none]
@@ -224,6 +227,9 @@ pub struct EventAffordance {
     pub data: Option<DataSchema>,
 
     pub cancellation: Option<DataSchema>,
+
+    #[serde(flatten)]
+    pub other: HashMap<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
