@@ -28,7 +28,7 @@ use self::{
 ///
 /// TODO: Write an example usage
 #[must_use]
-pub struct ThingBuilder {
+pub struct ThingBuilder<O: OtherBuilder> {
     context: Vec<Context>,
     id: Option<String>,
     attype: Option<Vec<String>>,
@@ -49,6 +49,7 @@ pub struct ThingBuilder {
     uri_variables: Option<HashMap<String, DataSchema>>,
     security: Vec<String>,
     security_definitions: Vec<(String, SecurityScheme)>,
+    other: O,
 }
 
 macro_rules! opt_field_builder {
@@ -129,7 +130,41 @@ impl fmt::Display for AffordanceType {
     }
 }
 
-impl ThingBuilder {
+pub trait OtherBuilder: Default {
+    type Other: Default;
+    type Input: Default;
+
+    fn other(self, key: &str, value: Self::Input) -> Self;
+
+    /// TODO
+    fn into(self) -> Self::Other;
+}
+
+impl OtherBuilder for HashMap<String, Value> {
+    type Input = Value;
+    type Other = HashMap<String, Value>;
+
+    fn other(mut self, key: &str, value: Self::Input) -> Self {
+        self.insert(key.to_string(), value);
+
+        self
+    }
+
+    fn into(self) -> Self::Other {
+        self
+    }
+}
+
+impl<O> ThingBuilder<O>
+where
+    O: OtherBuilder,
+{
+    pub fn other(mut self, f: fn(&mut O)) -> Self {
+        f(&mut self.other);
+
+        self
+    }
+
     /// Create a new default builder with a specified title
     pub fn new(title: impl Into<String>) -> Self {
         let title = title.into();
@@ -156,13 +191,17 @@ impl ThingBuilder {
             security: Default::default(),
             security_definitions: Default::default(),
             uri_variables: Default::default(),
+            other: Default::default(),
         }
     }
 
     /// Consume the builder to produce the configured Thing
     ///
     /// This step will perform the final validation of the builder state.
-    pub fn build(self) -> Result<Thing, Error> {
+    pub fn build(self) -> Result<Thing<O::Other>, Error>
+    where
+        <O as OtherBuilder>::Other: OtherBuilder,
+    {
         use std::collections::hash_map::Entry;
 
         let Self {
@@ -186,6 +225,7 @@ impl ThingBuilder {
             security,
             security_definitions: security_definitions_vec,
             uri_variables,
+            other,
         } = self;
 
         let mut security_definitions = HashMap::with_capacity(security_definitions_vec.len());
@@ -257,7 +297,7 @@ impl ThingBuilder {
             &security_definitions,
         )?;
 
-        let other = HashMap::new();
+        let other = other.into();
 
         Ok(Thing {
             context,

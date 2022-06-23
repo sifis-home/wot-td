@@ -14,7 +14,7 @@ use serde_json::Value;
 use serde_with::{serde_as, skip_serializing_none, DeserializeAs, OneOrMany, Same};
 use time::OffsetDateTime;
 
-use crate::builder::ThingBuilder;
+use crate::builder::{OtherBuilder, ThingBuilder};
 
 pub(crate) type MultiLanguage = HashMap<String, String>;
 pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
@@ -28,12 +28,15 @@ pub(crate) const TD_CONTEXT: &str = "https://www.w3.org/2019/wot/td/v1";
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Thing {
+pub struct Thing<F = HashMap<String, Value>>
+where
+    F: OtherBuilder,
+{
     // The context can be arbitrarily complex
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
     /// A [JSON-LD @context](https://www.w3.org/TR/json-ld11/#the-context)
-    #[serde(rename = "@context", default = "Thing::default_context")]
+    #[serde(rename = "@context", default = "Thing::<F>::default_context")]
     pub context: Value,
 
     /// A unique identifier
@@ -117,13 +120,16 @@ pub struct Thing {
     pub uri_variables: Option<DataSchemaMap>,
     /// Other fields
     #[serde(flatten)]
-    pub other: HashMap<String, Value>,
+    pub other: F,
 }
 
-impl Thing {
+impl<O> Thing<O>
+where
+    O: OtherBuilder,
+{
     /// Shorthand for [ThingBuilder::new].
     #[inline]
-    pub fn build(title: impl Into<String>) -> ThingBuilder {
+    pub fn build(title: impl Into<String>) -> ThingBuilder<O> {
         ThingBuilder::new(title)
     }
 
@@ -154,7 +160,7 @@ impl Thing {
             links: None,
             forms: None,
             uri_variables: None,
-            other: HashMap::new(),
+            other: Default::default(),
         }
     }
 }
