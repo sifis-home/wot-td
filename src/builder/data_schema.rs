@@ -2,6 +2,7 @@ use std::ops::Not;
 
 use crate::thing::{
     ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
+    StringSchema,
 };
 
 use super::{
@@ -66,6 +67,7 @@ pub trait SpecializableDataSchema: BuildableDataSchema {
     type Number: BuildableDataSchema;
     type Integer: BuildableDataSchema;
     type Object: BuildableDataSchema;
+    type String: BuildableDataSchema;
     type Constant: BuildableDataSchema;
 
     fn array(self) -> Self::Array;
@@ -73,7 +75,7 @@ pub trait SpecializableDataSchema: BuildableDataSchema {
     fn number(self) -> Self::Number;
     fn integer(self) -> Self::Integer;
     fn object(self) -> Self::Object;
-    fn string(self) -> Self::Stateless;
+    fn string(self) -> Self::String;
     fn null(self) -> Self::Stateless;
     fn constant(self, value: impl Into<Value>) -> Self::Constant;
 }
@@ -112,6 +114,7 @@ pub struct NumberDataSchemaBuilder<Inner> {
     inner: Inner,
     maximum: Option<f64>,
     minimum: Option<f64>,
+    multiple_of: Option<f64>,
 }
 
 pub struct IntegerDataSchemaBuilder<Inner> {
@@ -126,6 +129,11 @@ pub struct ObjectDataSchemaBuilder<Inner> {
     required: Vec<String>,
 }
 
+pub struct StringDataSchemaBuilder<Inner> {
+    inner: Inner,
+    max_length: Option<u32>,
+}
+
 pub struct EnumDataSchemaBuilder<Inner> {
     inner: Inner,
 }
@@ -137,7 +145,6 @@ pub struct OneOfDataSchemaBuilder<Inner> {
 pub enum StatelessDataSchemaType {
     Boolean,
     Null,
-    String,
 }
 
 pub struct StatelessDataSchemaBuilder<Inner> {
@@ -171,7 +178,7 @@ pub trait ArrayDataSchemaBuilderLike {
 }
 
 pub trait NumberDataSchemaBuilderLike {
-    opt_field_decl!(minimum: f64, maximum: f64);
+    opt_field_decl!(minimum: f64, maximum: f64, multiple_of: f64);
 }
 
 pub trait IntegerDataSchemaBuilderLike {
@@ -183,6 +190,10 @@ pub trait ObjectDataSchemaBuilderLike {
     where
         F: FnOnce(DataSchemaBuilder) -> T,
         T: Into<DataSchema>;
+}
+
+pub trait StringDataSchemaBuilderLike {
+    opt_field_decl!(max_length: u32);
 }
 
 macro_rules! opt_field_builder {
@@ -210,7 +221,7 @@ impl<Inner: BuildableDataSchema> ArrayDataSchemaBuilderLike for ArrayDataSchemaB
 }
 
 impl<Inner: BuildableDataSchema> NumberDataSchemaBuilderLike for NumberDataSchemaBuilder<Inner> {
-    opt_field_builder!(minimum: f64, maximum: f64);
+    opt_field_builder!(minimum: f64, maximum: f64, multiple_of: f64);
 }
 
 impl<Inner: BuildableDataSchema> IntegerDataSchemaBuilderLike for IntegerDataSchemaBuilder<Inner> {
@@ -233,6 +244,10 @@ impl<Inner: BuildableDataSchema> ObjectDataSchemaBuilderLike for ObjectDataSchem
         self.properties.push((name, data_schema));
         self
     }
+}
+
+impl<Inner: BuildableDataSchema> StringDataSchemaBuilderLike for StringDataSchemaBuilder<Inner> {
+    opt_field_builder!(max_length: u32);
 }
 
 macro_rules! impl_delegate_schema_builder_like {
@@ -272,6 +287,12 @@ macro_rules! impl_delegate_schema_builder_like {
                 #[inline]
                 fn maximum(mut self, value: f64) -> Self {
                     self.$inner = self.$inner.maximum(value);
+                    self
+                }
+
+                #[inline]
+                fn multiple_of(mut self, value: f64) -> Self {
+                    self.$inner = self.$inner.multiple_of(value);
                     self
                 }
             }
@@ -352,6 +373,7 @@ impl_delegate_buildable_data_schema!(
     NumberDataSchemaBuilder<Inner>,
     IntegerDataSchemaBuilder<Inner>,
     ObjectDataSchemaBuilder<Inner>,
+    StringDataSchemaBuilder<Inner>,
     StatelessDataSchemaBuilder<Inner>,
     ReadOnly<Inner>,
     WriteOnly<Inner>,
@@ -387,6 +409,7 @@ impl_delegate_buildable_hr_info!(
     NumberDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     IntegerDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     ObjectDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
+    StringDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     EnumDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     OneOfDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     StatelessDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
@@ -403,6 +426,7 @@ macro_rules! impl_specializable_data_schema {
                 type Number = NumberDataSchemaBuilder<Self>;
                 type Integer = IntegerDataSchemaBuilder<Self>;
                 type Object = ObjectDataSchemaBuilder<Self>;
+                type String = StringDataSchemaBuilder<Self>;
                 type Constant = ReadOnly<StatelessDataSchemaBuilder<Self>>;
 
                 fn array(self) -> Self::Array {
@@ -426,6 +450,7 @@ macro_rules! impl_specializable_data_schema {
                         inner: self,
                         maximum: Default::default(),
                         minimum: Default::default(),
+                        multiple_of: Default::default(),
                     }
                 }
 
@@ -445,10 +470,10 @@ macro_rules! impl_specializable_data_schema {
                     }
                 }
 
-                fn string(self) -> Self::Stateless {
-                    StatelessDataSchemaBuilder {
+                fn string(self) -> Self::String {
+                    StringDataSchemaBuilder {
                         inner: self,
-                        ty: Some(StatelessDataSchemaType::String),
+                        max_length: Default::default(),
                     }
                 }
 
@@ -662,6 +687,8 @@ impl_rw_data_schema!(
     IntegerDataSchemaBuilder<PartialDataSchemaBuilder>; inner,
     ObjectDataSchemaBuilder<DataSchemaBuilder>; inner.partial,
     ObjectDataSchemaBuilder<PartialDataSchemaBuilder>; inner,
+    StringDataSchemaBuilder<DataSchemaBuilder>; inner.partial,
+    StringDataSchemaBuilder<PartialDataSchemaBuilder>; inner,
     EnumDataSchemaBuilder<DataSchemaBuilder>; inner.partial,
     EnumDataSchemaBuilder<PartialDataSchemaBuilder>; inner,
 );
@@ -717,7 +744,6 @@ impl From<StatelessDataSchemaType> for DataSchemaSubtype {
         match ty {
             StatelessDataSchemaType::Boolean => DataSchemaSubtype::Boolean,
             StatelessDataSchemaType::Null => DataSchemaSubtype::Null,
-            StatelessDataSchemaType::String => DataSchemaSubtype::String,
         }
     }
 }
@@ -907,6 +933,7 @@ where
             inner,
             maximum,
             minimum,
+            multiple_of,
         } = builder;
         let DataSchemaBuilder {
             partial:
@@ -929,7 +956,11 @@ where
                 },
         } = inner.into();
 
-        let subtype = Some(DataSchemaSubtype::Number(NumberSchema { minimum, maximum }));
+        let subtype = Some(DataSchemaSubtype::Number(NumberSchema {
+            minimum,
+            maximum,
+            multiple_of,
+        }));
 
         DataSchema {
             attype,
@@ -958,6 +989,7 @@ where
             inner,
             maximum,
             minimum,
+            multiple_of,
         } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
@@ -969,7 +1001,11 @@ where
             format,
         } = inner.into();
 
-        let subtype = Some(DataSchemaSubtype::Number(NumberSchema { minimum, maximum }));
+        let subtype = Some(DataSchemaSubtype::Number(NumberSchema {
+            minimum,
+            maximum,
+            multiple_of,
+        }));
 
         PartialDataSchema {
             constant: None,
@@ -1164,6 +1200,84 @@ where
             properties,
             required,
         }));
+
+        PartialDataSchema {
+            constant: None,
+            unit,
+            one_of: None,
+            enumeration: None,
+            read_only,
+            write_only,
+            format,
+            subtype,
+        }
+    }
+}
+
+impl<T> From<StringDataSchemaBuilder<T>> for DataSchema
+where
+    T: Into<DataSchemaBuilder>,
+{
+    fn from(builder: StringDataSchemaBuilder<T>) -> Self {
+        let StringDataSchemaBuilder { inner, max_length } = builder;
+        let DataSchemaBuilder {
+            partial:
+                PartialDataSchemaBuilder {
+                    constant: _,
+                    unit,
+                    one_of: _,
+                    enumeration: _,
+                    read_only,
+                    write_only,
+                    format,
+                },
+            info:
+                HumanReadableInfo {
+                    attype,
+                    title,
+                    titles,
+                    description,
+                    descriptions,
+                },
+        } = inner.into();
+
+        let subtype = Some(DataSchemaSubtype::String(StringSchema { max_length }));
+
+        DataSchema {
+            attype,
+            title,
+            titles,
+            description,
+            descriptions,
+            constant: None,
+            unit,
+            one_of: None,
+            enumeration: None,
+            read_only,
+            write_only,
+            format,
+            subtype,
+        }
+    }
+}
+
+impl<T> From<StringDataSchemaBuilder<T>> for PartialDataSchema
+where
+    T: Into<PartialDataSchemaBuilder>,
+{
+    fn from(builder: StringDataSchemaBuilder<T>) -> Self {
+        let StringDataSchemaBuilder { inner, max_length } = builder;
+        let PartialDataSchemaBuilder {
+            constant: _,
+            unit,
+            one_of: _,
+            enumeration: _,
+            read_only,
+            write_only,
+            format,
+        } = inner.into();
+
+        let subtype = Some(DataSchemaSubtype::String(StringSchema { max_length }));
 
         PartialDataSchema {
             constant: None,
@@ -1418,11 +1532,20 @@ pub(super) fn check_data_schema_subtype(
                         stack.extend(items.iter());
                     }
                 }
-                Number(number) => match (number.minimum, number.maximum) {
-                    (Some(x), _) | (_, Some(x)) if x.is_nan() => return Err(Error::NanMinMax),
-                    (Some(min), Some(max)) if min > max => return Err(Error::InvalidMinMax),
-                    _ => {}
-                },
+                Number(number) => {
+                    match (number.minimum, number.maximum) {
+                        (Some(x), _) | (_, Some(x)) if x.is_nan() => return Err(Error::NanMinMax),
+                        (Some(min), Some(max)) if min > max => return Err(Error::InvalidMinMax),
+                        _ => {}
+                    }
+
+                    match number.multiple_of {
+                        Some(multiple_of) if multiple_of <= 0. => {
+                            return Err(Error::InvalidMultipleOf)
+                        }
+                        _ => {}
+                    }
+                }
                 Integer(integer) => match (integer.minimum, integer.maximum) {
                     (Some(min), Some(max)) if min > max => return Err(Error::InvalidMinMax),
                     _ => {}
@@ -1431,7 +1554,7 @@ pub(super) fn check_data_schema_subtype(
                     properties: Some(properties),
                     ..
                 }) => stack.extend(properties.values()),
-                Object(_) | Boolean | String | Null => {}
+                Object(_) | String(_) | Boolean | Null => {}
             }
         }
 
@@ -1565,7 +1688,7 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::String),
+                subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
             }
         );
     }
@@ -1583,7 +1706,7 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::String),
+                subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
             }
         );
     }
@@ -1657,7 +1780,8 @@ mod tests {
                 format: None,
                 subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                     maximum: None,
-                    minimum: None
+                    minimum: None,
+                    multiple_of: None,
                 })),
             }
         );
@@ -1677,7 +1801,8 @@ mod tests {
                 format: None,
                 subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                     maximum: None,
-                    minimum: None
+                    minimum: None,
+                    multiple_of: None,
                 })),
             }
         );
@@ -2350,6 +2475,7 @@ mod tests {
                                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                                         maximum: None,
                                         minimum: None,
+                                        multiple_of: None,
                                     })),
                                 }
                             )
@@ -2419,6 +2545,7 @@ mod tests {
                                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                                         maximum: None,
                                         minimum: None,
+                                        multiple_of: None,
                                     })),
                                 }
                             )
@@ -2468,6 +2595,7 @@ mod tests {
             .number()
             .minimum(10.)
             .maximum(5.)
+            .multiple_of(2.)
             .into();
         assert_eq!(
             data_schema,
@@ -2487,6 +2615,32 @@ mod tests {
                 subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                     maximum: Some(5.),
                     minimum: Some(10.),
+                    multiple_of: Some(2.),
+                }))
+            },
+        );
+    }
+
+    #[test]
+    fn string_with_data() {
+        let data_schema: DataSchema = DataSchemaBuilder::default().string().max_length(32).into();
+        assert_eq!(
+            data_schema,
+            DataSchema {
+                attype: None,
+                title: None,
+                titles: None,
+                description: None,
+                descriptions: None,
+                constant: None,
+                unit: None,
+                one_of: None,
+                enumeration: None,
+                read_only: false,
+                write_only: false,
+                format: None,
+                subtype: Some(DataSchemaSubtype::String(StringSchema {
+                    max_length: Some(32),
                 }))
             },
         );
@@ -2526,6 +2680,7 @@ mod tests {
                         subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                             maximum: None,
                             minimum: None,
+                            multiple_of: None,
                         })),
                     },
                     DataSchema {
@@ -2559,7 +2714,7 @@ mod tests {
                         read_only: false,
                         write_only: false,
                         format: None,
-                        subtype: Some(DataSchemaSubtype::String),
+                        subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
                     },
                 ]),
                 enumeration: None,
@@ -2620,7 +2775,9 @@ mod tests {
                                         read_only: false,
                                         write_only: false,
                                         format: None,
-                                        subtype: Some(DataSchemaSubtype::String),
+                                        subtype: Some(DataSchemaSubtype::String(StringSchema {
+                                            max_length: None
+                                        })),
                                     },
                                     DataSchema {
                                         attype: None,
@@ -2664,10 +2821,10 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.))
+                    .append(|b| b.number().minimum(0.).maximum(5.).multiple_of(2.))
                     .append(|b| b.integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.))
+            .one_of(|b| b.number().minimum(20.).maximum(42.).multiple_of(7.))
             .one_of(|b| {
                 b.object()
                     .property("a", false, |b| b.integer().minimum(10).maximum(20))
@@ -2853,16 +3010,33 @@ mod tests {
     }
 
     #[test]
+    fn check_invalid_data_schema_multiple_of() {
+        let data_schema: DataSchema = DataSchemaBuilder::default()
+            .array()
+            .append(|b| b.number().multiple_of(0.))
+            .into();
+
+        assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMultipleOf);
+
+        let data_schema: DataSchema = DataSchemaBuilder::default()
+            .array()
+            .append(|b| b.number().multiple_of(-2.))
+            .into();
+
+        assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMultipleOf);
+    }
+
+    #[test]
     fn check_valid_partial_data_schema() {
         let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.))
+                    .append(|b| b.number().minimum(0.).maximum(5.).multiple_of(2.))
                     .append(|b| b.integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.))
+            .one_of(|b| b.number().minimum(20.).maximum(42.).multiple_of(3.))
             .one_of(|b| {
                 b.object()
                     .property("a", false, |b| b.integer().minimum(10).maximum(20))
@@ -2870,25 +3044,5 @@ mod tests {
             .into();
 
         assert!(data_schema.check().is_ok());
-    }
-
-    #[test]
-    fn check_invalid_partial_data_schema() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default()
-            .one_of(|b| {
-                b.array()
-                    .min_items(2)
-                    .max_items(5)
-                    .append(|b| b.one_of(|b| b.number().minimum(5.).maximum(0.)))
-                    .append(|b| b.integer().minimum(5).maximum(10))
-            })
-            .one_of(|b| b.number().minimum(20.).maximum(42.))
-            .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
-            })
-            .into();
-
-        assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
     }
 }

@@ -95,7 +95,7 @@ impl_buildable_interaction_affordance!(
     InteractionAffordanceBuilder on partial,
     PropertyAffordanceBuilder<DS> on interaction,
     ActionAffordanceBuilder<I, O> on interaction.partial,
-    EventAffordanceBuilder<SS, DS, CS> on interaction.partial,
+    EventAffordanceBuilder<SS, DS, CS, RS> on interaction.partial,
 );
 
 #[derive(Default)]
@@ -113,21 +113,32 @@ pub struct ActionAffordanceBuilder<InputSchema, OutputSchema> {
     pub(super) output: OutputSchema,
     pub(super) safe: bool,
     pub(super) idempotent: bool,
+    pub(super) synchronous: Option<bool>,
 }
 
 #[derive(Default)]
-pub struct EventAffordanceBuilder<SubscriptionSchema, DataSchema, CancellationSchema> {
+pub struct EventAffordanceBuilder<
+    SubscriptionSchema,
+    DataSchema,
+    CancellationSchema,
+    ResponseSchema,
+> {
     pub(super) interaction: InteractionAffordanceBuilder,
     pub(super) subscription: SubscriptionSchema,
     pub(super) data: DataSchema,
     pub(super) cancellation: CancellationSchema,
+    pub(super) data_response: ResponseSchema,
 }
 
 pub(super) type UsablePropertyAffordanceBuilder = PropertyAffordanceBuilder<DataSchema>;
 pub(super) type UsableActionAffordanceBuilder =
     ActionAffordanceBuilder<Option<DataSchema>, Option<DataSchema>>;
-pub(super) type UsableEventAffordanceBuilder =
-    EventAffordanceBuilder<Option<DataSchema>, Option<DataSchema>, Option<DataSchema>>;
+pub(super) type UsableEventAffordanceBuilder = EventAffordanceBuilder<
+    Option<DataSchema>,
+    Option<DataSchema>,
+    Option<DataSchema>,
+    Option<DataSchema>,
+>;
 
 impl_delegate_buildable_data_schema!(
     PropertyAffordanceBuilder<DS>: data_schema,
@@ -137,7 +148,7 @@ impl_delegate_buildable_hr_info!(
     InteractionAffordanceBuilder on info,
     PropertyAffordanceBuilder<DS> on info,
     ActionAffordanceBuilder<I, O> on interaction,
-    EventAffordanceBuilder<SS, DS, CS> on interaction,
+    EventAffordanceBuilder<SS, DS, CS, RS> on interaction,
 );
 
 impl<DataSchema> PropertyAffordanceBuilder<DataSchema> {
@@ -179,6 +190,7 @@ where
     type Number = PropertyAffordanceBuilder<DataSchema::Number>;
     type Integer = PropertyAffordanceBuilder<DataSchema::Integer>;
     type Object = PropertyAffordanceBuilder<DataSchema::Object>;
+    type String = PropertyAffordanceBuilder<DataSchema::String>;
     type Constant = PropertyAffordanceBuilder<DataSchema::Constant>;
 
     impl_property_affordance_builder_delegator!(
@@ -187,7 +199,7 @@ where
         number -> Self::Number,
         integer -> Self::Integer,
         object -> Self::Object,
-        string -> Self::Stateless,
+        string -> Self::String,
         null -> Self::Stateless,
         constant(value: impl Into<Value>) -> Self::Constant,
     );
@@ -302,6 +314,7 @@ impl<OutputSchema> ActionAffordanceBuilder<(), OutputSchema> {
             output,
             safe,
             idempotent,
+            synchronous,
         } = self;
         let input = f(DataSchemaBuilder::default()).into();
 
@@ -311,6 +324,7 @@ impl<OutputSchema> ActionAffordanceBuilder<(), OutputSchema> {
             output,
             safe,
             idempotent,
+            synchronous,
         }
     }
 }
@@ -327,6 +341,7 @@ impl<InputSchema> ActionAffordanceBuilder<InputSchema, ()> {
             output: (),
             safe,
             idempotent,
+            synchronous,
         } = self;
         let output = f(DataSchemaBuilder::default()).into();
 
@@ -336,6 +351,7 @@ impl<InputSchema> ActionAffordanceBuilder<InputSchema, ()> {
             output,
             safe,
             idempotent,
+            synchronous,
         }
     }
 }
@@ -350,13 +366,20 @@ impl<InputSchema, OutputSchema> ActionAffordanceBuilder<InputSchema, OutputSchem
         self.idempotent = true;
         self
     }
+
+    pub fn synchronous(mut self, value: bool) -> Self {
+        self.synchronous = Some(value);
+        self
+    }
 }
 
-impl<DS, CancellationSchema> EventAffordanceBuilder<(), DS, CancellationSchema> {
+impl<DS, CancellationSchema, ResponseSchema>
+    EventAffordanceBuilder<(), DS, CancellationSchema, ResponseSchema>
+{
     pub fn subscription<F, T>(
         self,
         f: F,
-    ) -> EventAffordanceBuilder<DataSchema, DS, CancellationSchema>
+    ) -> EventAffordanceBuilder<DataSchema, DS, CancellationSchema, ResponseSchema>
     where
         F: FnOnce(DataSchemaBuilder) -> T,
         T: Into<DataSchema>,
@@ -366,6 +389,7 @@ impl<DS, CancellationSchema> EventAffordanceBuilder<(), DS, CancellationSchema> 
             subscription: (),
             data,
             cancellation,
+            data_response,
         } = self;
         let subscription = f(DataSchemaBuilder::default()).into();
 
@@ -374,17 +398,18 @@ impl<DS, CancellationSchema> EventAffordanceBuilder<(), DS, CancellationSchema> 
             subscription,
             data,
             cancellation,
+            data_response,
         }
     }
 }
 
-impl<SubscriptionSchema, CancellationSchema>
-    EventAffordanceBuilder<SubscriptionSchema, (), CancellationSchema>
+impl<SubscriptionSchema, CancellationSchema, ResponseSchema>
+    EventAffordanceBuilder<SubscriptionSchema, (), CancellationSchema, ResponseSchema>
 {
     pub fn data<F, T>(
         self,
         f: F,
-    ) -> EventAffordanceBuilder<SubscriptionSchema, DataSchema, CancellationSchema>
+    ) -> EventAffordanceBuilder<SubscriptionSchema, DataSchema, CancellationSchema, ResponseSchema>
     where
         F: FnOnce(DataSchemaBuilder) -> T,
         T: Into<DataSchema>,
@@ -394,6 +419,7 @@ impl<SubscriptionSchema, CancellationSchema>
             subscription,
             data: (),
             cancellation,
+            data_response,
         } = self;
         let data = f(DataSchemaBuilder::default()).into();
 
@@ -402,15 +428,18 @@ impl<SubscriptionSchema, CancellationSchema>
             subscription,
             data,
             cancellation,
+            data_response,
         }
     }
 }
 
-impl<SubscriptionSchema, DS> EventAffordanceBuilder<SubscriptionSchema, DS, ()> {
+impl<SubscriptionSchema, DS, ResponseSchema>
+    EventAffordanceBuilder<SubscriptionSchema, DS, (), ResponseSchema>
+{
     pub fn cancellation<F, T>(
         self,
         f: F,
-    ) -> EventAffordanceBuilder<SubscriptionSchema, DS, DataSchema>
+    ) -> EventAffordanceBuilder<SubscriptionSchema, DS, DataSchema, ResponseSchema>
     where
         F: FnOnce(DataSchemaBuilder) -> T,
         T: Into<DataSchema>,
@@ -420,6 +449,7 @@ impl<SubscriptionSchema, DS> EventAffordanceBuilder<SubscriptionSchema, DS, ()> 
             subscription,
             data,
             cancellation: (),
+            data_response,
         } = self;
         let cancellation = f(DataSchemaBuilder::default()).into();
 
@@ -428,6 +458,37 @@ impl<SubscriptionSchema, DS> EventAffordanceBuilder<SubscriptionSchema, DS, ()> 
             subscription,
             data,
             cancellation,
+            data_response,
+        }
+    }
+}
+
+impl<SubscriptionSchema, DS, CancellationSchema>
+    EventAffordanceBuilder<SubscriptionSchema, DS, CancellationSchema, ()>
+{
+    pub fn data_response<F, T>(
+        self,
+        f: F,
+    ) -> EventAffordanceBuilder<SubscriptionSchema, DS, CancellationSchema, DataSchema>
+    where
+        F: FnOnce(DataSchemaBuilder) -> T,
+        T: Into<DataSchema>,
+    {
+        let Self {
+            interaction,
+            subscription,
+            data,
+            cancellation,
+            data_response: (),
+        } = self;
+        let data_response = f(DataSchemaBuilder::default()).into();
+
+        EventAffordanceBuilder {
+            interaction,
+            subscription,
+            data,
+            cancellation,
+            data_response,
         }
     }
 }
@@ -593,6 +654,7 @@ where
             output,
             safe,
             idempotent,
+            synchronous,
         } = builder;
 
         let input = input.into_option_data_schema();
@@ -604,6 +666,7 @@ where
             output,
             safe,
             idempotent,
+            synchronous,
         }
     }
 }
@@ -616,6 +679,7 @@ impl From<UsableActionAffordanceBuilder> for ActionAffordance {
             output,
             safe,
             idempotent,
+            synchronous,
         } = builder;
 
         let interaction = interaction.into();
@@ -626,37 +690,47 @@ impl From<UsableActionAffordanceBuilder> for ActionAffordance {
             output,
             safe,
             idempotent,
+            synchronous,
         }
     }
 }
 
-impl<SubscriptionSchema, DataSchema, CancellationSchema>
-    From<EventAffordanceBuilder<SubscriptionSchema, DataSchema, CancellationSchema>>
+impl<SubscriptionSchema, DataSchema, CancellationSchema, ResponseSchema>
+    From<EventAffordanceBuilder<SubscriptionSchema, DataSchema, CancellationSchema, ResponseSchema>>
     for UsableEventAffordanceBuilder
 where
     SubscriptionSchema: IntoOptionDataSchema,
     DataSchema: IntoOptionDataSchema,
     CancellationSchema: IntoOptionDataSchema,
+    ResponseSchema: IntoOptionDataSchema,
 {
     fn from(
-        builder: EventAffordanceBuilder<SubscriptionSchema, DataSchema, CancellationSchema>,
+        builder: EventAffordanceBuilder<
+            SubscriptionSchema,
+            DataSchema,
+            CancellationSchema,
+            ResponseSchema,
+        >,
     ) -> Self {
         let EventAffordanceBuilder {
             interaction,
             subscription,
             data,
             cancellation,
+            data_response,
         } = builder;
 
         let subscription = subscription.into_option_data_schema();
         let data = data.into_option_data_schema();
         let cancellation = cancellation.into_option_data_schema();
+        let data_response = data_response.into_option_data_schema();
 
         Self {
             interaction,
             subscription,
             data,
             cancellation,
+            data_response,
         }
     }
 }
@@ -668,6 +742,7 @@ impl From<UsableEventAffordanceBuilder> for EventAffordance {
             subscription,
             data,
             cancellation,
+            data_response,
         } = builder;
 
         let interaction = interaction.into();
@@ -677,6 +752,7 @@ impl From<UsableEventAffordanceBuilder> for EventAffordance {
             subscription,
             data,
             cancellation,
+            data_response,
         }
     }
 }
@@ -729,6 +805,7 @@ mod test {
         },
         thing::{
             DataSchemaSubtype, DefaultedFormOperations, FormOperation, IntegerSchema, NumberSchema,
+            StringSchema,
         },
     };
 
@@ -832,6 +909,7 @@ mod test {
                                 subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                                     maximum: None,
                                     minimum: None,
+                                    multiple_of: None,
                                 }))
                             },
                         ),
@@ -938,6 +1016,7 @@ mod test {
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                         maximum: None,
                         minimum: Some(0.),
+                        multiple_of: None,
                     }))
                 },
                 observable: Some(true),
@@ -1061,6 +1140,7 @@ mod test {
                             subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                                 maximum: None,
                                 minimum: None,
+                                multiple_of: None,
                             }))
                         },
                         DataSchema {
@@ -1142,11 +1222,13 @@ mod test {
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                         maximum: None,
                         minimum: Some(0.),
+                        multiple_of: None,
                     }))
                 }),
                 output: None,
                 safe: true,
-                idempotent: false
+                idempotent: false,
+                synchronous: None,
             },
         );
     }
@@ -1161,6 +1243,7 @@ mod test {
                 .idempotent()
                 .output(|b| b.number().unit("cm").read_only().minimum(0.))
                 .form(|b| b.href("href"))
+                .synchronous(true)
                 .into();
 
         let affordance: ActionAffordance = affordance_builder.into();
@@ -1202,6 +1285,7 @@ mod test {
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                         maximum: None,
                         minimum: Some(0.),
+                        multiple_of: None,
                     }))
                 }),
                 output: Some(DataSchema {
@@ -1220,10 +1304,12 @@ mod test {
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                         maximum: None,
                         minimum: Some(0.),
+                        multiple_of: None,
                     }))
                 }),
                 safe: true,
-                idempotent: true
+                idempotent: true,
+                synchronous: Some(true),
             },
         );
     }
@@ -1231,7 +1317,7 @@ mod test {
     #[test]
     fn event_partial() {
         let affordance_builder: UsableEventAffordanceBuilder =
-            EventAffordanceBuilder::<(), (), ()>::default()
+            EventAffordanceBuilder::<(), (), (), ()>::default()
                 .title("event")
                 .data(|b| b.number().unit("cm").read_only().minimum(0.))
                 .form(|b| b.href("href"))
@@ -1277,9 +1363,11 @@ mod test {
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                         maximum: None,
                         minimum: Some(0.),
+                        multiple_of: None,
                     }))
                 }),
                 cancellation: None,
+                data_response: None,
             },
         );
     }
@@ -1287,11 +1375,12 @@ mod test {
     #[test]
     fn event_full() {
         let affordance_builder: UsableEventAffordanceBuilder =
-            EventAffordanceBuilder::<(), (), ()>::default()
+            EventAffordanceBuilder::<(), (), (), ()>::default()
                 .title("event")
                 .cancellation(|b| b.integer())
                 .data(|b| b.number().unit("cm").read_only().minimum(0.))
                 .subscription(|b| b.bool())
+                .data_response(|b| b.string())
                 .form(|b| b.href("href"))
                 .into();
 
@@ -1349,6 +1438,7 @@ mod test {
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                         maximum: None,
                         minimum: Some(0.),
+                        multiple_of: None,
                     }))
                 }),
                 cancellation: Some(DataSchema {
@@ -1368,6 +1458,21 @@ mod test {
                         maximum: None,
                         minimum: None,
                     }))
+                }),
+                data_response: Some(DataSchema {
+                    attype: None,
+                    title: None,
+                    titles: None,
+                    description: None,
+                    descriptions: None,
+                    constant: None,
+                    unit: None,
+                    one_of: None,
+                    enumeration: None,
+                    read_only: false,
+                    write_only: false,
+                    format: None,
+                    subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None }))
                 }),
             },
         );
