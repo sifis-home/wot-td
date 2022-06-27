@@ -19,7 +19,8 @@ use crate::builder::ThingBuilder;
 pub(crate) type MultiLanguage = HashMap<String, String>;
 pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
 
-pub(crate) const TD_CONTEXT: &str = "https://www.w3.org/2019/wot/td/v1";
+pub const TD_CONTEXT_10: &str = "https://www.w3.org/2019/wot/td/v1";
+pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
 
 /// An abstraction of a physical or a virtual entity
 ///
@@ -115,6 +116,10 @@ pub struct Thing {
     pub security_definitions: HashMap<String, SecurityScheme>,
 
     pub uri_variables: Option<DataSchemaMap>,
+
+    #[serde(default)]
+    #[serde_as(as = "Option<OneOrMany<_>>")]
+    pub profile: Option<Vec<String>>,
 }
 
 impl Thing {
@@ -125,7 +130,7 @@ impl Thing {
     }
 
     fn default_context() -> Value {
-        TD_CONTEXT.into()
+        TD_CONTEXT_11.into()
     }
 
     #[cfg(test)]
@@ -151,6 +156,7 @@ impl Thing {
             links: None,
             forms: None,
             uri_variables: None,
+            profile: None,
         }
     }
 }
@@ -204,6 +210,8 @@ pub struct ActionAffordance {
 
     #[serde(default)]
     pub idempotent: bool,
+
+    pub synchronous: Option<bool>,
 }
 
 #[skip_serializing_none]
@@ -216,12 +224,16 @@ pub struct EventAffordance {
 
     pub data: Option<DataSchema>,
 
+    pub data_response: Option<DataSchema>,
+
     pub cancellation: Option<DataSchema>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct VersionInfo {
-    instance: String,
+    pub instance: String,
+
+    pub model: Option<String>,
 }
 
 impl<S> From<S> for VersionInfo
@@ -230,7 +242,10 @@ where
 {
     fn from(instance: S) -> Self {
         let instance = instance.into();
-        Self { instance }
+        Self {
+            instance,
+            model: None,
+        }
     }
 }
 
@@ -281,7 +296,7 @@ pub enum DataSchemaSubtype {
     Number(NumberSchema),
     Integer(IntegerSchema),
     Object(ObjectSchema),
-    String,
+    String(StringSchema),
     Null,
 }
 
@@ -300,10 +315,13 @@ pub struct ArraySchema {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NumberSchema {
     pub maximum: Option<f64>,
 
     pub minimum: Option<f64>,
+
+    pub multiple_of: Option<f64>,
 }
 
 #[skip_serializing_none]
@@ -321,6 +339,13 @@ pub struct ObjectSchema {
     pub properties: Option<DataSchemaMap>,
 
     pub required: Option<Vec<String>>,
+}
+
+#[skip_serializing_none]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StringSchema {
+    pub max_length: Option<u32>,
 }
 
 #[serde_as]
@@ -660,7 +685,7 @@ mod test {
     fn minimal_thing() {
         const RAW: &str = r#"
         {
-            "@context": "https://www.w3.org/2019/wot/td/v1",
+            "@context": "https://www.w3.org/2019/wot/td/v1.1",
             "id": "urn:dev:ops:32473-WoTLamp-1234",
             "title": "MyLampThing",
             "securityDefinitions": {
@@ -670,7 +695,7 @@ mod test {
         }"#;
 
         let expected_thing = Thing {
-            context: TD_CONTEXT.into(),
+            context: TD_CONTEXT_11.into(),
             id: Some("urn:dev:ops:32473-WoTLamp-1234".to_string()),
             title: "MyLampThing".to_string(),
             security_definitions: [(
@@ -700,7 +725,7 @@ mod test {
     fn complete_thing() {
         const RAW: &str = r#"
         {
-          "@context": "https://www.w3.org/2019/wot/td/v1",
+          "@context": "https://www.w3.org/2019/wot/td/v1.1",
           "id": "urn:dev:ops:32473-WoTLamp-1234",
           "@type": [
             "Thing",
@@ -717,7 +742,8 @@ mod test {
             "it": "Una semplice lampada intelligente"
           },
           "version": {
-            "instance": "0.1.0"
+            "instance": "0.1.0",
+            "model": "model"
           },
           "created": "2022-05-01T10:20:42.123Z",
           "modified": "2022-05-10T12:30:00.000+01:00",
@@ -739,7 +765,8 @@ mod test {
                 {
                   "href": "https://mylamp.example.com/toggle"
                 }
-              ]
+              ],
+              "synchronous": false
             }
           },
           "events": {
@@ -773,11 +800,15 @@ mod test {
           },
           "security": [
             "nosec"
+          ],
+          "profile": [
+              "profile1",
+              "profile2"
           ]
         }"#;
 
         let expected_thing = Thing {
-            context: TD_CONTEXT.into(),
+            context: TD_CONTEXT_11.into(),
             id: Some("urn:dev:ops:32473-WoTLamp-1234".to_string()),
             attype: Some(vec!["Thing".to_string(), "LampThing".to_string()]),
             title: "MyLampThing".to_string(),
@@ -803,6 +834,7 @@ mod test {
             ),
             version: Some(VersionInfo {
                 instance: "0.1.0".to_string(),
+                model: Some("model".to_string()),
             }),
             created: Some(datetime!(2022-05-01 10:20:42.123 UTC)),
             modified: Some(datetime!(2022-05-10 12:30 +1)),
@@ -838,7 +870,9 @@ mod test {
                             read_only: false,
                             write_only: false,
                             format: None,
-                            subtype: Some(DataSchemaSubtype::String),
+                            subtype: Some(DataSchemaSubtype::String(StringSchema {
+                                max_length: None,
+                            })),
                         },
                         observable: None,
                     },
@@ -867,6 +901,7 @@ mod test {
                         output: None,
                         safe: false,
                         idempotent: false,
+                        synchronous: Some(false),
                     },
                 )]
                 .into_iter()
@@ -903,9 +938,12 @@ mod test {
                             read_only: false,
                             write_only: false,
                             format: None,
-                            subtype: Some(DataSchemaSubtype::String),
+                            subtype: Some(DataSchemaSubtype::String(StringSchema {
+                                max_length: None,
+                            })),
                         }),
                         cancellation: None,
+                        data_response: None,
                     },
                 )]
                 .into_iter()
@@ -941,6 +979,7 @@ mod test {
             .collect(),
             security: vec!["nosec".to_string()],
             uri_variables: None,
+            profile: Some(vec!["profile1".to_string(), "profile2".to_string()]),
         };
 
         let thing: Thing = serde_json::from_str(RAW).unwrap();
@@ -966,7 +1005,7 @@ mod test {
         }"#;
 
         let expected_thing = Thing {
-            context: TD_CONTEXT.into(),
+            context: TD_CONTEXT_11.into(),
             id: None,
             title: "MyLampThing".to_string(),
             security_definitions: [(

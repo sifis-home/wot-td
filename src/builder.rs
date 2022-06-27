@@ -12,7 +12,7 @@ use crate::thing::{
     DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
     KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme, PskSecurityScheme,
     QualityOfProtection, SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype,
-    Thing, UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT,
+    Thing, UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
 };
 
 use self::{
@@ -49,6 +49,7 @@ pub struct ThingBuilder {
     uri_variables: Option<HashMap<String, DataSchema>>,
     security: Vec<String>,
     security_definitions: Vec<(String, SecurityScheme)>,
+    profile: Vec<String>,
 }
 
 macro_rules! opt_field_builder {
@@ -102,6 +103,9 @@ pub enum Error {
         // The duplicated name
         name: String,
     },
+
+    #[error("\"multipleOf\" field must be strictly greater than 0")]
+    InvalidMultipleOf,
 }
 
 /// The possible affordance types
@@ -133,7 +137,7 @@ impl ThingBuilder {
     /// Create a new default builder with a specified title
     pub fn new(title: impl Into<String>) -> Self {
         let title = title.into();
-        let context = vec![Context::Simple(TD_CONTEXT.to_string())];
+        let context = vec![Context::Simple(TD_CONTEXT_11.to_string())];
 
         Self {
             context,
@@ -156,6 +160,7 @@ impl ThingBuilder {
             security: Default::default(),
             security_definitions: Default::default(),
             uri_variables: Default::default(),
+            profile: Default::default(),
         }
     }
 
@@ -186,6 +191,7 @@ impl ThingBuilder {
             security,
             security_definitions: security_definitions_vec,
             uri_variables,
+            profile,
         } = self;
 
         let mut security_definitions = HashMap::with_capacity(security_definitions_vec.len());
@@ -199,6 +205,8 @@ impl ThingBuilder {
                 }
             }
         }
+
+        let profile = profile.is_empty().not().then(|| profile);
 
         let forms = forms
             .map(|forms| {
@@ -278,6 +286,7 @@ impl ThingBuilder {
             security,
             security_definitions,
             uri_variables,
+            profile,
         })
     }
 
@@ -359,7 +368,7 @@ impl ThingBuilder {
     where
         S: Into<String> + AsRef<str>,
     {
-        if value.as_ref() == TD_CONTEXT {
+        if value.as_ref() == TD_CONTEXT_11 {
             return self;
         }
 
@@ -564,8 +573,15 @@ impl ThingBuilder {
 
     pub fn event<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(EventAffordanceBuilder<(), (), ()>) -> T,
-        T: Into<EventAffordanceBuilder<Option<DataSchema>, Option<DataSchema>, Option<DataSchema>>>,
+        F: FnOnce(EventAffordanceBuilder<(), (), (), ()>) -> T,
+        T: Into<
+            EventAffordanceBuilder<
+                Option<DataSchema>,
+                Option<DataSchema>,
+                Option<DataSchema>,
+                Option<DataSchema>,
+            >,
+        >,
     {
         let affordance = f(EventAffordanceBuilder::default()).into();
         let affordance_builder = AffordanceBuilder {
@@ -573,6 +589,11 @@ impl ThingBuilder {
             affordance,
         };
         self.events.push(affordance_builder);
+        self
+    }
+
+    pub fn profile(mut self, value: impl Into<String>) -> Self {
+        self.profile.push(value.into());
         self
     }
 }
@@ -1293,7 +1314,7 @@ mod tests {
                     assert_eq!(
                         thing,
                         Thing {
-                            context: TD_CONTEXT.into(),
+                            context: TD_CONTEXT_11.into(),
                             title: "MyLampThing".to_string(),
                             $field: Some("test".into()),
                             ..Thing::empty()
@@ -1310,7 +1331,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 ..Thing::empty()
             }
@@ -1320,14 +1341,14 @@ mod tests {
     #[test]
     fn redundant_default_context() {
         let thing = ThingBuilder::new("MyLampThing")
-            .context(TD_CONTEXT)
+            .context(TD_CONTEXT_11)
             .build()
             .unwrap();
 
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 ..Thing::empty()
             }
@@ -1346,7 +1367,7 @@ mod tests {
             thing,
             Thing {
                 context: json! {[
-                    TD_CONTEXT,
+                    TD_CONTEXT_11,
                     "test",
                     "another_test",
                 ]},
@@ -1368,7 +1389,7 @@ mod tests {
             thing,
             Thing {
                 context: json! {[
-                    TD_CONTEXT,
+                    TD_CONTEXT_11,
                     {
                         "hello": "world",
                         "all": "fine",
@@ -1393,7 +1414,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 attype: Some(vec!["test".to_string()]),
                 ..Thing::empty()
@@ -1409,7 +1430,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 attype: Some(vec!["test1".to_string(), "test2".to_string()]),
                 ..Thing::empty()
@@ -1427,7 +1448,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 titles: Some(
                     [("en", "My lamp"), ("it", "La mia lampada")]
@@ -1451,7 +1472,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 description: Some("My Lamp".to_string()),
                 descriptions: Some(
@@ -1476,7 +1497,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 created: Some(DATETIME),
                 ..Thing::empty()
@@ -1495,7 +1516,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 modified: Some(DATETIME),
                 ..Thing::empty()
@@ -1514,7 +1535,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 links: Some(vec![
                     Link {
@@ -1546,7 +1567,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 links: Some(vec![
                     Link {
@@ -1585,7 +1606,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["nosec".to_string()],
                 security_definitions: [(
@@ -1632,7 +1653,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["basic".to_string()],
                 security_definitions: [(
@@ -1685,7 +1706,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["digest".to_string()],
                 security_definitions: [(
@@ -1738,7 +1759,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["apikey".to_string()],
                 security_definitions: [(
@@ -1793,7 +1814,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["bearer".to_string()],
                 security_definitions: [(
@@ -1851,7 +1872,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["oauth2".to_string()],
                 security_definitions: [(
@@ -1908,7 +1929,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["mysec".to_string()],
                 security_definitions: [(
@@ -1952,7 +1973,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["test_sec1".to_string(), "test_sec2".to_string()],
                 security_definitions: [
@@ -1999,7 +2020,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["sec2".to_string()],
                 security_definitions: [
@@ -2043,7 +2064,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["basic".to_string()],
                 security_definitions: [
@@ -2103,7 +2124,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
@@ -2131,7 +2152,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
@@ -2203,7 +2224,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
@@ -2270,7 +2291,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![
@@ -2335,7 +2356,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 properties: Some(
                     [
@@ -2421,7 +2442,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 actions: Some(
                     [
@@ -2441,6 +2462,7 @@ mod tests {
                                 output: None,
                                 safe: false,
                                 idempotent: false,
+                                synchronous: None,
                             }
                         ),
                         (
@@ -2473,6 +2495,7 @@ mod tests {
                                 output: None,
                                 safe: false,
                                 idempotent: true,
+                                synchronous: None,
                             }
                         ),
                     ]
@@ -2495,7 +2518,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 events: Some(
                     [
@@ -2514,6 +2537,7 @@ mod tests {
                                 subscription: None,
                                 data: None,
                                 cancellation: None,
+                                data_response: None,
                             }
                         ),
                         (
@@ -2545,6 +2569,7 @@ mod tests {
                                     format: None,
                                     subtype: Some(DataSchemaSubtype::Null)
                                 }),
+                                data_response: None,
                             }
                         ),
                     ]
@@ -2569,7 +2594,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT.into(),
+                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 properties: Some(
                     [(
@@ -2647,5 +2672,39 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(error, Error::UndefinedSecurity("oauth2".to_owned()));
+    }
+
+    #[test]
+    fn profile() {
+        let thing = ThingBuilder::new("MyLampThing")
+            .profile("profile")
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT_11.into(),
+                title: "MyLampThing".to_string(),
+                profile: Some(vec!["profile".to_string()]),
+                ..Thing::empty()
+            }
+        );
+
+        let thing = ThingBuilder::new("MyLampThing")
+            .profile("profile1")
+            .profile("profile2")
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT_11.into(),
+                title: "MyLampThing".to_string(),
+                profile: Some(vec!["profile1".to_string(), "profile2".to_string()]),
+                ..Thing::empty()
+            }
+        );
     }
 }
