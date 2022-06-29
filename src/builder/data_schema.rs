@@ -40,7 +40,7 @@ pub(super) struct PartialDataSchema {
 /// # Example
 ///
 /// ```compile_fail
-/// # use wot_rust::{
+/// # use wot_td::{
 /// #   thing::DataSchema,
 /// #   builder::DataSchemaBuilder,
 /// # };
