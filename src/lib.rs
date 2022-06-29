@@ -10,4 +10,5 @@
 //! operate with complex descriptions.
 
 pub mod builder;
+mod hlist;
 pub mod thing;
