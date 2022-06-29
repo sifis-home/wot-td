@@ -33,15 +33,12 @@ impl<T> Cons<T, Nil> {
     }
 
     #[inline]
-    pub(crate) fn add<U>(self, value: U) -> Cons<T, Cons<U, Nil>> {
+    pub(crate) fn add<U>(self, value: U) -> Cons<Cons<T, U>, Nil> {
         let Self { head, tail: Nil {} } = self;
 
         Cons {
-            head,
-            tail: Cons {
-                head: value,
-                tail: Nil {},
-            },
+            head: Cons { head, tail: value },
+            tail: Nil {},
         }
     }
 }
@@ -51,6 +48,15 @@ mod tests {
     use serde_json::{json, Value};
 
     use super::*;
+
+    #[test]
+    fn chain() {
+        let v = Cons::new_head("A".to_string())
+            .add("B".to_string())
+            .add("C".to_string());
+
+        dbg!(&v);
+    }
 
     #[test]
     fn serialize_flatten_nil() {
@@ -81,7 +87,7 @@ mod tests {
         struct A {
             a: i32,
             #[serde(flatten)]
-            b: Cons<B, Cons<C>>,
+            b: Cons<Cons<B, C>, Nil>,
         }
 
         let value = serde_json::to_value(A {
@@ -108,7 +114,7 @@ mod tests {
         struct A {
             a: i32,
             #[serde(flatten)]
-            b: Cons<B, Cons<C>>,
+            b: Cons<Cons<B, C>, Nil>,
         }
 
         let v = json!({
@@ -122,7 +128,7 @@ mod tests {
         dbg!(&a);
 
         assert_eq!(a.a, 42);
-        assert_eq!(a.b.head.foo, 42);
-        assert_eq!(a.b.tail.head.bar, String::from("42"));
+        assert_eq!(a.b.head.head.foo, 42);
+        assert_eq!(a.b.head.tail.bar, String::from("42"));
     }
 }
