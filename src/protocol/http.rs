@@ -47,15 +47,47 @@ pub(crate) mod mini {
 
     #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct ExpectedResponse<T: Default = HashMap<String, Value>> {
+    pub struct AdditionalExpectedResponse<T: Default + Clone = HashMap<String, Value>> {
+        #[serde(default)]
+        pub success: bool,
         pub content_type: String,
 
         #[serde(flatten)]
         pub other: T,
     }
 
-    impl<T: Default> ExpectedResponse<Cons<T, Nil>> {
-        pub fn extend<U: Default>(self, e: U) -> ExpectedResponse<Cons<Cons<T, U>, Nil>> {
+    impl<T: Default + Clone> AdditionalExpectedResponse<Cons<T, Nil>> {
+        pub fn extend<U: Default + Clone>(
+            self,
+            e: U,
+        ) -> AdditionalExpectedResponse<Cons<Cons<T, U>, Nil>> {
+            let Self {
+                success,
+                content_type,
+                other,
+            } = self;
+
+            let other = other.add(e);
+
+            AdditionalExpectedResponse {
+                success,
+                content_type,
+                other,
+            }
+        }
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct ExpectedResponse<T: Default + Clone = HashMap<String, Value>> {
+        pub content_type: String,
+
+        #[serde(flatten)]
+        pub other: T,
+    }
+
+    impl<T: Default + Clone> ExpectedResponse<Cons<T, Nil>> {
+        pub fn extend<U: Default + Clone>(self, e: U) -> ExpectedResponse<Cons<Cons<T, U>, Nil>> {
             let Self {
                 content_type,
                 other,
@@ -74,7 +106,10 @@ pub(crate) mod mini {
     #[skip_serializing_none]
     #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct Form<T: Default = HashMap<String, Value>, E: Default = HashMap<String, Value>> {
+    pub struct Form<
+        T: Default + Clone = HashMap<String, Value>,
+        E: Default + Clone = HashMap<String, Value>,
+    > {
         #[serde(default)]
         pub op: DefaultedFormOperations,
 
@@ -101,18 +136,20 @@ pub(crate) mod mini {
 
         pub response: Option<ExpectedResponse<E>>,
 
+        pub additional_response: Option<AdditionalExpectedResponse<E>>,
+
         #[serde(flatten)]
         pub other: T,
     }
 
-    impl<T: Default> Form<T> {
+    impl<T: Default + Clone> Form<T> {
         pub(crate) const fn default_content_type() -> Cow<'static, str> {
             Cow::Borrowed("application/json")
         }
     }
 
-    impl<T: Default, E: Default> Form<Cons<T, Nil>, Cons<E, Nil>> {
-        pub fn extend<U: Default, F: Default>(
+    impl<T: Default + Clone, E: Default + Clone> Form<Cons<T, Nil>, Cons<E, Nil>> {
+        pub fn extend<U: Default + Clone, F: Default + Clone>(
             self,
             u: U,
             f: F,
@@ -126,11 +163,13 @@ pub(crate) mod mini {
                 security,
                 scopes,
                 response,
+                additional_response,
                 other,
             } = self;
 
             let other = other.add(u);
-            let response = response.map(|e| e.extend(f));
+            let response = response.map(|e| e.extend(f.clone()));
+            let additional_response = additional_response.map(|e| e.extend(f));
 
             Form {
                 op,
@@ -141,6 +180,7 @@ pub(crate) mod mini {
                 security,
                 scopes,
                 response,
+                additional_response,
                 other,
             }
         }
