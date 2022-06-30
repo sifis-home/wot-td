@@ -185,6 +185,30 @@ pub(crate) mod mini {
             }
         }
     }
+
+    #[serde_as]
+    #[skip_serializing_none]
+    #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct InteractionAffordance<T, F, R>
+    where
+        T: Default + Clone,
+        F: Default + Clone,
+        R: Default + Clone,
+    {
+        #[serde(rename = "@type", default)]
+        #[serde_as(as = "Option<OneOrMany<_>>")]
+        pub attype: Option<Vec<String>>,
+
+        pub title: Option<String>,
+
+        pub description: Option<String>,
+
+        pub forms: Vec<Form<F, R>>,
+
+        #[serde(flatten)]
+        pub other: T,
+    }
 }
 
 #[cfg(test)]
