@@ -110,7 +110,7 @@ impl Buildable for Form {
 // TODO: figure out what's wrong with with_prefix
 
 pub(crate) mod mini {
-    use crate::hlist::Nil;
+    use crate::hlist::{Cons, Nil};
     use crate::thing::DefaultedFormOperations;
     use serde::{Deserialize, Serialize};
     use serde_with::*;
@@ -141,6 +141,41 @@ pub(crate) mod mini {
 
         fn builder() -> Nil {
             Nil
+        }
+    }
+
+    impl<T: Builder, U: Builder> Builder for Cons<T, U> {
+        type B = Cons<T::B, U::B>;
+
+        fn build(self) -> Self::B {
+            let Cons { head, tail } = self;
+            let head = head.build();
+            let tail = tail.build();
+
+            Cons { head, tail }
+        }
+    }
+
+    impl<T: Builder, U: Builder> Cons<T, U> {
+        /// TODO thing of a saner way
+        pub fn edit(self, f: fn(T) -> T, u: fn(U) -> U) -> Cons<T, U> {
+            let Cons { head, tail } = self;
+
+            let head = f(head);
+            let tail = u(tail);
+
+            Cons { head, tail }
+        }
+    }
+
+    impl<T: Buildable, U: Buildable> Buildable for Cons<T, U> {
+        type B = Cons<T::B, U::B>;
+
+        fn builder() -> Self::B {
+            Cons {
+                head: T::builder(),
+                tail: U::builder(),
+            }
         }
     }
 
@@ -303,6 +338,13 @@ mod test {
         let b = mini::ExpectedResponse::<super::Response>::builder()
             .content_type("text/bar")
             .other(|v| v.status_code_value(201))
+            .build();
+
+        dbg!(&b);
+
+        let b = mini::ExpectedResponse::<Cons<super::Response, Nil>>::builder()
+            .content_type("text/baz")
+            .other(|v| v.edit(|v| v.status_code_value(201), |v| v))
             .build();
 
         dbg!(&b);
