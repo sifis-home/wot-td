@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize};
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Nil {}
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct Nil;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cons<T, U = Nil> {
@@ -31,15 +31,37 @@ impl<T> Cons<T, Nil> {
     pub(crate) fn new_head(head: T) -> Self {
         Cons { head, tail: Nil {} }
     }
+}
 
+impl<T, U> Cons<T, U> {
     #[inline]
-    pub(crate) fn add<U>(self, value: U) -> Cons<Cons<T, U>, Nil> {
-        let Self { head, tail: Nil {} } = self;
-
+    pub(crate) fn add<V>(self, value: V) -> Cons<V, Self> {
         Cons {
-            head: Cons { head, tail: value },
-            tail: Nil {},
+            head: value,
+            tail: self,
         }
+    }
+}
+
+impl Serialize for Nil {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_struct("Nil", 0)?.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Nil {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct NilStruct {}
+
+        NilStruct::deserialize(deserializer)?;
+        Ok(Nil)
     }
 }
 
@@ -87,7 +109,7 @@ mod tests {
         struct A {
             a: i32,
             #[serde(flatten)]
-            b: Cons<Cons<B, C>, Nil>,
+            b: Cons<C, Cons<B, Nil>>,
         }
 
         let value = serde_json::to_value(A {

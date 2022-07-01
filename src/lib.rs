@@ -10,6 +10,7 @@
 //! operate with complex descriptions.
 
 pub mod builder;
+mod extend;
 mod hlist;
 pub mod protocol;
 pub mod thing;

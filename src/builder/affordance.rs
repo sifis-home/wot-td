@@ -2,9 +2,12 @@ use std::{collections::HashMap, ops::Not};
 
 use serde_json::Value;
 
-use crate::thing::{
-    ActionAffordance, DataSchema, EventAffordance, Form, InteractionAffordance, PropertyAffordance,
-    SecurityScheme,
+use crate::{
+    hlist::Nil,
+    thing::{
+        ActionAffordance, DataSchema, EventAffordance, Form, InteractionAffordance,
+        PropertyAffordance, SecurityScheme,
+    },
 };
 
 use super::{
@@ -589,6 +592,8 @@ where
             write_only,
             format,
             subtype,
+            // TODO
+            other: Nil,
         };
 
         Self {
@@ -801,6 +806,7 @@ mod test {
         builder::data_schema::{
             BuildableDataSchema, NumberDataSchemaBuilderLike, PartialDataSchemaBuilder,
         },
+        hlist::Nil,
         thing::{DataSchemaSubtype, DefaultedFormOperations, FormOperation, NumberSchema},
     };
 

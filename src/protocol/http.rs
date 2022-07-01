@@ -60,7 +60,7 @@ pub(crate) mod mini {
         pub fn extend<U: Default + Clone>(
             self,
             e: U,
-        ) -> AdditionalExpectedResponse<Cons<Cons<T, U>, Nil>> {
+        ) -> AdditionalExpectedResponse<Cons<U, Cons<T, Nil>>> {
             let Self {
                 success,
                 content_type,
@@ -87,7 +87,7 @@ pub(crate) mod mini {
     }
 
     impl<T: Default + Clone> ExpectedResponse<Cons<T, Nil>> {
-        pub fn extend<U: Default + Clone>(self, e: U) -> ExpectedResponse<Cons<Cons<T, U>, Nil>> {
+        pub fn extend<U: Default + Clone>(self, e: U) -> ExpectedResponse<Cons<U, Cons<T, Nil>>> {
             let Self {
                 content_type,
                 other,
@@ -153,7 +153,7 @@ pub(crate) mod mini {
             self,
             u: U,
             f: F,
-        ) -> Form<Cons<Cons<T, U>, Nil>, Cons<Cons<E, F>, Nil>> {
+        ) -> Form<Cons<U, Cons<T, Nil>>, Cons<F, Cons<E, Nil>>> {
             let Self {
                 op,
                 href,
