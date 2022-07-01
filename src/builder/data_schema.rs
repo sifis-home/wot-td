@@ -1,8 +1,11 @@
 use std::ops::Not;
 
-use crate::thing::{
-    ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
-    StringSchema,
+use crate::{
+    hlist::Nil,
+    thing::{
+        ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
+        StringSchema,
+    },
 };
 
 use super::{
@@ -791,6 +794,8 @@ where
             write_only,
             format,
             subtype,
+            // TODO
+            other: Nil,
         }
     }
 }
@@ -879,6 +884,8 @@ where
             write_only,
             format,
             subtype,
+            // TODO
+            other: Nil,
         }
     }
 }
@@ -976,6 +983,8 @@ where
             write_only,
             format,
             subtype,
+            // TODO
+            other: Nil,
         }
     }
 }
@@ -1070,6 +1079,8 @@ where
             write_only,
             format,
             subtype,
+            // TODO
+            other: Nil,
         }
     }
 }
@@ -1151,6 +1162,8 @@ where
         let subtype = Some(DataSchemaSubtype::Object(ObjectSchema {
             properties,
             required,
+            // TODO
+            other: Nil,
         }));
 
         DataSchema {
@@ -1167,6 +1180,8 @@ where
             write_only,
             format,
             subtype,
+            // TODO
+            other: Nil,
         }
     }
 }
@@ -1199,6 +1214,8 @@ where
         let subtype = Some(DataSchemaSubtype::Object(ObjectSchema {
             properties,
             required,
+            // TODO
+            other: Nil,
         }));
 
         PartialDataSchema {
@@ -1257,6 +1274,8 @@ where
             write_only,
             format,
             subtype,
+            // TODO
+            other: Nil,
         }
     }
 }
@@ -1385,6 +1404,8 @@ where
             write_only,
             format,
             subtype: None,
+            // TODO
+            other: Nil,
         }
     }
 }
@@ -1459,6 +1480,8 @@ where
             write_only,
             format,
             subtype: None,
+            // TODO
+            other: Nil,
         }
     }
 }
@@ -1607,6 +1630,8 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Null),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -1648,6 +1673,8 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Boolean),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -1689,6 +1716,8 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -1734,6 +1763,8 @@ mod tests {
                     min_items: None,
                     max_items: None,
                 })),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -1783,6 +1814,8 @@ mod tests {
                     minimum: None,
                     multiple_of: None,
                 })),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -1830,6 +1863,8 @@ mod tests {
                     maximum: None,
                     minimum: None
                 })),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -1875,8 +1910,12 @@ mod tests {
                 format: None,
                 subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
                     properties: None,
-                    required: None
+                    required: None,
+                    // TODO
+                    other: Nil,
                 })),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -1896,7 +1935,9 @@ mod tests {
                 format: None,
                 subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
                     properties: None,
-                    required: None
+                    required: None,
+                    // TODO
+                    other: Nil,
                 })),
             }
         );
@@ -1925,6 +1966,8 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: None,
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -1974,6 +2017,8 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: None,
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -2019,6 +2064,8 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Boolean),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -2106,6 +2153,8 @@ mod tests {
                 write_only: true,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Boolean),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -2213,6 +2262,8 @@ mod tests {
                 write_only: false,
                 format: Some("format".to_string()),
                 subtype: Some(DataSchemaSubtype::Null),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -2257,6 +2308,8 @@ mod tests {
                 write_only: false,
                 format: Some("format".to_string()),
                 subtype: None,
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -2287,6 +2340,8 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: None,
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -2330,7 +2385,9 @@ mod tests {
                             read_only: true,
                             write_only: false,
                             format: None,
-                            subtype: None
+                            subtype: None,
+                            // TODO
+                            other: Nil,
                         },
                         DataSchema {
                             attype: None,
@@ -2345,12 +2402,16 @@ mod tests {
                             read_only: false,
                             write_only: false,
                             format: None,
-                            subtype: Some(DataSchemaSubtype::Boolean)
+                            subtype: Some(DataSchemaSubtype::Boolean),
+                            // TODO
+                            other: Nil,
                         },
                     ]),
                     min_items: Some(0),
                     max_items: Some(5),
                 })),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -2389,7 +2450,9 @@ mod tests {
                             read_only: true,
                             write_only: false,
                             format: None,
-                            subtype: None
+                            subtype: None,
+                            // TODO
+                            other: Nil,
                         },
                         DataSchema {
                             attype: None,
@@ -2404,7 +2467,9 @@ mod tests {
                             read_only: false,
                             write_only: false,
                             format: None,
-                            subtype: Some(DataSchemaSubtype::Boolean)
+                            subtype: Some(DataSchemaSubtype::Boolean),
+                            // TODO
+                            other: Nil,
                         },
                     ]),
                     min_items: Some(0),
@@ -2455,6 +2520,8 @@ mod tests {
                                     write_only: false,
                                     format: None,
                                     subtype: Some(DataSchemaSubtype::Boolean),
+                                    // TODO
+                                    other: Nil,
                                 }
                             ),
                             (
@@ -2477,14 +2544,20 @@ mod tests {
                                         minimum: None,
                                         multiple_of: None,
                                     })),
+                                    // TODO
+                                    other: Nil,
                                 }
                             )
                         ]
                         .into_iter()
                         .collect()
                     ),
-                    required: Some(vec!["world".to_string()])
+                    required: Some(vec!["world".to_string()]),
+                    // TODO
+                    other: Nil,
                 })),
+                // TODO
+                other: Nil,
             }
         );
     }
@@ -2525,6 +2598,8 @@ mod tests {
                                     write_only: false,
                                     format: None,
                                     subtype: Some(DataSchemaSubtype::Boolean),
+                                    // TODO
+                                    other: Nil,
                                 }
                             ),
                             (
@@ -2547,13 +2622,17 @@ mod tests {
                                         minimum: None,
                                         multiple_of: None,
                                     })),
+                                    // TODO
+                                    other: Nil,
                                 }
                             )
                         ]
                         .into_iter()
                         .collect()
                     ),
-                    required: Some(vec!["world".to_string()])
+                    required: Some(vec!["world".to_string()]),
+                    // TODO
+                    other: Nil,
                 })),
             }
         );
@@ -2584,7 +2663,9 @@ mod tests {
                 subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                     maximum: Some(5),
                     minimum: Some(10),
-                }))
+                })),
+                // TODO
+                other: Nil,
             },
         );
     }
@@ -2616,7 +2697,9 @@ mod tests {
                     maximum: Some(5.),
                     minimum: Some(10.),
                     multiple_of: Some(2.),
-                }))
+                })),
+                // TODO
+                other: Nil,
             },
         );
     }
@@ -2641,7 +2724,9 @@ mod tests {
                 format: None,
                 subtype: Some(DataSchemaSubtype::String(StringSchema {
                     max_length: Some(32),
-                }))
+                })),
+                // TODO
+                other: Nil,
             },
         );
     }
@@ -2682,6 +2767,8 @@ mod tests {
                             minimum: None,
                             multiple_of: None,
                         })),
+                        // TODO
+                        other: Nil,
                     },
                     DataSchema {
                         attype: None,
@@ -2700,6 +2787,8 @@ mod tests {
                             maximum: None,
                             minimum: None,
                         })),
+                        // TODO
+                        other: Nil,
                     },
                     DataSchema {
                         attype: None,
@@ -2715,6 +2804,8 @@ mod tests {
                         write_only: false,
                         format: None,
                         subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
+                        // TODO
+                        other: Nil,
                     },
                 ]),
                 enumeration: None,
@@ -2722,6 +2813,8 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: None,
+                // TODO
+                other: Nil,
             },
         );
     }
@@ -2778,6 +2871,8 @@ mod tests {
                                         subtype: Some(DataSchemaSubtype::String(StringSchema {
                                             max_length: None
                                         })),
+                                        // TODO
+                                        other: Nil,
                                     },
                                     DataSchema {
                                         attype: None,
@@ -2796,6 +2891,8 @@ mod tests {
                                             maximum: None,
                                             minimum: None,
                                         })),
+                                        // TODO
+                                        other: Nil,
                                     },
                                 ]),
                                 enumeration: None,
@@ -2803,13 +2900,19 @@ mod tests {
                                 write_only: false,
                                 format: None,
                                 subtype: None,
+                                // TODO
+                                other: Nil,
                             }
                         ),]
                         .into_iter()
                         .collect()
                     ),
-                    required: Some(vec!["hello".to_string()])
+                    required: Some(vec!["hello".to_string()]),
+                    // TODO
+                    other: Nil,
                 })),
+                // TODO
+                other: Nil,
             },
         );
     }

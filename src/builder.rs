@@ -7,12 +7,15 @@ use std::{borrow::Cow, collections::HashMap, fmt, ops::Not};
 use serde_json::Value;
 use time::OffsetDateTime;
 
-use crate::thing::{
-    ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchema,
-    DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
-    KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme, PskSecurityScheme,
-    QualityOfProtection, SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype,
-    Thing, UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
+use crate::{
+    hlist::Nil,
+    thing::{
+        ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchema,
+        DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
+        KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme, PskSecurityScheme,
+        QualityOfProtection, SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype,
+        Thing, UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
+    },
 };
 
 use self::{
@@ -287,6 +290,8 @@ impl ThingBuilder {
             security_definitions,
             uri_variables,
             profile,
+            // TODO
+            other: Nil,
         })
     }
 
@@ -350,6 +355,8 @@ impl ThingBuilder {
             security,
             scopes,
             response,
+            // TODO
+            other: Nil,
         })
     }
 
@@ -1245,14 +1252,11 @@ impl<T> FormBuilder<T> {
     ///
     /// It is optional if the input and output metadata are the same, e.g. the content_type
     /// matches.
-    pub fn response(
-        mut self,
-        content_type: impl Into<String>,
-        other_fields: impl Into<Value>,
-    ) -> Self {
+    pub fn response(mut self, content_type: impl Into<String>) -> Self {
         self.response = Some(ExpectedResponse {
             content_type: content_type.into(),
-            other: other_fields.into(),
+            // TODO
+            other: Nil,
         });
         self
     }
@@ -1282,6 +1286,8 @@ impl From<FormBuilder<String>> for Form {
             security,
             scopes,
             response,
+            // TODO
+            other: Nil,
         }
     }
 }
@@ -2135,6 +2141,8 @@ mod tests {
                     security: Default::default(),
                     scopes: Default::default(),
                     response: Default::default(),
+                    // TODO
+                    other: Nil,
                 }]),
                 ..Thing::empty()
             }
@@ -2163,6 +2171,8 @@ mod tests {
                     security: Default::default(),
                     scopes: Default::default(),
                     response: Default::default(),
+                    // TODO
+                    other: Nil,
                 }]),
                 uri_variables: Some(
                     [(
@@ -2183,7 +2193,9 @@ mod tests {
                             subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                                 maximum: None,
                                 minimum: None,
-                            }))
+                            })),
+                            // TODO
+                            other: Nil,
                         }
                     )]
                     .into_iter()
@@ -2206,15 +2218,7 @@ mod tests {
                     .security("basic")
                     .scope("scope1")
                     .scope("scope2")
-                    .response(
-                        "application/json",
-                        json!({
-                            "response": {
-                                "test1": 1,
-                                "test2": "2",
-                            },
-                        }),
-                    )
+                    .response("application/json")
             })
             .security(|b| b.digest())
             .security(|b| b.basic())
@@ -2236,13 +2240,11 @@ mod tests {
                     scopes: Some(vec!["scope1".to_string(), "scope2".to_string()]),
                     response: Some(ExpectedResponse {
                         content_type: "application/json".to_string(),
-                        other: json!({
-                            "response": {
-                                "test1": 1,
-                                "test2": "2",
-                            },
-                        })
+                        // TODO
+                        other: Nil,
                     }),
+                    // TODO
+                    other: Nil,
                 }]),
                 security_definitions: [
                     (
@@ -2305,6 +2307,8 @@ mod tests {
                     security: Default::default(),
                     scopes: Default::default(),
                     response: Default::default(),
+                    // TODO
+                    other: Nil,
                 }]),
                 ..Thing::empty()
             }
@@ -2385,7 +2389,9 @@ mod tests {
                                     read_only: false,
                                     write_only: false,
                                     format: None,
-                                    subtype: Some(DataSchemaSubtype::Boolean)
+                                    subtype: Some(DataSchemaSubtype::Boolean),
+                                    // TODO
+                                    other: Nil,
                                 },
                                 observable: Some(true),
                             }
@@ -2415,7 +2421,9 @@ mod tests {
                                     read_only: false,
                                     write_only: false,
                                     format: None,
-                                    subtype: Some(DataSchemaSubtype::Null)
+                                    subtype: Some(DataSchemaSubtype::Null),
+                                    // TODO
+                                    other: Nil,
                                 },
                                 observable: None,
                             }
@@ -2490,7 +2498,9 @@ mod tests {
                                     read_only: false,
                                     write_only: false,
                                     format: None,
-                                    subtype: Some(DataSchemaSubtype::Null)
+                                    subtype: Some(DataSchemaSubtype::Null),
+                                    // TODO
+                                    other: Nil,
                                 }),
                                 output: None,
                                 safe: false,
@@ -2567,7 +2577,9 @@ mod tests {
                                     read_only: false,
                                     write_only: false,
                                     format: None,
-                                    subtype: Some(DataSchemaSubtype::Null)
+                                    subtype: Some(DataSchemaSubtype::Null),
+                                    // TODO
+                                    other: Nil,
                                 }),
                                 data_response: None,
                             }
@@ -2614,7 +2626,9 @@ mod tests {
                                     subprotocol: None,
                                     security: Some(vec!["basic".to_owned()]),
                                     scopes: None,
-                                    response: None
+                                    response: None,
+                                    // TODO
+                                    other: Nil,
                                 }],
                                 uri_variables: None,
                             },
@@ -2631,7 +2645,9 @@ mod tests {
                                 read_only: false,
                                 write_only: false,
                                 format: None,
-                                subtype: Some(DataSchemaSubtype::Boolean)
+                                subtype: Some(DataSchemaSubtype::Boolean),
+                                // TODO
+                                other: Nil,
                             },
                             observable: None,
                         }

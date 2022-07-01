@@ -2,9 +2,12 @@ use std::{collections::HashMap, ops::Not};
 
 use serde_json::Value;
 
-use crate::thing::{
-    ActionAffordance, DataSchema, EventAffordance, Form, InteractionAffordance, PropertyAffordance,
-    SecurityScheme,
+use crate::{
+    hlist::Nil,
+    thing::{
+        ActionAffordance, DataSchema, EventAffordance, Form, InteractionAffordance,
+        PropertyAffordance, SecurityScheme,
+    },
 };
 
 use super::{
@@ -589,6 +592,8 @@ where
             write_only,
             format,
             subtype,
+            // TODO
+            other: Nil,
         };
 
         Self {
@@ -803,6 +808,7 @@ mod test {
         builder::data_schema::{
             BuildableDataSchema, NumberDataSchemaBuilderLike, PartialDataSchemaBuilder,
         },
+        hlist::Nil,
         thing::{
             DataSchemaSubtype, DefaultedFormOperations, FormOperation, IntegerSchema, NumberSchema,
             StringSchema,
@@ -874,6 +880,8 @@ mod test {
                         security: None,
                         scopes: None,
                         response: None,
+                        // TODO
+                        other: Nil,
                     },
                     Form {
                         op: DefaultedFormOperations::Custom(vec![
@@ -887,6 +895,8 @@ mod test {
                         security: None,
                         scopes: None,
                         response: None,
+                        // TODO
+                        other: Nil,
                     },
                 ],
                 uri_variables: Some(
@@ -910,7 +920,9 @@ mod test {
                                     maximum: None,
                                     minimum: None,
                                     multiple_of: None,
-                                }))
+                                })),
+                                // TODO
+                                other: Nil,
                             },
                         ),
                         (
@@ -931,7 +943,9 @@ mod test {
                                 subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                                     maximum: None,
                                     minimum: None,
-                                }))
+                                })),
+                                // TODO
+                                other: Nil,
                             },
                         ),
                     ]
@@ -976,6 +990,8 @@ mod test {
                         security: None,
                         scopes: None,
                         response: None,
+                        // TODO
+                        other: Nil,
                     }],
                     uri_variables: Some(
                         [(
@@ -994,6 +1010,8 @@ mod test {
                                 write_only: false,
                                 format: None,
                                 subtype: Some(DataSchemaSubtype::Boolean),
+                                // TODO
+                                other: Nil,
                             }
                         )]
                         .into_iter()
@@ -1017,7 +1035,9 @@ mod test {
                         maximum: None,
                         minimum: Some(0.),
                         multiple_of: None,
-                    }))
+                    })),
+                    // TODO
+                    other: Nil,
                 },
                 observable: Some(true),
             },
@@ -1057,6 +1077,8 @@ mod test {
                         security: None,
                         scopes: None,
                         response: None,
+                        // TODO
+                        other: Nil,
                     }],
                     uri_variables: None,
                 },
@@ -1074,6 +1096,8 @@ mod test {
                     write_only: true,
                     format: None,
                     subtype: None,
+                    // TODO
+                    other: Nil,
                 },
                 observable: Some(true),
             },
@@ -1112,6 +1136,8 @@ mod test {
                         security: None,
                         scopes: None,
                         response: None,
+                        // TODO
+                        other: Nil,
                     }],
                     uri_variables: None,
                 },
@@ -1141,7 +1167,9 @@ mod test {
                                 maximum: None,
                                 minimum: None,
                                 multiple_of: None,
-                            }))
+                            })),
+                            // TODO
+                            other: Nil,
                         },
                         DataSchema {
                             attype: None,
@@ -1159,7 +1187,9 @@ mod test {
                             subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                                 maximum: None,
                                 minimum: None,
-                            }))
+                            })),
+                            // TODO
+                            other: Nil,
                         },
                     ]),
                     enumeration: None,
@@ -1167,6 +1197,8 @@ mod test {
                     write_only: false,
                     format: None,
                     subtype: None,
+                    // TODO
+                    other: Nil,
                 },
                 observable: Some(true),
             },
@@ -1203,6 +1235,8 @@ mod test {
                         security: None,
                         scopes: None,
                         response: None,
+                        // TODO
+                        other: Nil,
                     }],
                     uri_variables: None,
                 },
@@ -1223,7 +1257,9 @@ mod test {
                         maximum: None,
                         minimum: Some(0.),
                         multiple_of: None,
-                    }))
+                    })),
+                    // TODO
+                    other: Nil,
                 }),
                 output: None,
                 safe: true,
@@ -1266,6 +1302,8 @@ mod test {
                         security: None,
                         scopes: None,
                         response: None,
+                        // TODO
+                        other: Nil,
                     }],
                     uri_variables: None,
                 },
@@ -1286,7 +1324,9 @@ mod test {
                         maximum: None,
                         minimum: Some(0.),
                         multiple_of: None,
-                    }))
+                    })),
+                    // TODO
+                    other: Nil,
                 }),
                 output: Some(DataSchema {
                     attype: None,
@@ -1305,7 +1345,9 @@ mod test {
                         maximum: None,
                         minimum: Some(0.),
                         multiple_of: None,
-                    }))
+                    })),
+                    // TODO
+                    other: Nil,
                 }),
                 safe: true,
                 idempotent: true,
@@ -1343,6 +1385,8 @@ mod test {
                         security: None,
                         scopes: None,
                         response: None,
+                        // TODO
+                        other: Nil,
                     }],
                     uri_variables: None,
                 },
@@ -1364,7 +1408,9 @@ mod test {
                         maximum: None,
                         minimum: Some(0.),
                         multiple_of: None,
-                    }))
+                    })),
+                    // TODO
+                    other: Nil,
                 }),
                 cancellation: None,
                 data_response: None,
@@ -1404,6 +1450,8 @@ mod test {
                         security: None,
                         scopes: None,
                         response: None,
+                        // TODO
+                        other: Nil,
                     }],
                     uri_variables: None,
                 },
@@ -1420,7 +1468,9 @@ mod test {
                     read_only: false,
                     write_only: false,
                     format: None,
-                    subtype: Some(DataSchemaSubtype::Boolean)
+                    subtype: Some(DataSchemaSubtype::Boolean),
+                    // TODO
+                    other: Nil,
                 }),
                 data: Some(DataSchema {
                     attype: None,
@@ -1439,7 +1489,9 @@ mod test {
                         maximum: None,
                         minimum: Some(0.),
                         multiple_of: None,
-                    }))
+                    })),
+                    // TODO
+                    other: Nil,
                 }),
                 cancellation: Some(DataSchema {
                     attype: None,
@@ -1457,7 +1509,9 @@ mod test {
                     subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                         maximum: None,
                         minimum: None,
-                    }))
+                    })),
+                    // TODO
+                    other: Nil,
                 }),
                 data_response: Some(DataSchema {
                     attype: None,
@@ -1472,7 +1526,9 @@ mod test {
                     read_only: false,
                     write_only: false,
                     format: None,
-                    subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None }))
+                    subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
+                    // TODO
+                    other: Nil,
                 }),
             },
         );
