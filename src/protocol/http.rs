@@ -34,20 +34,119 @@ struct Form {
     method_name: Option<Method>,
 }
 
+use mini::{Buildable, Builder};
+
+#[derive(Default)]
+struct ResponseBuilder {
+    headers: Vec<MessageHeader>,
+    status_code_value: Option<usize>,
+}
+
+impl ResponseBuilder {
+    pub fn headers(mut self, header: MessageHeader) -> Self {
+        self.headers.push(header);
+        self
+    }
+    pub fn status_code_value(mut self, value: usize) -> Self {
+        self.status_code_value = Some(value);
+        self
+    }
+}
+
+impl Builder for ResponseBuilder {
+    type B = Response;
+
+    fn build(self) -> Response {
+        let ResponseBuilder {
+            headers,
+            status_code_value,
+        } = self;
+        Response {
+            headers,
+            status_code_value,
+        }
+    }
+}
+
+impl Buildable for Response {
+    type B = ResponseBuilder;
+
+    fn builder() -> ResponseBuilder {
+        ResponseBuilder::default()
+    }
+}
+
+#[derive(Default)]
+struct FormBuilder {
+    method_name: Option<Method>,
+}
+
+impl FormBuilder {
+    pub fn method(mut self, method_name: Method) -> Self {
+        self.method_name = Some(method_name);
+
+        self
+    }
+}
+
+impl Builder for FormBuilder {
+    type B = Form;
+
+    fn build(self) -> Form {
+        let FormBuilder { method_name } = self;
+
+        Form { method_name }
+    }
+}
+
+impl Buildable for Form {
+    type B = FormBuilder;
+
+    fn builder() -> FormBuilder {
+        FormBuilder::default()
+    }
+}
+
 // TODO: figure out what's wrong with with_prefix
 
 pub(crate) mod mini {
-    use crate::hlist::{Cons, Nil};
-    use std::{borrow::Cow, collections::HashMap};
-
+    use crate::hlist::Nil;
     use crate::thing::DefaultedFormOperations;
     use serde::{Deserialize, Serialize};
-    use serde_json::Value;
     use serde_with::*;
+    use std::borrow::Cow;
+
+    pub trait Builder: Default {
+        type B: Buildable;
+
+        fn build(self) -> Self::B;
+    }
+
+    pub trait Buildable: Default {
+        type B: Builder;
+
+        fn builder() -> Self::B;
+    }
+
+    impl Builder for Nil {
+        type B = Nil;
+
+        fn build(self) -> Nil {
+            Nil
+        }
+    }
+
+    impl Buildable for Nil {
+        type B = Nil;
+
+        fn builder() -> Nil {
+            Nil
+        }
+    }
 
     #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct AdditionalExpectedResponse<T: Default + Clone = HashMap<String, Value>> {
+    pub struct AdditionalExpectedResponse<T: Buildable = Nil> {
         #[serde(default)]
         pub success: bool,
         pub content_type: String,
@@ -56,44 +155,62 @@ pub(crate) mod mini {
         pub other: T,
     }
 
-    impl<T: Default + Clone> AdditionalExpectedResponse<Cons<T, Nil>> {
-        pub fn extend<U: Default + Clone>(
-            self,
-            e: U,
-        ) -> AdditionalExpectedResponse<Cons<U, Cons<T, Nil>>> {
-            let Self {
-                success,
-                content_type,
-                other,
-            } = self;
-
-            let other = other.add(e);
-
-            AdditionalExpectedResponse {
-                success,
-                content_type,
-                other,
-            }
-        }
-    }
-
-    #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+    #[derive(Default, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct ExpectedResponse<T: Default + Clone = HashMap<String, Value>> {
+    pub struct ExpectedResponse<T: Buildable = Nil> {
         pub content_type: String,
 
         #[serde(flatten)]
         pub other: T,
     }
 
-    impl<T: Default + Clone> ExpectedResponse<Cons<T, Nil>> {
-        pub fn extend<U: Default + Clone>(self, e: U) -> ExpectedResponse<Cons<U, Cons<T, Nil>>> {
+    #[derive(Default)]
+    pub struct ExpectedResponseBuilder<T: Builder = Nil> {
+        pub content_type: String,
+        pub other: T,
+    }
+
+    impl<T: Builder> ExpectedResponseBuilder<T> {
+        pub fn content_type(mut self, ty: impl Into<String>) -> Self {
+            self.content_type = ty.into();
+            self
+        }
+
+        pub fn other(self, f: fn(T) -> T) -> Self {
             let Self {
                 content_type,
                 other,
             } = self;
+            let other = f(other);
 
-            let other = other.add(e);
+            Self {
+                content_type,
+                other,
+            }
+        }
+    }
+
+    impl<T> Buildable for ExpectedResponse<T>
+    where
+        T: Buildable,
+        <T as Buildable>::B: Builder,
+    {
+        type B = ExpectedResponseBuilder<T::B>;
+
+        fn builder() -> Self::B {
+            ExpectedResponseBuilder::default()
+        }
+    }
+
+    impl<T: Builder> Builder for ExpectedResponseBuilder<T> {
+        type B = ExpectedResponse<T::B>;
+
+        fn build(self) -> Self::B {
+            let ExpectedResponseBuilder {
+                content_type,
+                other,
+            } = self;
+            let other = other.build();
 
             ExpectedResponse {
                 content_type,
@@ -106,17 +223,14 @@ pub(crate) mod mini {
     #[skip_serializing_none]
     #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct Form<
-        T: Default + Clone = HashMap<String, Value>,
-        E: Default + Clone = HashMap<String, Value>,
-    > {
+    pub struct Form<T: Buildable = Nil, E: Buildable = Nil> {
         #[serde(default)]
         pub op: DefaultedFormOperations,
 
         // FIXME: use AnyURI
         pub href: String,
 
-        #[serde(default = "Form::<()>::default_content_type")]
+        #[serde(default = "Form::<Nil>::default_content_type")]
         pub content_type: Cow<'static, str>,
 
         // TODO: check if the subset of possible values is limited by the [IANA HTTP content coding
@@ -142,47 +256,9 @@ pub(crate) mod mini {
         pub other: T,
     }
 
-    impl<T: Default + Clone> Form<T> {
+    impl<T: Buildable> Form<T> {
         pub(crate) const fn default_content_type() -> Cow<'static, str> {
             Cow::Borrowed("application/json")
-        }
-    }
-
-    impl<T: Default + Clone, E: Default + Clone> Form<Cons<T, Nil>, Cons<E, Nil>> {
-        pub fn extend<U: Default + Clone, F: Default + Clone>(
-            self,
-            u: U,
-            f: F,
-        ) -> Form<Cons<U, Cons<T, Nil>>, Cons<F, Cons<E, Nil>>> {
-            let Self {
-                op,
-                href,
-                content_type,
-                content_coding,
-                subprotocol,
-                security,
-                scopes,
-                response,
-                additional_response,
-                other,
-            } = self;
-
-            let other = other.add(u);
-            let response = response.map(|e| e.extend(f.clone()));
-            let additional_response = additional_response.map(|e| e.extend(f));
-
-            Form {
-                op,
-                href,
-                content_type,
-                content_coding,
-                subprotocol,
-                security,
-                scopes,
-                response,
-                additional_response,
-                other,
-            }
         }
     }
 
@@ -190,11 +266,11 @@ pub(crate) mod mini {
     #[skip_serializing_none]
     #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
     #[serde(rename_all = "camelCase")]
-    pub struct InteractionAffordance<T, F, R>
+    pub struct InteractionAffordance<T = Nil, F = Nil, R = Nil>
     where
-        T: Default + Clone,
-        F: Default + Clone,
-        R: Default + Clone,
+        T: Buildable,
+        F: Buildable,
+        R: Buildable,
     {
         #[serde(rename = "@type", default)]
         #[serde_as(as = "Option<OneOrMany<_>>")]
@@ -216,6 +292,22 @@ mod test {
     use super::*;
     use crate::hlist::{Cons, Nil};
 
+    #[test]
+    fn build_response() {
+        let b = mini::ExpectedResponse::<Nil>::builder()
+            .content_type("text/foo")
+            .build();
+
+        dbg!(&b);
+
+        let b = mini::ExpectedResponse::<super::Response>::builder()
+            .content_type("text/bar")
+            .other(|v| v.status_code_value(201))
+            .build();
+
+        dbg!(&b);
+    }
+
     fn deserialize_form(s: &str) {
         let f: super::Form = serde_json::from_str(s).unwrap();
 
@@ -229,9 +321,9 @@ mod test {
 
         dbg!(&f);
 
-        let f: mini::Form<Cons<super::Form, Nil>> = serde_json::from_str(s).unwrap();
+        //        let f: mini::Form<Cons<super::Form, Nil>> = serde_json::from_str(s).unwrap();
 
-        dbg!(&f);
+        //        dbg!(&f);
 
         let f: mini::Form<super::Form, super::Response> = serde_json::from_str(s).unwrap();
 
