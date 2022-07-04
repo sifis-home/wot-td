@@ -7,7 +7,7 @@
 //!
 //! [Interaction Affordance]: https://www.w3.org/TR/wot-thing-description/#interactionaffordance
 
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, fmt};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -17,8 +17,8 @@ use time::OffsetDateTime;
 use crate::{
     builder::ThingBuilder,
     extend::{
-        ExtendableDataSchema, ExtendableForm, ExtendableInteractionAffordance,
-        ExtendableObjectSchema, ExtendablePropertyAffordance, ForwardExtendableThing,
+        ExtendableAffordance, ExtendableArraySchema, ExtendableDataSchema, ExtendableForm,
+        ExtendableInteractionAffordance, ExtendableObjectSchema, ForwardExtendableThing,
     },
     hlist::Nil,
 };
@@ -34,7 +34,7 @@ pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
 /// It contains metadata and a description of its interfaces.
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Thing<Other: ForwardExtendableThing = Nil> {
     // The context can be arbitrarily complex
@@ -96,10 +96,10 @@ pub struct Thing<Other: ForwardExtendableThing = Nil> {
         Option<HashMap<String, PropertyAffordance<Other::ExtendablePropertyAffordance>>>,
 
     /// Action-based [Interaction Affordances]
-    pub actions: Option<HashMap<String, ActionAffordance>>,
+    pub actions: Option<HashMap<String, ActionAffordance<Other::ExtendableActionAffordance>>>,
 
     /// Event-based [Interaction Affordances]
-    pub events: Option<HashMap<String, EventAffordance>>,
+    pub events: Option<HashMap<String, EventAffordance<Other::ExtendableEventAffordance>>>,
 
     /// Arbitrary resources that relate to the current Thing
     ///
@@ -133,6 +133,80 @@ pub struct Thing<Other: ForwardExtendableThing = Nil> {
     pub other: Other::Item,
 }
 
+impl<Other> fmt::Debug for Thing<Other>
+where
+    Other: ForwardExtendableThing,
+    PropertyAffordance<Other::ExtendablePropertyAffordance>: fmt::Debug,
+    ActionAffordance<Other::ExtendableActionAffordance>: fmt::Debug,
+    EventAffordance<Other::ExtendableEventAffordance>: fmt::Debug,
+    Form<Other::ExtendableForm>: fmt::Debug,
+    DataSchema<Other::ExtendableDataSchema>: fmt::Debug,
+    Other::Item: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Thing")
+            .field("context", &self.context)
+            .field("id", &self.id)
+            .field("attype", &self.attype)
+            .field("title", &self.title)
+            .field("titles", &self.titles)
+            .field("description", &self.description)
+            .field("descriptions", &self.descriptions)
+            .field("version", &self.version)
+            .field("created", &self.created)
+            .field("modified", &self.modified)
+            .field("support", &self.support)
+            .field("base", &self.base)
+            .field("properties", &self.properties)
+            .field("actions", &self.actions)
+            .field("events", &self.events)
+            .field("links", &self.links)
+            .field("forms", &self.forms)
+            .field("security", &self.security)
+            .field("security_definitions", &self.security_definitions)
+            .field("uri_variables", &self.uri_variables)
+            .field("profile", &self.profile)
+            .field("other", &self.other)
+            .finish()
+    }
+}
+
+impl<Other> PartialEq for Thing<Other>
+where
+    Other: ForwardExtendableThing,
+    PropertyAffordance<Other::ExtendablePropertyAffordance>: PartialEq,
+    ActionAffordance<Other::ExtendableActionAffordance>: PartialEq,
+    EventAffordance<Other::ExtendableEventAffordance>: PartialEq,
+    Form<Other::ExtendableForm>: PartialEq,
+    DataSchema<Other::ExtendableDataSchema>: PartialEq,
+    Other::Item: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.context == other.context
+            && self.id == other.id
+            && self.attype == other.attype
+            && self.title == other.title
+            && self.titles == other.titles
+            && self.description == other.description
+            && self.descriptions == other.descriptions
+            && self.version == other.version
+            && self.created == other.created
+            && self.modified == other.modified
+            && self.support == other.support
+            && self.base == other.base
+            && self.properties == other.properties
+            && self.actions == other.actions
+            && self.events == other.events
+            && self.links == other.links
+            && self.forms == other.forms
+            && self.security == other.security
+            && self.security_definitions == other.security_definitions
+            && self.uri_variables == other.uri_variables
+            && self.profile == other.profile
+            && self.other == other.other
+    }
+}
+
 fn default_context() -> Value {
     TD_CONTEXT_11.into()
 }
@@ -147,7 +221,7 @@ impl Thing<Nil> {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InteractionAffordance<Other: ExtendableInteractionAffordance = Nil> {
     #[serde(rename = "@type", default)]
@@ -167,9 +241,26 @@ pub struct InteractionAffordance<Other: ExtendableInteractionAffordance = Nil> {
     pub uri_variables: Option<DataSchemaMap<Other::ExtendableDataSchema>>,
 }
 
+impl<Other> PartialEq for InteractionAffordance<Other>
+where
+    Other: ExtendableInteractionAffordance,
+    Form<Other::ExtendableForm>: PartialEq,
+    DataSchema<Other::ExtendableDataSchema>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.attype == other.attype
+            && self.title == other.title
+            && self.titles == other.titles
+            && self.description == other.description
+            && self.descriptions == other.descriptions
+            && self.forms == other.forms
+            && self.uri_variables == other.uri_variables
+    }
+}
+
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct PropertyAffordance<Other: ExtendablePropertyAffordance = Nil> {
+#[derive(Deserialize, Serialize)]
+pub struct PropertyAffordance<Other: ExtendableAffordance = Nil> {
     #[serde(flatten)]
     pub interaction: InteractionAffordance<Other::ExtendableInteractionAffordance>,
 
@@ -179,15 +270,28 @@ pub struct PropertyAffordance<Other: ExtendablePropertyAffordance = Nil> {
     pub observable: Option<bool>,
 }
 
+impl<Other> PartialEq for PropertyAffordance<Other>
+where
+    Other: ExtendableAffordance,
+    InteractionAffordance<Other::ExtendableInteractionAffordance>: PartialEq,
+    DataSchema<Other::ExtendableDataSchema>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.interaction == other.interaction
+            && self.data_schema == other.data_schema
+            && self.observable == other.observable
+    }
+}
+
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ActionAffordance {
+#[derive(Deserialize, Serialize)]
+pub struct ActionAffordance<Other: ExtendableAffordance = Nil> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<Other::ExtendableInteractionAffordance>,
 
-    pub input: Option<DataSchema>,
+    pub input: Option<DataSchema<Other::ExtendableDataSchema>>,
 
-    pub output: Option<DataSchema>,
+    pub output: Option<DataSchema<Other::ExtendableDataSchema>>,
 
     #[serde(default)]
     pub safe: bool,
@@ -198,19 +302,68 @@ pub struct ActionAffordance {
     pub synchronous: Option<bool>,
 }
 
+impl<Other> fmt::Debug for ActionAffordance<Other>
+where
+    Other: ExtendableAffordance,
+    InteractionAffordance<Other::ExtendableInteractionAffordance>: fmt::Debug,
+    DataSchema<Other::ExtendableDataSchema>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ActionAffordance")
+            .field("interaction", &self.interaction)
+            .field("input", &self.input)
+            .field("output", &self.output)
+            .field("safe", &self.safe)
+            .field("idempotent", &self.idempotent)
+            .field("synchronous", &self.synchronous)
+            .finish()
+    }
+}
+
+impl<Other> PartialEq for ActionAffordance<Other>
+where
+    Other: ExtendableAffordance,
+    InteractionAffordance<Other::ExtendableInteractionAffordance>: PartialEq,
+    DataSchema<Other::ExtendableDataSchema>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.interaction == other.interaction
+            && self.input == other.input
+            && self.output == other.output
+            && self.safe == other.safe
+            && self.idempotent == other.idempotent
+            && self.synchronous == other.synchronous
+    }
+}
+
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct EventAffordance {
+#[derive(Deserialize, Serialize)]
+pub struct EventAffordance<Other: ExtendableAffordance = Nil> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<Other::ExtendableInteractionAffordance>,
 
-    pub subscription: Option<DataSchema>,
+    pub subscription: Option<DataSchema<Other::ExtendableDataSchema>>,
 
-    pub data: Option<DataSchema>,
+    pub data: Option<DataSchema<Other::ExtendableDataSchema>>,
 
-    pub data_response: Option<DataSchema>,
+    pub data_response: Option<DataSchema<Other::ExtendableDataSchema>>,
 
-    pub cancellation: Option<DataSchema>,
+    pub cancellation: Option<DataSchema<Other::ExtendableDataSchema>>,
+}
+
+impl<Other> PartialEq for EventAffordance<Other>
+where
+    Other: ExtendableAffordance,
+    InteractionAffordance<Other::ExtendableInteractionAffordance>: PartialEq,
+    DataSchema<Other::ExtendableDataSchema>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.interaction == other.interaction
+            && self.subscription == other.subscription
+            && self.data == other.data
+            && self.data_response == other.data_response
+            && self.cancellation == other.cancellation
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -235,7 +388,7 @@ where
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSchema<Other: ExtendableDataSchema = Nil> {
     #[serde(rename = "@type", default)]
@@ -255,7 +408,7 @@ pub struct DataSchema<Other: ExtendableDataSchema = Nil> {
 
     pub unit: Option<String>,
 
-    pub one_of: Option<Vec<DataSchema>>,
+    pub one_of: Option<Vec<DataSchema<Other>>>,
 
     #[serde(rename = "enum")]
     pub enumeration: Option<Vec<Value>>,
@@ -269,36 +422,149 @@ pub struct DataSchema<Other: ExtendableDataSchema = Nil> {
     pub format: Option<String>,
 
     #[serde(flatten)]
-    pub subtype: Option<DataSchemaSubtype>,
+    pub subtype: Option<DataSchemaSubtype<Other>>,
 
     #[serde(flatten)]
     pub other: Other::Item,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+impl<Other> fmt::Debug for DataSchema<Other>
+where
+    Other: ExtendableDataSchema,
+    Other::Item: fmt::Debug,
+    DataSchemaSubtype<Other>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DataSchema")
+            .field("attype", &self.attype)
+            .field("title", &self.title)
+            .field("titles", &self.titles)
+            .field("description", &self.description)
+            .field("descriptions", &self.descriptions)
+            .field("constant", &self.constant)
+            .field("unit", &self.unit)
+            .field("one_of", &self.one_of)
+            .field("enumeration", &self.enumeration)
+            .field("read_only", &self.read_only)
+            .field("write_only", &self.write_only)
+            .field("format", &self.format)
+            .field("subtype", &self.subtype)
+            .field("other", &self.other)
+            .finish()
+    }
+}
+
+impl<Other> PartialEq for DataSchema<Other>
+where
+    Other: ExtendableDataSchema,
+    Other::Item: PartialEq,
+    DataSchemaSubtype<Other>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.attype == other.attype
+            && self.title == other.title
+            && self.titles == other.titles
+            && self.description == other.description
+            && self.descriptions == other.descriptions
+            && self.constant == other.constant
+            && self.unit == other.unit
+            && self.one_of == other.one_of
+            && self.enumeration == other.enumeration
+            && self.read_only == other.read_only
+            && self.write_only == other.write_only
+            && self.format == other.format
+            && self.subtype == other.subtype
+            && self.other == other.other
+    }
+}
+
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
-pub enum DataSchemaSubtype {
-    Array(ArraySchema),
+pub enum DataSchemaSubtype<Other: ExtendableDataSchema = Nil> {
+    Array(ArraySchema<Other::ExtendableArraySchema>),
     Boolean,
     Number(NumberSchema),
     Integer(IntegerSchema),
-    Object(ObjectSchema),
+    Object(ObjectSchema<Other::ExtendableObjectSchema>),
     String(StringSchema),
     #[default]
     Null,
 }
 
+impl<Other> fmt::Debug for DataSchemaSubtype<Other>
+where
+    Other: ExtendableDataSchema,
+    ArraySchema<Other::ExtendableArraySchema>: fmt::Debug,
+    ObjectSchema<Other::ExtendableObjectSchema>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Array(arg0) => f.debug_tuple("Array").field(arg0).finish(),
+            Self::Boolean => write!(f, "Boolean"),
+            Self::Number(arg0) => f.debug_tuple("Number").field(arg0).finish(),
+            Self::Integer(arg0) => f.debug_tuple("Integer").field(arg0).finish(),
+            Self::Object(arg0) => f.debug_tuple("Object").field(arg0).finish(),
+            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
+            Self::Null => write!(f, "Null"),
+        }
+    }
+}
+
+impl<Other> PartialEq for DataSchemaSubtype<Other>
+where
+    Other: ExtendableDataSchema,
+    ArraySchema<Other::ExtendableArraySchema>: PartialEq,
+    ObjectSchema<Other::ExtendableObjectSchema>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Array(l0), Self::Array(r0)) => l0 == r0,
+            (Self::Number(l0), Self::Number(r0)) => l0 == r0,
+            (Self::Integer(l0), Self::Integer(r0)) => l0 == r0,
+            (Self::Object(l0), Self::Object(r0)) => l0 == r0,
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
+}
+
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ArraySchema {
+#[derive(Deserialize, Serialize)]
+pub struct ArraySchema<Other: ExtendableArraySchema = Nil> {
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub items: Option<Vec<DataSchema>>,
+    pub items: Option<Vec<DataSchema<Other::DataSchema>>>,
 
     pub min_items: Option<u32>,
 
     pub max_items: Option<u32>,
+}
+
+impl<Other> fmt::Debug for ArraySchema<Other>
+where
+    Other: ExtendableArraySchema,
+    DataSchema<Other::DataSchema>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ArraySchema")
+            .field("items", &self.items)
+            .field("min_items", &self.min_items)
+            .field("max_items", &self.max_items)
+            .finish()
+    }
+}
+
+impl<Other> PartialEq for ArraySchema<Other>
+where
+    Other: ExtendableArraySchema,
+    DataSchema<Other::DataSchema>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.items == other.items
+            && self.min_items == other.min_items
+            && self.max_items == other.max_items
+    }
 }
 
 #[skip_serializing_none]
@@ -322,14 +588,41 @@ pub struct IntegerSchema {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct ObjectSchema<Other: ExtendableObjectSchema = Nil> {
-    pub properties: Option<DataSchemaMap<Other::ExtendableDataSchema>>,
+    pub properties: Option<DataSchemaMap<Other::DataSchema>>,
 
     pub required: Option<Vec<String>>,
 
     #[serde(flatten)]
     pub other: Other::Item,
+}
+
+impl<Other> fmt::Debug for ObjectSchema<Other>
+where
+    Other: ExtendableObjectSchema,
+    Other::DataSchema: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ObjectSchema")
+            .field("properties", &self.properties)
+            .field("required", &self.required)
+            .field("other", &self.other)
+            .finish()
+    }
+}
+
+impl<Other> PartialEq for ObjectSchema<Other>
+where
+    Other: ExtendableObjectSchema,
+    Other::Item: PartialEq,
+    DataSchema<Other::DataSchema>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.properties == other.properties
+            && self.required == other.required
+            && self.other == other.other
+    }
 }
 
 #[skip_serializing_none]
@@ -569,8 +862,14 @@ pub struct Link {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(
+    rename_all = "camelCase",
+    bound(
+        serialize = "Other::Item: Serialize",
+        deserialize = "Other::Item: Deserialize<'de>"
+    )
+)]
 pub struct Form<Other: ExtendableForm = Nil> {
     #[serde(default)]
     pub op: DefaultedFormOperations,
@@ -599,6 +898,33 @@ pub struct Form<Other: ExtendableForm = Nil> {
 
     #[serde(flatten)]
     pub other: Other::Item,
+}
+
+impl<Other> Clone for Form<Other>
+where
+    Other: ExtendableForm,
+    Other::Item: Clone,
+    ExpectedResponse<Other::ExpectedResponse>: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            op: self.op.clone(),
+            href: self.href.clone(),
+            content_type: self.content_type.clone(),
+            content_coding: self.content_coding.clone(),
+            subprotocol: self.subprotocol.clone(),
+            security: self.security.clone(),
+            scopes: self.scopes.clone(),
+            response: self.response.clone(),
+            other: self.other.clone(),
+        }
+    }
+}
+
+impl Form {
+    pub(crate) const fn default_content_type() -> Cow<'static, str> {
+        Cow::Borrowed("application/json")
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
