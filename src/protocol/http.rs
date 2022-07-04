@@ -345,13 +345,13 @@ pub(crate) mod mini {
         pub other: T,
     }
 
-    impl<T: Buildable> Form<T> {
+    impl<T: Buildable, E: Buildable> Form<T, E> {
         pub(crate) const fn default_content_type() -> Cow<'static, str> {
             Cow::Borrowed("application/json")
         }
     }
 
-    impl<T: Buildable> Default for Form<T> {
+    impl<T: Buildable, E: Buildable> Default for Form<T, E> {
         fn default() -> Self {
             Self {
                 op: Default::default(),
@@ -364,6 +364,129 @@ pub(crate) mod mini {
                 response: Default::default(),
                 additional_response: Default::default(),
                 other: Default::default(),
+            }
+        }
+    }
+
+    impl<T, E> Buildable for Form<T, E>
+    where
+        T: Buildable,
+        <T as Buildable>::B: Builder,
+        E: Buildable,
+        <E as Buildable>::B: Builder,
+    {
+        type B = FormBuilder<T::B, E::B>;
+
+        fn builder() -> Self::B {
+            FormBuilder::default()
+        }
+    }
+
+    pub struct FormBuilder<T: Builder, E: Builder> {
+        pub op: DefaultedFormOperations,
+        pub href: String,
+        pub content_type: Cow<'static, str>,
+        pub content_coding: Option<String>,
+        pub subprotocol: Option<String>,
+        pub security: Option<Vec<String>>,
+        pub scopes: Option<Vec<String>>,
+        pub response: Option<ExpectedResponseBuilder<E>>,
+        pub additional_response: Option<AdditionalExpectedResponseBuilder<E>>,
+        pub other: T,
+    }
+
+    impl<T: Builder, E: Builder> FormBuilder<T, E> {
+        pub fn op(&mut self, op: DefaultedFormOperations) -> &mut Self {
+            self.op = op;
+            self
+        }
+        pub fn href(&mut self, href: impl Into<String>) -> &mut Self {
+            self.href = href.into();
+            self
+        }
+        pub fn response(
+            &mut self,
+            f: fn(&mut ExpectedResponseBuilder<E>) -> &mut ExpectedResponseBuilder<E>,
+        ) -> &mut Self {
+            let r = self.response.get_or_insert_with(Default::default);
+            f(r);
+            self
+        }
+        pub fn additional_response(
+            &mut self,
+            f: fn(
+                &mut AdditionalExpectedResponseBuilder<E>,
+            ) -> &mut AdditionalExpectedResponseBuilder<E>,
+        ) -> &mut Self {
+            let a = self
+                .additional_response
+                .get_or_insert_with(Default::default);
+
+            f(a);
+            self
+        }
+        pub fn other(&mut self, f: fn(&mut T) -> &mut T) -> &mut Self {
+            f(&mut self.other);
+            self
+        }
+    }
+
+    impl<T: Builder, E: Builder> Default for FormBuilder<T, E> {
+        fn default() -> Self {
+            Self {
+                op: Default::default(),
+                href: Default::default(),
+                content_type: Cow::Borrowed("application/json"),
+                content_coding: Default::default(),
+                subprotocol: Default::default(),
+                security: Default::default(),
+                scopes: Default::default(),
+                response: Default::default(),
+                additional_response: Default::default(),
+                other: Default::default(),
+            }
+        }
+    }
+
+    impl<T: Builder, E: Builder> Builder for FormBuilder<T, E> {
+        type B = Form<T::B, E::B>;
+
+        fn build(&self) -> Self::B {
+            let Self {
+                ref op,
+                ref href,
+                ref content_type,
+                ref content_coding,
+                ref subprotocol,
+                ref security,
+                ref scopes,
+                ref response,
+                ref additional_response,
+                ref other,
+            } = self;
+
+            let op = op.clone();
+            let href = href.clone();
+            let content_type = content_type.clone();
+            let content_coding = content_coding.clone();
+            let subprotocol = subprotocol.clone();
+            let security = security.clone();
+            let scopes = scopes.clone();
+            let response = response.as_ref().map(|r| r.build());
+            let additional_response = additional_response.as_ref().map(|a| a.build());
+            let other = other.build();
+
+            Form {
+                op,
+                href,
+                content_type,
+                content_coding,
+                subprotocol,
+                security,
+                scopes,
+                response,
+                additional_response,
+                other,
             }
         }
     }
@@ -391,12 +514,93 @@ pub(crate) mod mini {
         #[serde(flatten)]
         pub other: T,
     }
+    /*
+        #[derive(Debug, Default)]
+        struct InteractionAffordanceBuilder<T, F, R>
+        where
+            T: Builder,
+            F: Builder,
+            R: Builder,
+        {
+            attype: Option<Vec<String>>,
+            title: Option<String>,
+            description: Option<String>,
+            forms: Vec<FormBuilder<F, R>>,
+            other: T,
+        }
+
+        impl<T: Builder, F: Builder, R: Builder> Builder for InteractionAffordanceBuilder<T, F, R> {
+            type B = InteractionAffordance<T::B, F::B, R::B>;
+
+            fn build(self) -> Self::B {
+                let InteractionAffordanceBuilder {
+                    attype,
+                    title,
+                    description,
+                    forms,
+                    other,
+                } = self;
+
+                let forms = forms.into_iter().map(|f| f.build()).collect();
+                let other = other.build();
+
+                Self {
+                    attype,
+                    title,
+                    description,
+                    forms,
+                    other,
+                }
+            }
+        }
+
+        impl<T: Buildable, F: Buildable, R: Buildable> Buildable for InteractionAffordance<T, F, R> {
+            type B = Nil;
+
+            fn builder() -> InteractionAffordanceBuilder<T::B, F::B, R::B> {
+                InteractionAffordanceBuilder::default()
+            }
+        }
+    */
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::hlist::{Cons, Nil};
+
+    #[test]
+    fn build_form() {
+        let f = mini::Form::<Nil>::builder()
+            .href("/my/form")
+            .response(|r| r.content_type("text/bar"))
+            .additional_response(|a| a.success(true))
+            .build();
+        dbg!(&f);
+
+        let f = mini::Form::<Nil, super::Response>::builder()
+            .href("/my/form")
+            .response(|r| {
+                r.content_type("text/bar")
+                    .other(|v| v.status_code_value(200))
+            })
+            .additional_response(|a| a.other(|v| v.status_code_value(400)))
+            .build();
+
+        dbg!(&f);
+
+        let f = mini::Form::<super::Form, super::Response>::builder()
+            .href("/my/form")
+            .response(|r| {
+                r.content_type("text/bar")
+                    .other(|v| v.status_code_value(200))
+            })
+            .additional_response(|a| a.other(|v| v.status_code_value(400)))
+            .other(|v| v.method(super::Method::Patch))
+            .build();
+
+        dbg!(&f);
+    }
 
     #[test]
     fn build_additional_response() {
