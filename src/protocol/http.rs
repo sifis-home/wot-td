@@ -78,7 +78,7 @@ impl Buildable for Response {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct FormBuilder {
     method_name: Option<Method>,
 }
@@ -514,60 +514,115 @@ pub(crate) mod mini {
         #[serde(flatten)]
         pub other: T,
     }
-    /*
-        #[derive(Debug, Default)]
-        struct InteractionAffordanceBuilder<T, F, R>
-        where
-            T: Builder,
-            F: Builder,
-            R: Builder,
-        {
-            attype: Option<Vec<String>>,
-            title: Option<String>,
-            description: Option<String>,
-            forms: Vec<FormBuilder<F, R>>,
-            other: T,
+
+    #[derive(Default)]
+    pub struct InteractionAffordanceBuilder<T, F, R>
+    where
+        T: Builder,
+        F: Builder,
+        R: Builder,
+    {
+        attype: Option<Vec<String>>,
+        title: Option<String>,
+        description: Option<String>,
+        forms: Vec<FormBuilder<F, R>>,
+        other: T,
+    }
+
+    impl<T, F, R> InteractionAffordanceBuilder<T, F, R>
+    where
+        T: Builder,
+        F: Builder,
+        R: Builder,
+    {
+        pub fn attype(&mut self, attype: impl Into<String>) -> &mut Self {
+            self.attype
+                .get_or_insert_with(Default::default)
+                .push(attype.into());
+            self
         }
+        pub fn form(
+            &mut self,
+            f: fn(&mut FormBuilder<F, R>) -> &mut FormBuilder<F, R>,
+        ) -> &mut Self {
+            let mut form = Default::default();
+            f(&mut form);
+            self.forms.push(form);
+            self
+        }
+        pub fn other(&mut self, f: fn(&mut T) -> &mut T) -> &mut Self {
+            f(&mut self.other);
 
-        impl<T: Builder, F: Builder, R: Builder> Builder for InteractionAffordanceBuilder<T, F, R> {
-            type B = InteractionAffordance<T::B, F::B, R::B>;
+            self
+        }
+    }
 
-            fn build(self) -> Self::B {
-                let InteractionAffordanceBuilder {
-                    attype,
-                    title,
-                    description,
-                    forms,
-                    other,
-                } = self;
+    impl<T: Builder, F: Builder, R: Builder> Builder for InteractionAffordanceBuilder<T, F, R> {
+        type B = InteractionAffordance<T::B, F::B, R::B>;
 
-                let forms = forms.into_iter().map(|f| f.build()).collect();
-                let other = other.build();
+        fn build(&self) -> Self::B {
+            let InteractionAffordanceBuilder {
+                attype,
+                title,
+                description,
+                forms,
+                other,
+            } = self;
 
-                Self {
-                    attype,
-                    title,
-                    description,
-                    forms,
-                    other,
-                }
+            let attype = attype.clone();
+            let title = title.clone();
+            let description = description.clone();
+            let forms = forms.into_iter().map(|f| f.build()).collect();
+            let other = other.build();
+
+            Self::B {
+                attype,
+                title,
+                description,
+                forms,
+                other,
             }
         }
+    }
 
-        impl<T: Buildable, F: Buildable, R: Buildable> Buildable for InteractionAffordance<T, F, R> {
-            type B = Nil;
+    impl<T: Buildable, F: Buildable, R: Buildable> Buildable for InteractionAffordance<T, F, R> {
+        type B = InteractionAffordanceBuilder<T::B, F::B, R::B>;
 
-            fn builder() -> InteractionAffordanceBuilder<T::B, F::B, R::B> {
-                InteractionAffordanceBuilder::default()
-            }
+        fn builder() -> Self::B {
+            InteractionAffordanceBuilder::default()
         }
-    */
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::hlist::{Cons, Nil};
+
+    #[test]
+    fn build_affordance() {
+        let a = mini::InteractionAffordance::<Nil>::builder()
+            .attype("OnOff")
+            .attype("OtherType")
+            .form(|f| f.href("/my/form"))
+            .form(|f| f.href("/blah").response(|r| r.content_type("test/bar")))
+            .build();
+
+        dbg!(&a);
+
+        let a = mini::InteractionAffordance::<Nil, super::Form, super::Response>::builder()
+            .attype("OnOff")
+            .attype("OtherType")
+            .form(|f| {
+                f.href("/my/form")
+                    .other(|v| v.method(super::Method::Patch))
+                    .response(|r| r.other(|v| v.status_code_value(200)))
+            })
+            .form(|f| f.href("/blah").response(|r| r.content_type("test/bar")))
+            .build();
+
+        dbg!(&a);
+    }
 
     #[test]
     fn build_form() {
