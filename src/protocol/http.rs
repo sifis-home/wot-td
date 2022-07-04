@@ -43,11 +43,11 @@ struct ResponseBuilder {
 }
 
 impl ResponseBuilder {
-    pub fn headers(mut self, header: MessageHeader) -> Self {
+    pub fn headers(&mut self, header: MessageHeader) -> &mut Self {
         self.headers.push(header);
         self
     }
-    pub fn status_code_value(mut self, value: usize) -> Self {
+    pub fn status_code_value(&mut self, value: usize) -> &mut Self {
         self.status_code_value = Some(value);
         self
     }
@@ -56,11 +56,13 @@ impl ResponseBuilder {
 impl Builder for ResponseBuilder {
     type B = Response;
 
-    fn build(self) -> Response {
+    fn build(&self) -> Response {
         let ResponseBuilder {
-            headers,
-            status_code_value,
+            ref headers,
+            ref status_code_value,
         } = self;
+        let headers = headers.clone();
+        let status_code_value = status_code_value.clone();
         Response {
             headers,
             status_code_value,
@@ -82,7 +84,7 @@ struct FormBuilder {
 }
 
 impl FormBuilder {
-    pub fn method(mut self, method_name: Method) -> Self {
+    pub fn method(&mut self, method_name: Method) -> &mut Self {
         self.method_name = Some(method_name);
 
         self
@@ -92,8 +94,9 @@ impl FormBuilder {
 impl Builder for FormBuilder {
     type B = Form;
 
-    fn build(self) -> Form {
-        let FormBuilder { method_name } = self;
+    fn build(&self) -> Form {
+        let FormBuilder { ref method_name } = self;
+        let method_name = method_name.clone();
 
         Form { method_name }
     }
@@ -119,7 +122,7 @@ pub(crate) mod mini {
     pub trait Builder: Default {
         type B: Buildable;
 
-        fn build(self) -> Self::B;
+        fn build(&self) -> Self::B;
     }
 
     pub trait Buildable: Default {
@@ -131,7 +134,7 @@ pub(crate) mod mini {
     impl Builder for Nil {
         type B = Nil;
 
-        fn build(self) -> Nil {
+        fn build(&self) -> Nil {
             Nil
         }
     }
@@ -147,8 +150,8 @@ pub(crate) mod mini {
     impl<T: Builder, U: Builder> Builder for Cons<T, U> {
         type B = Cons<T::B, U::B>;
 
-        fn build(self) -> Self::B {
-            let Cons { head, tail } = self;
+        fn build(&self) -> Self::B {
+            let Cons { ref head, ref tail } = self;
             let head = head.build();
             let tail = tail.build();
 
@@ -157,14 +160,14 @@ pub(crate) mod mini {
     }
 
     impl<T: Builder, U: Builder> Cons<T, U> {
-        /// TODO thing of a saner way
-        pub fn edit(self, f: fn(T) -> T, u: fn(U) -> U) -> Cons<T, U> {
-            let Cons { head, tail } = self;
+        pub fn edit(&mut self, f: fn(&mut T) -> &mut T) -> &mut Self {
+            f(&mut self.head);
+            self
+        }
 
-            let head = f(head);
-            let tail = u(tail);
-
-            Cons { head, tail }
+        // TODO: move it in the main trait as next_mut
+        pub fn next(&mut self) -> &mut U {
+            &mut self.tail
         }
     }
 
@@ -198,29 +201,20 @@ pub(crate) mod mini {
     }
 
     impl<T: Builder> AdditionalExpectedResponseBuilder<T> {
-        pub fn success(mut self, success: bool) -> Self {
+        pub fn success(&mut self, success: bool) -> &mut Self {
             self.success = success;
             self
         }
 
-        pub fn content_type(mut self, ty: impl Into<String>) -> Self {
+        pub fn content_type(&mut self, ty: impl Into<String>) -> &mut Self {
             self.content_type = ty.into();
             self
         }
 
-        pub fn other(self, f: fn(T) -> T) -> Self {
-            let Self {
-                success,
-                content_type,
-                other,
-            } = self;
-            let other = f(other);
+        pub fn other(&mut self, f: fn(&mut T) -> &mut T) -> &mut Self {
+            f(&mut self.other);
 
-            Self {
-                success,
-                content_type,
-                other,
-            }
+            self
         }
     }
 
@@ -239,12 +233,14 @@ pub(crate) mod mini {
     impl<T: Builder> Builder for AdditionalExpectedResponseBuilder<T> {
         type B = AdditionalExpectedResponse<T::B>;
 
-        fn build(self) -> Self::B {
+        fn build(&self) -> Self::B {
             let AdditionalExpectedResponseBuilder {
-                success,
-                content_type,
-                other,
+                ref success,
+                ref content_type,
+                ref other,
             } = self;
+            let success = success.clone();
+            let content_type = content_type.clone();
             let other = other.build();
 
             AdditionalExpectedResponse {
@@ -271,22 +267,14 @@ pub(crate) mod mini {
     }
 
     impl<T: Builder> ExpectedResponseBuilder<T> {
-        pub fn content_type(mut self, ty: impl Into<String>) -> Self {
+        pub fn content_type(&mut self, ty: impl Into<String>) -> &mut Self {
             self.content_type = ty.into();
             self
         }
 
-        pub fn other(self, f: fn(T) -> T) -> Self {
-            let Self {
-                content_type,
-                other,
-            } = self;
-            let other = f(other);
-
-            Self {
-                content_type,
-                other,
-            }
+        pub fn other(&mut self, f: fn(&mut T) -> &mut T) -> &mut Self {
+            f(&mut self.other);
+            self
         }
     }
 
@@ -305,11 +293,12 @@ pub(crate) mod mini {
     impl<T: Builder> Builder for ExpectedResponseBuilder<T> {
         type B = ExpectedResponse<T::B>;
 
-        fn build(self) -> Self::B {
+        fn build(&self) -> Self::B {
             let ExpectedResponseBuilder {
-                content_type,
-                other,
+                ref content_type,
+                ref other,
             } = self;
+            let content_type = content_type.clone();
             let other = other.build();
 
             ExpectedResponse {
@@ -426,7 +415,7 @@ mod test {
 
         let b = mini::AdditionalExpectedResponse::<Cons<super::Response, Nil>>::builder()
             .content_type("text/baz")
-            .other(|v| v.edit(|v| v.status_code_value(201), |v| v))
+            .other(|v| v.edit(|v| v.status_code_value(201)))
             .build();
 
         dbg!(&b);
@@ -448,7 +437,7 @@ mod test {
 
         let b = mini::ExpectedResponse::<Cons<super::Response, Nil>>::builder()
             .content_type("text/baz")
-            .other(|v| v.edit(|v| v.status_code_value(201), |v| v))
+            .other(|v| v.edit(|v| v.status_code_value(201)))
             .build();
 
         dbg!(&b);
