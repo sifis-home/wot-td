@@ -362,6 +362,23 @@ pub(crate) mod mini {
         }
     }
 
+    impl<T: Buildable> Default for Form<T> {
+        fn default() -> Self {
+            Self {
+                op: Default::default(),
+                href: Default::default(),
+                content_type: Cow::Borrowed("application/json"),
+                content_coding: Default::default(),
+                subprotocol: Default::default(),
+                security: Default::default(),
+                scopes: Default::default(),
+                response: Default::default(),
+                additional_response: Default::default(),
+                other: Default::default(),
+            }
+        }
+    }
+
     #[serde_as]
     #[skip_serializing_none]
     #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
