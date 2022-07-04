@@ -179,7 +179,7 @@ pub(crate) mod mini {
         }
     }
 
-    #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+    #[derive(Default, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
     #[serde(rename_all = "camelCase")]
     pub struct AdditionalExpectedResponse<T: Buildable = Nil> {
         #[serde(default)]
@@ -188,6 +188,71 @@ pub(crate) mod mini {
 
         #[serde(flatten)]
         pub other: T,
+    }
+
+    #[derive(Default)]
+    pub struct AdditionalExpectedResponseBuilder<T: Builder = Nil> {
+        pub success: bool,
+        pub content_type: String,
+        pub other: T,
+    }
+
+    impl<T: Builder> AdditionalExpectedResponseBuilder<T> {
+        pub fn success(mut self, success: bool) -> Self {
+            self.success = success;
+            self
+        }
+
+        pub fn content_type(mut self, ty: impl Into<String>) -> Self {
+            self.content_type = ty.into();
+            self
+        }
+
+        pub fn other(self, f: fn(T) -> T) -> Self {
+            let Self {
+                success,
+                content_type,
+                other,
+            } = self;
+            let other = f(other);
+
+            Self {
+                success,
+                content_type,
+                other,
+            }
+        }
+    }
+
+    impl<T> Buildable for AdditionalExpectedResponse<T>
+    where
+        T: Buildable,
+        <T as Buildable>::B: Builder,
+    {
+        type B = AdditionalExpectedResponseBuilder<T::B>;
+
+        fn builder() -> Self::B {
+            AdditionalExpectedResponseBuilder::default()
+        }
+    }
+
+    impl<T: Builder> Builder for AdditionalExpectedResponseBuilder<T> {
+        type B = AdditionalExpectedResponse<T::B>;
+
+        fn build(self) -> Self::B {
+            let AdditionalExpectedResponseBuilder {
+                success,
+                content_type,
+                other,
+            } = self;
+            let other = other.build();
+
+            AdditionalExpectedResponse {
+                success,
+                content_type,
+                other,
+            }
+        }
     }
 
     #[derive(Default, Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -327,6 +392,28 @@ mod test {
     use super::*;
     use crate::hlist::{Cons, Nil};
 
+    #[test]
+    fn build_additional_response() {
+        let b = mini::AdditionalExpectedResponse::<Nil>::builder()
+            .content_type("text/foo")
+            .build();
+
+        dbg!(&b);
+
+        let b = mini::AdditionalExpectedResponse::<super::Response>::builder()
+            .content_type("text/bar")
+            .other(|v| v.status_code_value(201))
+            .build();
+
+        dbg!(&b);
+
+        let b = mini::AdditionalExpectedResponse::<Cons<super::Response, Nil>>::builder()
+            .content_type("text/baz")
+            .other(|v| v.edit(|v| v.status_code_value(201), |v| v))
+            .build();
+
+        dbg!(&b);
+    }
     #[test]
     fn build_response() {
         let b = mini::ExpectedResponse::<Nil>::builder()
