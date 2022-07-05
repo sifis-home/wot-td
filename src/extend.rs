@@ -126,12 +126,16 @@ pub trait ExtendableDataSchema {
 
     type ExtendableObjectSchema: ExtendableObjectSchema<
         Item = Self::ObjectSchema,
-        DataSchema = Self::Item,
+        DataSchemaItem = Self::Item,
+        DataSchema = Self,
+        ArraySchema = Self::ArraySchema,
     >;
 
     type ExtendableArraySchema: ExtendableArraySchema<
         Item = Self::ArraySchema,
-        DataSchema = Self::Item,
+        DataSchemaItem = Self::Item,
+        DataSchema = Self,
+        ObjectSchema = Self::ObjectSchema,
     >;
 }
 
@@ -144,6 +148,7 @@ pub trait ExtendableObjectSchema {
         Item = Self::DataSchemaItem,
         ObjectSchema = Self::Item,
         ArraySchema = Self::ArraySchema,
+        ExtendableObjectSchema = Self,
     >;
 }
 
@@ -156,6 +161,7 @@ pub trait ExtendableArraySchema {
         Item = Self::DataSchemaItem,
         ObjectSchema = Self::ObjectSchema,
         ArraySchema = Self::Item,
+        ExtendableArraySchema = Self,
     >;
 }
 

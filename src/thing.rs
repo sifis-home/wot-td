@@ -432,7 +432,22 @@ impl<Other> fmt::Debug for DataSchema<Other>
 where
     Other: ExtendableDataSchema,
     Other::Item: fmt::Debug,
-    DataSchemaSubtype<Other>: fmt::Debug,
+    Other::ObjectSchema: fmt::Debug,
+    Other::ArraySchema: fmt::Debug,
+    Other::ExtendableObjectSchema: ExtendableObjectSchema<
+        Item = Other::ObjectSchema,
+        DataSchemaItem = Other::Item,
+        ArraySchema = Other::ArraySchema,
+        DataSchema = Other,
+    >,
+    Other::ExtendableArraySchema: ExtendableArraySchema<
+        Item = Other::ArraySchema,
+        DataSchemaItem = Other::Item,
+        ObjectSchema = Other::ObjectSchema,
+        DataSchema = Other,
+    >,
+    ArraySchema<Other::ExtendableArraySchema>: fmt::Debug,
+    ObjectSchema<Other::ExtendableObjectSchema>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DataSchema")
@@ -458,7 +473,22 @@ impl<Other> PartialEq for DataSchema<Other>
 where
     Other: ExtendableDataSchema,
     Other::Item: PartialEq,
-    DataSchemaSubtype<Other>: PartialEq,
+    Other::ObjectSchema: PartialEq,
+    Other::ArraySchema: PartialEq,
+    Other::ExtendableObjectSchema: ExtendableObjectSchema<
+        Item = Other::ObjectSchema,
+        DataSchemaItem = Other::Item,
+        ArraySchema = Other::ArraySchema,
+        DataSchema = Other,
+    >,
+    Other::ExtendableArraySchema: ExtendableArraySchema<
+        Item = Other::ArraySchema,
+        DataSchemaItem = Other::Item,
+        ObjectSchema = Other::ObjectSchema,
+        DataSchema = Other,
+    >,
+    ArraySchema<Other::ExtendableArraySchema>: PartialEq,
+    ObjectSchema<Other::ExtendableObjectSchema>: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.attype == other.attype
@@ -494,6 +524,21 @@ pub enum DataSchemaSubtype<Other: ExtendableDataSchema = Nil> {
 impl<Other> fmt::Debug for DataSchemaSubtype<Other>
 where
     Other: ExtendableDataSchema,
+    Other::Item: fmt::Debug,
+    Other::ObjectSchema: fmt::Debug,
+    Other::ArraySchema: fmt::Debug,
+    Other::ExtendableObjectSchema: ExtendableObjectSchema<
+        Item = Other::ObjectSchema,
+        DataSchemaItem = Other::Item,
+        ArraySchema = Other::ArraySchema,
+        DataSchema = Other,
+    >,
+    Other::ExtendableArraySchema: ExtendableArraySchema<
+        Item = Other::ArraySchema,
+        DataSchemaItem = Other::Item,
+        ObjectSchema = Other::ObjectSchema,
+        DataSchema = Other,
+    >,
     ArraySchema<Other::ExtendableArraySchema>: fmt::Debug,
     ObjectSchema<Other::ExtendableObjectSchema>: fmt::Debug,
 {
@@ -513,6 +558,20 @@ where
 impl<Other> PartialEq for DataSchemaSubtype<Other>
 where
     Other: ExtendableDataSchema,
+    ArraySchema<Other::ExtendableArraySchema>: PartialEq,
+    ObjectSchema<Other::ExtendableObjectSchema>: PartialEq,
+    Other::ExtendableObjectSchema: ExtendableObjectSchema<
+        Item = Other::ObjectSchema,
+        DataSchemaItem = Other::Item,
+        ArraySchema = Other::ArraySchema,
+        DataSchema = Other,
+    >,
+    Other::ExtendableArraySchema: ExtendableArraySchema<
+        Item = Other::ArraySchema,
+        DataSchemaItem = Other::Item,
+        ObjectSchema = Other::ObjectSchema,
+        DataSchema = Other,
+    >,
     ArraySchema<Other::ExtendableArraySchema>: PartialEq,
     ObjectSchema<Other::ExtendableObjectSchema>: PartialEq,
 {
@@ -544,6 +603,21 @@ pub struct ArraySchema<Other: ExtendableArraySchema = Nil> {
 impl<Other> fmt::Debug for ArraySchema<Other>
 where
     Other: ExtendableArraySchema,
+    Other::Item: fmt::Debug,
+    Other::DataSchema: ExtendableDataSchema<
+        Item = Other::DataSchemaItem,
+        ObjectSchema = Other::ObjectSchema,
+        ArraySchema = Other::Item,
+        ExtendableArraySchema = Other,
+    >,
+    <Other::DataSchema as ExtendableDataSchema>::ExtendableObjectSchema: ExtendableObjectSchema<
+        Item = Other::ObjectSchema,
+        DataSchemaItem = Other::DataSchemaItem,
+        ArraySchema = Other,
+        DataSchema = Other::DataSchema,
+    >,
+    Other::DataSchemaItem: fmt::Debug,
+    Other::ObjectSchema: fmt::Debug,
     DataSchema<Other::DataSchema>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -558,6 +632,14 @@ where
 impl<Other> PartialEq for ArraySchema<Other>
 where
     Other: ExtendableArraySchema,
+    Other::Item: PartialEq,
+    Other::DataSchema: ExtendableDataSchema<
+        Item = Other::DataSchemaItem,
+        ObjectSchema = Other::ObjectSchema,
+        ArraySchema = Other::Item,
+    >,
+    Other::DataSchemaItem: PartialEq,
+    Other::ObjectSchema: PartialEq,
     DataSchema<Other::DataSchema>: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -601,7 +683,22 @@ pub struct ObjectSchema<Other: ExtendableObjectSchema = Nil> {
 impl<Other> fmt::Debug for ObjectSchema<Other>
 where
     Other: ExtendableObjectSchema,
-    Other::DataSchema: fmt::Debug,
+    Other::Item: fmt::Debug,
+    Other::DataSchema: ExtendableDataSchema<
+        Item = Other::DataSchemaItem,
+        ObjectSchema = Other::Item,
+        ArraySchema = Other::ArraySchema,
+        ExtendableObjectSchema = Other,
+    >,
+    <Other::DataSchema as ExtendableDataSchema>::ExtendableArraySchema: ExtendableArraySchema<
+        Item = Other::ArraySchema,
+        DataSchemaItem = Other::DataSchema,
+        ObjectSchema = Other,
+        DataSchema = Other::DataSchema,
+    >,
+    Other::DataSchemaItem: fmt::Debug,
+    Other::ArraySchema: fmt::Debug,
+    DataSchema<Other::DataSchema>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ObjectSchema")
@@ -616,6 +713,13 @@ impl<Other> PartialEq for ObjectSchema<Other>
 where
     Other: ExtendableObjectSchema,
     Other::Item: PartialEq,
+    Other::DataSchema: ExtendableDataSchema<
+        Item = Other::DataSchemaItem,
+        ObjectSchema = Other::Item,
+        ArraySchema = Other::ArraySchema,
+    >,
+    Other::DataSchemaItem: PartialEq,
+    Other::ArraySchema: PartialEq,
     DataSchema<Other::DataSchema>: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
