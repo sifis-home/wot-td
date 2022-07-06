@@ -17,7 +17,7 @@ use time::OffsetDateTime;
 // use crate::builder::ThingBuilder;
 
 pub(crate) type MultiLanguage = HashMap<String, String>;
-pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
+pub(crate) type DataSchemaMap<E> = HashMap<String, DataSchema<E>>;
 
 pub const TD_CONTEXT_10: &str = "https://www.w3.org/2019/wot/td/v1";
 pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
@@ -30,6 +30,7 @@ pub trait Extension {
     type Thing: Clone + std::fmt::Debug + Default + PartialEq;
     type InteractionAffordance: Clone + std::fmt::Debug + Default + PartialEq;
     type Form: Clone + std::fmt::Debug + Default + PartialEq;
+    type DataSchema: Clone + std::fmt::Debug + Default + PartialEq;
 }
 
 use crate::hlist::Nil;
@@ -38,6 +39,7 @@ impl Extension for Nil {
     type Thing = Nil;
     type InteractionAffordance = Nil;
     type Form = Nil;
+    type DataSchema = Nil;
 }
 
 /// An abstraction of a physical or a virtual entity
@@ -104,22 +106,22 @@ pub struct Thing<E: Extension = Nil> {
 
     /// Property-based [Interaction Affordances]
     #[serde(bound(
-        serialize = "E::InteractionAffordance: Serialize",
-        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+        serialize = "E::InteractionAffordance: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
     ))]
     pub properties: Option<HashMap<String, PropertyAffordance<E>>>,
 
     /// Action-based [Interaction Affordances]
     #[serde(bound(
-        serialize = "E::InteractionAffordance: Serialize",
-        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+        serialize = "E::InteractionAffordance: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
     ))]
     pub actions: Option<HashMap<String, ActionAffordance<E>>>,
 
     /// Event-based [Interaction Affordances]
     #[serde(bound(
-        serialize = "E::InteractionAffordance: Serialize",
-        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+        serialize = "E::InteractionAffordance: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
     ))]
     pub events: Option<HashMap<String, EventAffordance<E>>>,
 
@@ -148,8 +150,11 @@ pub struct Thing<E: Extension = Nil> {
     /// to express all the security constraints that must be satisfied in order to access the
     /// resources.
     pub security_definitions: HashMap<String, SecurityScheme>,
-
-    pub uri_variables: Option<DataSchemaMap>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub uri_variables: Option<DataSchemaMap<E>>,
 
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
@@ -192,7 +197,11 @@ pub struct InteractionAffordance<E: Extension> {
     ))]
     pub forms: Vec<Form<E>>,
 
-    pub uri_variables: Option<DataSchemaMap>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub uri_variables: Option<DataSchemaMap<E>>,
 
     #[serde(flatten)]
     pub other: E::InteractionAffordance,
@@ -202,14 +211,18 @@ pub struct InteractionAffordance<E: Extension> {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct PropertyAffordance<E: Extension> {
     #[serde(bound(
-        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize",
-        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>"
+        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
     ))]
     #[serde(flatten)]
     pub interaction: InteractionAffordance<E>,
 
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
     #[serde(flatten)]
-    pub data_schema: DataSchema,
+    pub data_schema: DataSchema<E>,
 
     pub observable: Option<bool>,
 }
@@ -218,15 +231,23 @@ pub struct PropertyAffordance<E: Extension> {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct ActionAffordance<E: Extension> {
     #[serde(bound(
-        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize",
-        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>"
+        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
     ))]
     #[serde(flatten)]
     pub interaction: InteractionAffordance<E>,
 
-    pub input: Option<DataSchema>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub input: Option<DataSchema<E>>,
 
-    pub output: Option<DataSchema>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub output: Option<DataSchema<E>>,
 
     #[serde(default)]
     pub safe: bool,
@@ -241,19 +262,31 @@ pub struct ActionAffordance<E: Extension> {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct EventAffordance<E: Extension> {
     #[serde(bound(
-        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize",
-        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>"
+        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
     ))]
     #[serde(flatten)]
     pub interaction: InteractionAffordance<E>,
-
-    pub subscription: Option<DataSchema>,
-
-    pub data: Option<DataSchema>,
-
-    pub data_response: Option<DataSchema>,
-
-    pub cancellation: Option<DataSchema>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub subscription: Option<DataSchema<E>>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub data: Option<DataSchema<E>>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub data_response: Option<DataSchema<E>>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub cancellation: Option<DataSchema<E>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -280,7 +313,7 @@ where
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DataSchema {
+pub struct DataSchema<E: Extension> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -298,7 +331,11 @@ pub struct DataSchema {
 
     pub unit: Option<String>,
 
-    pub one_of: Option<Vec<DataSchema>>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub one_of: Option<Vec<DataSchema<E>>>,
 
     #[serde(rename = "enum")]
     pub enumeration: Option<Vec<Value>>,
@@ -311,30 +348,54 @@ pub struct DataSchema {
 
     pub format: Option<String>,
 
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
     #[serde(flatten)]
-    pub subtype: Option<DataSchemaSubtype>,
+    pub subtype: Option<DataSchemaSubtype<E>>,
+
+    #[serde(flatten)]
+    pub other: E::DataSchema,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
-pub enum DataSchemaSubtype {
-    Array(ArraySchema),
+pub enum DataSchemaSubtype<E: Extension> {
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    Array(ArraySchema<E>),
     Boolean,
     Number(NumberSchema),
     Integer(IntegerSchema),
-    Object(ObjectSchema),
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    Object(ObjectSchema<E>),
     String(StringSchema),
-    #[default]
     Null,
+}
+
+impl<E: Extension> Default for DataSchemaSubtype<E> {
+    fn default() -> Self {
+        Self::Null
+    }
 }
 
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ArraySchema {
-    #[serde(default)]
+pub struct ArraySchema<E: Extension> {
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    #[serde(default = "Option::<Vec<DataSchema<E>>>::default")]
     #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub items: Option<Vec<DataSchema>>,
+    pub items: Option<Vec<DataSchema<E>>>,
 
     pub min_items: Option<u32>,
 
@@ -363,8 +424,12 @@ pub struct IntegerSchema {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ObjectSchema {
-    pub properties: Option<DataSchemaMap>,
+pub struct ObjectSchema<E: Extension> {
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub properties: Option<DataSchemaMap<E>>,
 
     pub required: Option<Vec<String>>,
 }
