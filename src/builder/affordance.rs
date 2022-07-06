@@ -797,16 +797,11 @@ pub(super) fn check_form_builders(
 
 #[cfg(test)]
 mod test {
-    use std::borrow::Cow;
-
     use crate::{
         builder::data_schema::{
             BuildableDataSchema, NumberDataSchemaBuilderLike, PartialDataSchemaBuilder,
         },
-        thing::{
-            DataSchemaSubtype, DefaultedFormOperations, FormOperation, IntegerSchema, NumberSchema,
-            StringSchema,
-        },
+        thing::{DataSchemaSubtype, DefaultedFormOperations, FormOperation, NumberSchema},
     };
 
     use super::*;
@@ -814,18 +809,7 @@ mod test {
     #[test]
     fn empty_iteraction() {
         let affordance: InteractionAffordance = InteractionAffordanceBuilder::default().into();
-        assert_eq!(
-            affordance,
-            InteractionAffordance {
-                attype: None,
-                title: None,
-                titles: None,
-                description: None,
-                descriptions: None,
-                forms: vec![],
-                uri_variables: None,
-            },
-        );
+        assert_eq!(affordance, InteractionAffordance::default());
     }
 
     #[test]
@@ -868,12 +852,8 @@ mod test {
                     Form {
                         op: DefaultedFormOperations::Default,
                         href: "form1_href".to_string(),
-                        content_type: Cow::Borrowed("content_type"),
-                        content_coding: None,
-                        subprotocol: None,
-                        security: None,
-                        scopes: None,
-                        response: None,
+                        content_type: Some("content_type".to_string()),
+                        ..Default::default()
                     },
                     Form {
                         op: DefaultedFormOperations::Custom(vec![
@@ -881,12 +861,7 @@ mod test {
                             FormOperation::ReadProperty,
                         ]),
                         href: "form2_href".to_string(),
-                        content_type: Form::default_content_type(),
-                        content_coding: None,
-                        subprotocol: None,
-                        security: None,
-                        scopes: None,
-                        response: None,
+                        ..Default::default()
                     },
                 ],
                 uri_variables: Some(
@@ -894,44 +869,15 @@ mod test {
                         (
                             "uri1".to_string(),
                             DataSchema {
-                                attype: None,
-                                title: None,
-                                titles: None,
-                                description: None,
-                                descriptions: None,
-                                constant: None,
-                                unit: None,
-                                one_of: None,
-                                enumeration: None,
-                                read_only: false,
-                                write_only: false,
-                                format: None,
-                                subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                                    maximum: None,
-                                    minimum: None,
-                                    multiple_of: None,
-                                }))
+                                subtype: Some(DataSchemaSubtype::Number(Default::default())),
+                                ..Default::default()
                             },
                         ),
                         (
                             "uri2".to_string(),
                             DataSchema {
-                                attype: None,
-                                title: None,
-                                titles: None,
-                                description: None,
-                                descriptions: None,
-                                constant: None,
-                                unit: None,
-                                one_of: None,
-                                enumeration: None,
-                                read_only: false,
-                                write_only: false,
-                                format: None,
-                                subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
-                                    maximum: None,
-                                    minimum: None,
-                                }))
+                                subtype: Some(DataSchemaSubtype::Integer(Default::default())),
+                                ..Default::default()
                             },
                         ),
                     ]
@@ -962,62 +908,33 @@ mod test {
             affordance,
             PropertyAffordance {
                 interaction: InteractionAffordance {
-                    attype: None,
                     title: Some("property".to_owned()),
-                    titles: None,
-                    description: None,
-                    descriptions: None,
                     forms: vec![Form {
-                        op: DefaultedFormOperations::Default,
                         href: "href".to_owned(),
-                        content_type: Form::default_content_type(),
-                        content_coding: None,
-                        subprotocol: None,
-                        security: None,
-                        scopes: None,
-                        response: None,
+                        ..Default::default()
                     }],
                     uri_variables: Some(
                         [(
                             "test".to_owned(),
                             DataSchema {
-                                attype: None,
-                                title: None,
-                                titles: None,
-                                description: None,
-                                descriptions: None,
-                                constant: None,
-                                unit: None,
-                                one_of: None,
-                                enumeration: None,
-                                read_only: false,
-                                write_only: false,
-                                format: None,
                                 subtype: Some(DataSchemaSubtype::Boolean),
+                                ..Default::default()
                             }
                         )]
                         .into_iter()
                         .collect()
                     ),
+                    ..Default::default()
                 },
                 data_schema: DataSchema {
-                    attype: None,
                     title: Some("property".to_owned()),
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
                     unit: Some("cm".to_owned()),
-                    one_of: None,
-                    enumeration: None,
                     read_only: true,
-                    write_only: false,
-                    format: None,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        maximum: None,
                         minimum: Some(0.),
-                        multiple_of: None,
-                    }))
+                        ..Default::default()
+                    })),
+                    ..Default::default()
                 },
                 observable: Some(true),
             },
@@ -1043,37 +960,19 @@ mod test {
             affordance,
             PropertyAffordance {
                 interaction: InteractionAffordance {
-                    attype: None,
                     title: Some("property".to_owned()),
-                    titles: None,
-                    description: None,
-                    descriptions: None,
                     forms: vec![Form {
-                        op: DefaultedFormOperations::Default,
                         href: "href".to_owned(),
-                        content_type: Form::default_content_type(),
-                        content_coding: None,
-                        subprotocol: None,
-                        security: None,
-                        scopes: None,
-                        response: None,
+                        ..Default::default()
                     }],
-                    uri_variables: None,
+                    ..Default::default()
                 },
                 data_schema: DataSchema {
-                    attype: None,
                     title: Some("property".to_owned()),
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
                     unit: Some("cm".to_owned()),
-                    one_of: None,
                     enumeration: Some(vec!["enum1".into(), "enum2".into()]),
-                    read_only: false,
                     write_only: true,
-                    format: None,
-                    subtype: None,
+                    ..Default::default()
                 },
                 observable: Some(true),
             },
@@ -1098,75 +997,27 @@ mod test {
             affordance,
             PropertyAffordance {
                 interaction: InteractionAffordance {
-                    attype: None,
                     title: Some("property".to_owned()),
-                    titles: None,
-                    description: None,
-                    descriptions: None,
                     forms: vec![Form {
-                        op: DefaultedFormOperations::Default,
                         href: "href".to_owned(),
-                        content_type: Form::default_content_type(),
-                        content_coding: None,
-                        subprotocol: None,
-                        security: None,
-                        scopes: None,
-                        response: None,
+                        ..Default::default()
                     }],
-                    uri_variables: None,
+                    ..Default::default()
                 },
                 data_schema: DataSchema {
-                    attype: None,
                     title: Some("property".to_owned()),
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
                     unit: Some("cm".to_owned()),
                     one_of: Some(vec![
                         DataSchema {
-                            attype: None,
-                            title: None,
-                            titles: None,
-                            description: None,
-                            descriptions: None,
-                            constant: None,
-                            unit: None,
-                            one_of: None,
-                            enumeration: None,
-                            read_only: false,
-                            write_only: false,
-                            format: None,
-                            subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                                maximum: None,
-                                minimum: None,
-                                multiple_of: None,
-                            }))
+                            subtype: Some(DataSchemaSubtype::Number(Default::default())),
+                            ..Default::default()
                         },
                         DataSchema {
-                            attype: None,
-                            title: None,
-                            titles: None,
-                            description: None,
-                            descriptions: None,
-                            constant: None,
-                            unit: None,
-                            one_of: None,
-                            enumeration: None,
-                            read_only: false,
-                            write_only: false,
-                            format: None,
-                            subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
-                                maximum: None,
-                                minimum: None,
-                            }))
+                            subtype: Some(DataSchemaSubtype::Integer(Default::default())),
+                            ..Default::default()
                         },
                     ]),
-                    enumeration: None,
-                    read_only: false,
-                    write_only: false,
-                    format: None,
-                    subtype: None,
+                    ..Default::default()
                 },
                 observable: Some(true),
             },
@@ -1189,46 +1040,24 @@ mod test {
             affordance,
             ActionAffordance {
                 interaction: InteractionAffordance {
-                    attype: None,
                     title: Some("action".to_owned()),
-                    titles: None,
-                    description: None,
-                    descriptions: None,
                     forms: vec![Form {
-                        op: DefaultedFormOperations::Default,
                         href: "href".to_owned(),
-                        content_type: Form::default_content_type(),
-                        content_coding: None,
-                        subprotocol: None,
-                        security: None,
-                        scopes: None,
-                        response: None,
+                        ..Default::default()
                     }],
-                    uri_variables: None,
+                    ..Default::default()
                 },
                 input: Some(DataSchema {
-                    attype: None,
-                    title: None,
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
                     unit: Some("cm".to_owned()),
-                    one_of: None,
-                    enumeration: None,
                     read_only: true,
-                    write_only: false,
-                    format: None,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        maximum: None,
                         minimum: Some(0.),
-                        multiple_of: None,
-                    }))
+                        ..Default::default()
+                    })),
+                    ..Default::default()
                 }),
-                output: None,
                 safe: true,
-                idempotent: false,
-                synchronous: None,
+                ..Default::default()
             },
         );
     }
@@ -1252,60 +1081,30 @@ mod test {
             affordance,
             ActionAffordance {
                 interaction: InteractionAffordance {
-                    attype: None,
                     title: Some("action".to_owned()),
-                    titles: None,
-                    description: None,
-                    descriptions: None,
                     forms: vec![Form {
-                        op: DefaultedFormOperations::Default,
                         href: "href".to_owned(),
-                        content_type: Form::default_content_type(),
-                        content_coding: None,
-                        subprotocol: None,
-                        security: None,
-                        scopes: None,
-                        response: None,
+                        ..Default::default()
                     }],
-                    uri_variables: None,
+                    ..Default::default()
                 },
                 input: Some(DataSchema {
-                    attype: None,
-                    title: None,
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
                     unit: Some("cm".to_owned()),
-                    one_of: None,
-                    enumeration: None,
                     read_only: true,
-                    write_only: false,
-                    format: None,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        maximum: None,
                         minimum: Some(0.),
-                        multiple_of: None,
-                    }))
+                        ..Default::default()
+                    })),
+                    ..Default::default()
                 }),
                 output: Some(DataSchema {
-                    attype: None,
-                    title: None,
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
                     unit: Some("cm".to_owned()),
-                    one_of: None,
-                    enumeration: None,
                     read_only: true,
-                    write_only: false,
-                    format: None,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        maximum: None,
                         minimum: Some(0.),
-                        multiple_of: None,
-                    }))
+                        ..Default::default()
+                    })),
+                    ..Default::default()
                 }),
                 safe: true,
                 idempotent: true,
@@ -1329,45 +1128,23 @@ mod test {
             affordance,
             EventAffordance {
                 interaction: InteractionAffordance {
-                    attype: None,
                     title: Some("event".to_owned()),
-                    titles: None,
-                    description: None,
-                    descriptions: None,
                     forms: vec![Form {
-                        op: DefaultedFormOperations::Default,
                         href: "href".to_owned(),
-                        content_type: Form::default_content_type(),
-                        content_coding: None,
-                        subprotocol: None,
-                        security: None,
-                        scopes: None,
-                        response: None,
+                        ..Default::default()
                     }],
-                    uri_variables: None,
+                    ..Default::default()
                 },
-                subscription: None,
                 data: Some(DataSchema {
-                    attype: None,
-                    title: None,
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
                     unit: Some("cm".to_owned()),
-                    one_of: None,
-                    enumeration: None,
                     read_only: true,
-                    write_only: false,
-                    format: None,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        maximum: None,
                         minimum: Some(0.),
-                        multiple_of: None,
-                    }))
+                        ..Default::default()
+                    })),
+                    ..Default::default()
                 }),
-                cancellation: None,
-                data_response: None,
+                ..Default::default()
             },
         );
     }
@@ -1390,89 +1167,33 @@ mod test {
             affordance,
             EventAffordance {
                 interaction: InteractionAffordance {
-                    attype: None,
                     title: Some("event".to_owned()),
-                    titles: None,
-                    description: None,
-                    descriptions: None,
                     forms: vec![Form {
-                        op: DefaultedFormOperations::Default,
                         href: "href".to_owned(),
-                        content_type: Form::default_content_type(),
-                        content_coding: None,
-                        subprotocol: None,
-                        security: None,
-                        scopes: None,
-                        response: None,
+                        ..Default::default()
                     }],
-                    uri_variables: None,
+                    ..Default::default()
                 },
                 subscription: Some(DataSchema {
-                    attype: None,
-                    title: None,
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
-                    unit: None,
-                    one_of: None,
-                    enumeration: None,
-                    read_only: false,
-                    write_only: false,
-                    format: None,
-                    subtype: Some(DataSchemaSubtype::Boolean)
+                    subtype: Some(DataSchemaSubtype::Boolean),
+                    ..Default::default()
                 }),
                 data: Some(DataSchema {
-                    attype: None,
-                    title: None,
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
                     unit: Some("cm".to_owned()),
-                    one_of: None,
-                    enumeration: None,
                     read_only: true,
-                    write_only: false,
-                    format: None,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        maximum: None,
                         minimum: Some(0.),
-                        multiple_of: None,
-                    }))
+                        ..Default::default()
+                    })),
+                    ..Default::default()
                 }),
                 cancellation: Some(DataSchema {
-                    attype: None,
-                    title: None,
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
-                    unit: None,
-                    one_of: None,
-                    enumeration: None,
-                    read_only: false,
-                    write_only: false,
-                    format: None,
-                    subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
-                        maximum: None,
-                        minimum: None,
-                    }))
+                    subtype: Some(DataSchemaSubtype::Integer(Default::default())),
+                    ..Default::default()
                 }),
                 data_response: Some(DataSchema {
-                    attype: None,
-                    title: None,
-                    titles: None,
-                    description: None,
-                    descriptions: None,
-                    constant: None,
-                    unit: None,
-                    one_of: None,
-                    enumeration: None,
-                    read_only: false,
-                    write_only: false,
-                    format: None,
-                    subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None }))
+                    subtype: Some(DataSchemaSubtype::String(Default::default())),
+                    ..Default::default()
                 }),
             },
         );

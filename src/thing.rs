@@ -27,7 +27,7 @@ pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
 /// It contains metadata and a description of its interfaces.
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Thing {
     // The context can be arbitrarily complex
@@ -132,33 +132,6 @@ impl Thing {
     fn default_context() -> Value {
         TD_CONTEXT_11.into()
     }
-
-    #[cfg(test)]
-    pub(crate) fn empty() -> Self {
-        Self {
-            context: Default::default(),
-            id: None,
-            title: Default::default(),
-            security_definitions: Default::default(),
-            security: Default::default(),
-            attype: None,
-            titles: None,
-            description: None,
-            descriptions: None,
-            version: None,
-            created: None,
-            modified: None,
-            support: None,
-            base: None,
-            properties: None,
-            actions: None,
-            events: None,
-            links: None,
-            forms: None,
-            uri_variables: None,
-            profile: None,
-        }
-    }
 }
 
 #[serde_as]
@@ -184,7 +157,7 @@ pub struct InteractionAffordance {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct PropertyAffordance {
     #[serde(flatten)]
     pub interaction: InteractionAffordance,
@@ -196,7 +169,7 @@ pub struct PropertyAffordance {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct ActionAffordance {
     #[serde(flatten)]
     pub interaction: InteractionAffordance,
@@ -215,7 +188,7 @@ pub struct ActionAffordance {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct EventAffordance {
     #[serde(flatten)]
     pub interaction: InteractionAffordance,
@@ -229,7 +202,7 @@ pub struct EventAffordance {
     pub cancellation: Option<DataSchema>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct VersionInfo {
     pub instance: String,
 
@@ -251,7 +224,7 @@ where
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSchema {
     #[serde(rename = "@type", default)]
@@ -288,7 +261,7 @@ pub struct DataSchema {
     pub subtype: Option<DataSchemaSubtype>,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum DataSchemaSubtype {
     Array(ArraySchema),
@@ -297,12 +270,13 @@ pub enum DataSchemaSubtype {
     Integer(IntegerSchema),
     Object(ObjectSchema),
     String(StringSchema),
+    #[default]
     Null,
 }
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct ArraySchema {
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
@@ -314,7 +288,7 @@ pub struct ArraySchema {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NumberSchema {
     pub maximum: Option<f64>,
@@ -325,7 +299,7 @@ pub struct NumberSchema {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 // FIXME: we should probably use a Decimal type
 pub struct IntegerSchema {
     pub maximum: Option<usize>,
@@ -334,7 +308,7 @@ pub struct IntegerSchema {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct ObjectSchema {
     pub properties: Option<DataSchemaMap>,
 
@@ -342,7 +316,7 @@ pub struct ObjectSchema {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StringSchema {
     pub max_length: Option<u32>,
@@ -350,7 +324,7 @@ pub struct StringSchema {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct SecurityScheme {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
@@ -367,9 +341,10 @@ pub struct SecurityScheme {
     pub subtype: SecuritySchemeSubtype,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(tag = "scheme", rename_all = "lowercase")]
 pub enum KnownSecuritySchemeSubtype {
+    #[default]
     NoSec,
     Basic(BasicSecurityScheme),
     Digest(DigestSecurityScheme),
@@ -379,7 +354,7 @@ pub enum KnownSecuritySchemeSubtype {
     ApiKey(ApiKeySecurityScheme),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct UnknownSecuritySchemeSubtype {
     pub scheme: String,
     #[serde(flatten)]
@@ -392,6 +367,12 @@ pub struct UnknownSecuritySchemeSubtype {
 pub enum SecuritySchemeSubtype {
     Known(KnownSecuritySchemeSubtype),
     Unknown(UnknownSecuritySchemeSubtype),
+}
+
+impl Default for SecuritySchemeSubtype {
+    fn default() -> Self {
+        Self::Known(KnownSecuritySchemeSubtype::default())
+    }
 }
 
 #[skip_serializing_none]
@@ -451,17 +432,12 @@ impl Default for DigestSecurityScheme {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum QualityOfProtection {
+    #[default]
     Auth,
     AuthInt,
-}
-
-impl Default for QualityOfProtection {
-    fn default() -> Self {
-        Self::Auth
-    }
 }
 
 #[skip_serializing_none]
@@ -530,7 +506,7 @@ pub struct PskSecurityScheme {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct OAuth2SecurityScheme {
     // FIXME: use AnyURI
     pub authorization: Option<String>,
@@ -561,7 +537,7 @@ impl OAuth2SecurityScheme {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Link {
     pub href: String,
 
@@ -576,7 +552,7 @@ pub struct Link {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Form {
     #[serde(default)]
@@ -585,8 +561,7 @@ pub struct Form {
     // FIXME: use AnyURI
     pub href: String,
 
-    #[serde(default = "Form::default_content_type")]
-    pub content_type: Cow<'static, str>,
+    pub content_type: Option<String>,
 
     // TODO: check if the subset of possible values is limited by the [IANA HTTP content coding
     // registry](https://www.iana.org/assignments/http-parameters/http-parameters.xhtml#content-coding).
@@ -606,12 +581,6 @@ pub struct Form {
     pub response: Option<ExpectedResponse>,
 }
 
-impl Form {
-    pub(crate) const fn default_content_type() -> Cow<'static, str> {
-        Cow::Borrowed("application/json")
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FormOperation {
@@ -628,16 +597,11 @@ pub enum FormOperation {
     WriteMultipleProperties,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum DefaultedFormOperations {
+    #[default]
     Default,
     Custom(Vec<FormOperation>),
-}
-
-impl Default for DefaultedFormOperations {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 impl Serialize for DefaultedFormOperations {
@@ -666,7 +630,7 @@ where
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExpectedResponse {
     pub content_type: String,
@@ -698,20 +662,11 @@ mod test {
             context: TD_CONTEXT_11.into(),
             id: Some("urn:dev:ops:32473-WoTLamp-1234".to_string()),
             title: "MyLampThing".to_string(),
-            security_definitions: [(
-                "nosec".to_string(),
-                SecurityScheme {
-                    attype: None,
-                    description: None,
-                    descriptions: None,
-                    proxy: None,
-                    subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::NoSec),
-                },
-            )]
-            .into_iter()
-            .collect(),
+            security_definitions: [("nosec".to_string(), SecurityScheme::default())]
+                .into_iter()
+                .collect(),
             security: vec!["nosec".to_string()],
-            ..Thing::empty()
+            ..Default::default()
         };
 
         let thing: Thing = serde_json::from_str(RAW).unwrap();
@@ -846,35 +801,16 @@ mod test {
                     PropertyAffordance {
                         interaction: InteractionAffordance {
                             forms: vec![Form {
-                                op: DefaultedFormOperations::Default,
                                 href: "https://mylamp.example.com/status".to_string(),
-                                content_type: Form::default_content_type(),
-                                content_coding: None,
-                                subprotocol: None,
-                                security: None,
-                                scopes: None,
-                                response: None,
+                                ..Form::default()
                             }],
                             ..Default::default()
                         },
                         data_schema: DataSchema {
-                            attype: None,
-                            title: None,
-                            titles: None,
-                            description: None,
-                            descriptions: None,
-                            constant: None,
-                            unit: None,
-                            one_of: None,
-                            enumeration: None,
-                            read_only: false,
-                            write_only: false,
-                            format: None,
-                            subtype: Some(DataSchemaSubtype::String(StringSchema {
-                                max_length: None,
-                            })),
+                            subtype: Some(DataSchemaSubtype::String(Default::default())),
+                            ..Default::default()
                         },
-                        observable: None,
+                        ..Default::default()
                     },
                 )]
                 .into_iter()
@@ -886,22 +822,13 @@ mod test {
                     ActionAffordance {
                         interaction: InteractionAffordance {
                             forms: vec![Form {
-                                op: DefaultedFormOperations::Default,
                                 href: "https://mylamp.example.com/toggle".to_string(),
-                                content_type: Form::default_content_type(),
-                                content_coding: None,
-                                subprotocol: None,
-                                security: None,
-                                scopes: None,
-                                response: None,
+                                ..Default::default()
                             }],
                             ..Default::default()
                         },
-                        input: None,
-                        output: None,
-                        safe: false,
-                        idempotent: false,
                         synchronous: Some(false),
+                        ..Default::default()
                     },
                 )]
                 .into_iter()
@@ -913,37 +840,17 @@ mod test {
                     EventAffordance {
                         interaction: InteractionAffordance {
                             forms: vec![Form {
-                                op: DefaultedFormOperations::Default,
                                 href: "https://mylamp.example.com/oh".to_string(),
-                                content_type: Form::default_content_type(),
-                                content_coding: None,
                                 subprotocol: Some("longpoll".to_string()),
-                                security: None,
-                                scopes: None,
-                                response: None,
+                                ..Default::default()
                             }],
                             ..Default::default()
                         },
-                        subscription: None,
                         data: Some(DataSchema {
-                            attype: None,
-                            title: None,
-                            titles: None,
-                            description: None,
-                            descriptions: None,
-                            constant: None,
-                            unit: None,
-                            one_of: None,
-                            enumeration: None,
-                            read_only: false,
-                            write_only: false,
-                            format: None,
-                            subtype: Some(DataSchemaSubtype::String(StringSchema {
-                                max_length: None,
-                            })),
+                            subtype: Some(DataSchemaSubtype::String(StringSchema::default())),
+                            ..Default::default()
                         }),
-                        cancellation: None,
-                        data_response: None,
+                        ..Default::default()
                     },
                 )]
                 .into_iter()
@@ -951,35 +858,19 @@ mod test {
             ),
             links: Some(vec![Link {
                 href: "https://myswitch.example.com/".to_string(),
-                ty: None,
-                rel: None,
-                anchor: None,
+                ..Default::default()
             }]),
             forms: Some(vec![Form {
                 op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
                 href: "https://mylamp.example.com/enumerate".to_string(),
-                content_type: Form::default_content_type(),
-                content_coding: None,
-                subprotocol: None,
-                security: None,
-                scopes: None,
-                response: None,
+                ..Default::default()
             }]),
-            security_definitions: [(
-                "nosec".to_string(),
-                SecurityScheme {
-                    attype: None,
-                    description: None,
-                    descriptions: None,
-                    proxy: None,
-                    subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::NoSec),
-                },
-            )]
-            .into_iter()
-            .collect(),
+            security_definitions: [("nosec".to_string(), SecurityScheme::default())]
+                .into_iter()
+                .collect(),
             security: vec!["nosec".to_string()],
-            uri_variables: None,
             profile: Some(vec!["profile1".to_string(), "profile2".to_string()]),
+            ..Default::default()
         };
 
         let thing: Thing = serde_json::from_str(RAW).unwrap();
@@ -1006,22 +897,12 @@ mod test {
 
         let expected_thing = Thing {
             context: TD_CONTEXT_11.into(),
-            id: None,
             title: "MyLampThing".to_string(),
-            security_definitions: [(
-                "nosec".to_string(),
-                SecurityScheme {
-                    attype: None,
-                    description: None,
-                    descriptions: None,
-                    proxy: None,
-                    subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::NoSec),
-                },
-            )]
-            .into_iter()
-            .collect(),
+            security_definitions: [("nosec".to_string(), SecurityScheme::default())]
+                .into_iter()
+                .collect(),
             security: vec!["nosec".to_string()],
-            ..Thing::empty()
+            ..Default::default()
         };
 
         let thing: Thing = serde_json::from_str(RAW).unwrap();
