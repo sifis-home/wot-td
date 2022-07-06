@@ -340,7 +340,6 @@ impl ThingBuilder {
             }
         }
 
-        let content_type = content_type.unwrap_or(Form::default_content_type());
         Ok(Form {
             op,
             href,
@@ -1150,7 +1149,7 @@ impl SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
 pub struct FormBuilder<Href> {
     op: DefaultedFormOperations,
     href: Href,
-    content_type: Option<Cow<'static, str>>,
+    content_type: Option<String>,
     content_coding: Option<String>,
     subprotocol: Option<String>,
     security: Option<Vec<String>>,
@@ -1201,7 +1200,7 @@ impl FormBuilder<()> {
 
 impl<T> FormBuilder<T> {
     opt_field_builder!(
-        content_type: Cow<'static, str>,
+        content_type: String,
         content_coding: String,
         subprotocol: String,
     );
@@ -1271,8 +1270,6 @@ impl From<FormBuilder<String>> for Form {
             response,
         } = builder;
 
-        let content_type = content_type.unwrap_or(Form::default_content_type());
-
         Self {
             op,
             href,
@@ -1297,8 +1294,8 @@ mod tests {
             human_readable_info::BuildableHumanReadableInfo,
         },
         thing::{
-            ActionAffordance, DataSchemaSubtype, EventAffordance, IntegerSchema,
-            InteractionAffordance, PropertyAffordance,
+            ActionAffordance, DataSchemaSubtype, EventAffordance, InteractionAffordance,
+            PropertyAffordance,
         },
     };
 
@@ -1317,7 +1314,7 @@ mod tests {
                             context: TD_CONTEXT_11.into(),
                             title: "MyLampThing".to_string(),
                             $field: Some("test".into()),
-                            ..Thing::empty()
+                            ..Default::default()
                         }
                     );
                 }
@@ -1333,7 +1330,7 @@ mod tests {
             Thing {
                 context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
-                ..Thing::empty()
+                ..Default::default()
             }
         )
     }
@@ -1350,7 +1347,7 @@ mod tests {
             Thing {
                 context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
-                ..Thing::empty()
+                ..Default::default()
             }
         )
     }
@@ -1372,7 +1369,7 @@ mod tests {
                     "another_test",
                 ]},
                 title: "MyLampThing".to_string(),
-                ..Thing::empty()
+                ..Default::default()
             }
         )
     }
@@ -1397,7 +1394,7 @@ mod tests {
                     "simple",
                 ]},
                 title: "MyLampThing".to_string(),
-                ..Thing::empty()
+                ..Default::default()
             }
         )
     }
@@ -1417,7 +1414,7 @@ mod tests {
                 context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 attype: Some(vec!["test".to_string()]),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
 
@@ -1433,7 +1430,7 @@ mod tests {
                 context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 attype: Some(vec!["test1".to_string(), "test2".to_string()]),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1456,7 +1453,7 @@ mod tests {
                         .map(|(k, v)| (k.to_string(), v.to_string()))
                         .collect()
                 ),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1481,7 +1478,7 @@ mod tests {
                         .map(|(k, v)| (k.to_string(), v.to_string()))
                         .collect()
                 ),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1500,7 +1497,7 @@ mod tests {
                 context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 created: Some(DATETIME),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1519,7 +1516,7 @@ mod tests {
                 context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 modified: Some(DATETIME),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1551,7 +1548,7 @@ mod tests {
                         anchor: Default::default(),
                     }
                 ]),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1583,7 +1580,7 @@ mod tests {
                         anchor: Default::default(),
                     }
                 ]),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1628,7 +1625,7 @@ mod tests {
                 )]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1680,7 +1677,7 @@ mod tests {
                 )]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1734,7 +1731,7 @@ mod tests {
                 )]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1786,7 +1783,7 @@ mod tests {
                 )]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1844,7 +1841,7 @@ mod tests {
                 )]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1902,7 +1899,7 @@ mod tests {
                 )]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -1957,7 +1954,7 @@ mod tests {
                 )]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2004,7 +2001,7 @@ mod tests {
                 ]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2051,7 +2048,7 @@ mod tests {
                 ]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
 
@@ -2095,7 +2092,7 @@ mod tests {
                 ]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2129,14 +2126,9 @@ mod tests {
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
                     href: "href".to_string(),
-                    content_type: Form::default_content_type(),
-                    content_coding: Default::default(),
-                    subprotocol: Default::default(),
-                    security: Default::default(),
-                    scopes: Default::default(),
-                    response: Default::default(),
+                    ..Default::default()
                 }]),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2157,39 +2149,20 @@ mod tests {
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
                     href: "href/{foo}".to_string(),
-                    content_type: Form::default_content_type(),
-                    content_coding: Default::default(),
-                    subprotocol: Default::default(),
-                    security: Default::default(),
-                    scopes: Default::default(),
-                    response: Default::default(),
+                    ..Default::default()
                 }]),
                 uri_variables: Some(
                     [(
                         "foo".to_string(),
                         DataSchema {
-                            attype: None,
-                            title: None,
-                            titles: None,
-                            description: None,
-                            descriptions: None,
-                            constant: None,
-                            unit: None,
-                            one_of: None,
-                            enumeration: None,
-                            read_only: false,
-                            write_only: false,
-                            format: None,
-                            subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
-                                maximum: None,
-                                minimum: None,
-                            }))
+                            subtype: Some(DataSchemaSubtype::Integer(Default::default())),
+                            ..Default::default()
                         }
                     )]
                     .into_iter()
                     .collect()
                 ),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2229,7 +2202,7 @@ mod tests {
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
                     href: "href".to_string(),
-                    content_type: "text/plain".into(),
+                    content_type: Some("text/plain".into()),
                     content_coding: Some("coding".to_string()),
                     subprotocol: Some("subprotocol".to_string()),
                     security: Some(vec!["digest".to_string(), "basic".to_string()]),
@@ -2272,7 +2245,7 @@ mod tests {
                 ]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2299,14 +2272,9 @@ mod tests {
                         FormOperation::ReadMultipleProperties
                     ]),
                     href: "href".to_string(),
-                    content_type: Form::default_content_type(),
-                    content_coding: Default::default(),
-                    subprotocol: Default::default(),
-                    security: Default::default(),
-                    scopes: Default::default(),
-                    response: Default::default(),
+                    ..Default::default()
                 }]),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2424,7 +2392,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2502,7 +2470,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2576,7 +2544,7 @@ mod tests {
                     .into_iter()
                     .collect()
                 ),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2601,39 +2569,19 @@ mod tests {
                         "on".to_owned(),
                         PropertyAffordance {
                             interaction: InteractionAffordance {
-                                attype: None,
-                                title: None,
-                                titles: None,
-                                description: None,
-                                descriptions: None,
                                 forms: vec![Form {
                                     op: DefaultedFormOperations::Default,
                                     href: "href".to_owned(),
-                                    content_type: Form::default_content_type(),
-                                    content_coding: None,
-                                    subprotocol: None,
                                     security: Some(vec!["basic".to_owned()]),
-                                    scopes: None,
-                                    response: None
+                                    ..Default::default()
                                 }],
-                                uri_variables: None,
+                                ..Default::default()
                             },
                             data_schema: DataSchema {
-                                attype: None,
-                                title: None,
-                                titles: None,
-                                description: None,
-                                descriptions: None,
-                                constant: None,
-                                unit: None,
-                                one_of: None,
-                                enumeration: None,
-                                read_only: false,
-                                write_only: false,
-                                format: None,
-                                subtype: Some(DataSchemaSubtype::Boolean)
+                                subtype: Some(DataSchemaSubtype::Boolean),
+                                ..Default::default()
                             },
-                            observable: None,
+                            ..Default::default()
                         }
                     ),]
                     .into_iter()
@@ -2642,21 +2590,18 @@ mod tests {
                 security_definitions: [(
                     "basic".to_owned(),
                     SecurityScheme {
-                        attype: None,
-                        description: None,
-                        descriptions: None,
-                        proxy: None,
                         subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Basic(
                             BasicSecurityScheme {
                                 location: SecurityAuthenticationLocation::Header,
                                 name: None,
                             }
-                        ))
+                        )),
+                        ..Default::default()
                     }
                 )]
                 .into_iter()
                 .collect(),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
@@ -2687,7 +2632,7 @@ mod tests {
                 context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 profile: Some(vec!["profile".to_string()]),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
 
@@ -2703,7 +2648,7 @@ mod tests {
                 context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 profile: Some(vec!["profile1".to_string(), "profile2".to_string()]),
-                ..Thing::empty()
+                ..Default::default()
             }
         );
     }
