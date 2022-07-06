@@ -26,6 +26,16 @@ fn default_context() -> Value {
     TD_CONTEXT_11.into()
 }
 
+pub trait Extension {
+    type Thing: Clone + std::fmt::Debug + Default + PartialEq;
+}
+
+use crate::hlist::Nil;
+
+impl Extension for Nil {
+    type Thing = Nil;
+}
+
 /// An abstraction of a physical or a virtual entity
 ///
 /// It contains metadata and a description of its interfaces.
@@ -33,7 +43,7 @@ fn default_context() -> Value {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Thing {
+pub struct Thing<E: Extension = Nil> {
     // The context can be arbitrarily complex
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
@@ -124,6 +134,9 @@ pub struct Thing {
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub profile: Option<Vec<String>>,
+
+    #[serde(flatten)]
+    pub other: E::Thing,
 }
 
 /*
