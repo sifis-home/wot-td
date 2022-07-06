@@ -14,7 +14,7 @@ use serde_json::Value;
 use serde_with::{serde_as, skip_serializing_none, DeserializeAs, OneOrMany, Same};
 use time::OffsetDateTime;
 
-use crate::builder::ThingBuilder;
+// use crate::builder::ThingBuilder;
 
 pub(crate) type MultiLanguage = HashMap<String, String>;
 pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
@@ -126,6 +126,7 @@ pub struct Thing {
     pub profile: Option<Vec<String>>,
 }
 
+/*
 impl Thing {
     /// Shorthand for [ThingBuilder::new].
     #[inline]
@@ -133,6 +134,7 @@ impl Thing {
         ThingBuilder::new(title)
     }
 }
+*/
 
 #[serde_as]
 #[skip_serializing_none]
