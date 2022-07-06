@@ -29,6 +29,7 @@ fn default_context() -> Value {
 pub trait Extension {
     type Thing: Clone + std::fmt::Debug + Default + PartialEq;
     type InteractionAffordance: Clone + std::fmt::Debug + Default + PartialEq;
+    type Form: Clone + std::fmt::Debug + Default + PartialEq;
 }
 
 use crate::hlist::Nil;
@@ -36,6 +37,7 @@ use crate::hlist::Nil;
 impl Extension for Nil {
     type Thing = Nil;
     type InteractionAffordance = Nil;
+    type Form = Nil;
 }
 
 /// An abstraction of a physical or a virtual entity
@@ -126,8 +128,12 @@ pub struct Thing<E: Extension = Nil> {
     /// Its meaning depends on the @context and the semantic attributes attached.
     pub links: Option<Vec<Link>>,
 
+    #[serde(bound(
+        serialize = "E::Form: Serialize",
+        deserialize = "E::Form: Deserialize<'de>"
+    ))]
     /// Bulk-operations over the Thing properties
-    pub forms: Option<Vec<Form>>,
+    pub forms: Option<Vec<Form<E>>>,
 
     /// Thing-wide Security constraints
     ///
@@ -180,7 +186,11 @@ pub struct InteractionAffordance<E: Extension> {
 
     pub descriptions: Option<MultiLanguage>,
 
-    pub forms: Vec<Form>,
+    #[serde(bound(
+        serialize = "E::Form: Serialize",
+        deserialize = "E::Form: Deserialize<'de>"
+    ))]
+    pub forms: Vec<Form<E>>,
 
     pub uri_variables: Option<DataSchemaMap>,
 
@@ -192,8 +202,8 @@ pub struct InteractionAffordance<E: Extension> {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct PropertyAffordance<E: Extension> {
     #[serde(bound(
-        serialize = "E::InteractionAffordance: Serialize",
-        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>"
     ))]
     #[serde(flatten)]
     pub interaction: InteractionAffordance<E>,
@@ -208,8 +218,8 @@ pub struct PropertyAffordance<E: Extension> {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct ActionAffordance<E: Extension> {
     #[serde(bound(
-        serialize = "E::InteractionAffordance: Serialize",
-        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>"
     ))]
     #[serde(flatten)]
     pub interaction: InteractionAffordance<E>,
@@ -231,8 +241,8 @@ pub struct ActionAffordance<E: Extension> {
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct EventAffordance<E: Extension> {
     #[serde(bound(
-        serialize = "E::InteractionAffordance: Serialize",
-        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>"
     ))]
     #[serde(flatten)]
     pub interaction: InteractionAffordance<E>,
@@ -598,7 +608,7 @@ pub struct Link {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Form {
+pub struct Form<E: Extension> {
     #[serde(default)]
     pub op: DefaultedFormOperations,
 
@@ -623,6 +633,13 @@ pub struct Form {
     pub scopes: Option<Vec<String>>,
 
     pub response: Option<ExpectedResponse>,
+
+    #[serde(bound(
+        serialize = "E::Form: Serialize",
+        deserialize = "E::Form: Deserialize<'de>"
+    ))]
+    #[serde(flatten)]
+    pub other: E::Form,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
