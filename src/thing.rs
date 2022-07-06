@@ -28,12 +28,14 @@ fn default_context() -> Value {
 
 pub trait Extension {
     type Thing: Clone + std::fmt::Debug + Default + PartialEq;
+    type InteractionAffordance: Clone + std::fmt::Debug + Default + PartialEq;
 }
 
 use crate::hlist::Nil;
 
 impl Extension for Nil {
     type Thing = Nil;
+    type InteractionAffordance = Nil;
 }
 
 /// An abstraction of a physical or a virtual entity
@@ -99,13 +101,25 @@ pub struct Thing<E: Extension = Nil> {
     pub base: Option<String>,
 
     /// Property-based [Interaction Affordances]
-    pub properties: Option<HashMap<String, PropertyAffordance>>,
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+    ))]
+    pub properties: Option<HashMap<String, PropertyAffordance<E>>>,
 
     /// Action-based [Interaction Affordances]
-    pub actions: Option<HashMap<String, ActionAffordance>>,
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+    ))]
+    pub actions: Option<HashMap<String, ActionAffordance<E>>>,
 
     /// Event-based [Interaction Affordances]
-    pub events: Option<HashMap<String, EventAffordance>>,
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+    ))]
+    pub events: Option<HashMap<String, EventAffordance<E>>>,
 
     /// Arbitrary resources that relate to the current Thing
     ///
@@ -153,7 +167,7 @@ impl Thing {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InteractionAffordance {
+pub struct InteractionAffordance<E: Extension> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -169,13 +183,20 @@ pub struct InteractionAffordance {
     pub forms: Vec<Form>,
 
     pub uri_variables: Option<DataSchemaMap>,
+
+    #[serde(flatten)]
+    pub other: E::InteractionAffordance,
 }
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct PropertyAffordance {
+pub struct PropertyAffordance<E: Extension> {
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+    ))]
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<E>,
 
     #[serde(flatten)]
     pub data_schema: DataSchema,
@@ -185,9 +206,13 @@ pub struct PropertyAffordance {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ActionAffordance {
+pub struct ActionAffordance<E: Extension> {
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+    ))]
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<E>,
 
     pub input: Option<DataSchema>,
 
@@ -204,9 +229,13 @@ pub struct ActionAffordance {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct EventAffordance {
+pub struct EventAffordance<E: Extension> {
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>"
+    ))]
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<E>,
 
     pub subscription: Option<DataSchema>,
 
