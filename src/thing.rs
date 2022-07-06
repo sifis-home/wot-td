@@ -22,6 +22,10 @@ pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
 pub const TD_CONTEXT_10: &str = "https://www.w3.org/2019/wot/td/v1";
 pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
 
+fn default_context() -> Value {
+    TD_CONTEXT_11.into()
+}
+
 /// An abstraction of a physical or a virtual entity
 ///
 /// It contains metadata and a description of its interfaces.
@@ -34,7 +38,7 @@ pub struct Thing {
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
     /// A [JSON-LD @context](https://www.w3.org/TR/json-ld11/#the-context)
-    #[serde(rename = "@context", default = "Thing::default_context")]
+    #[serde(rename = "@context", default = "default_context")]
     pub context: Value,
 
     /// A unique identifier
@@ -127,10 +131,6 @@ impl Thing {
     #[inline]
     pub fn build(title: impl Into<String>) -> ThingBuilder {
         ThingBuilder::new(title)
-    }
-
-    fn default_context() -> Value {
-        TD_CONTEXT_11.into()
     }
 }
 
