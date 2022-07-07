@@ -9,7 +9,7 @@
 //! an high level builder to ensure a valid TD is built and a set of accessors to make easier to
 //! operate with complex descriptions.
 
-pub mod builder;
+// pub mod builder;
 mod extend;
 mod hlist;
 pub mod protocol;

@@ -31,6 +31,7 @@ pub trait BuildableInteractionAffordance {
     fn form<F>(self, f: F) -> Self
     where
         F: FnOnce(FormBuilder<()>) -> FormBuilder<String>;
+
     fn uri_variable<F, T>(self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder) -> T,

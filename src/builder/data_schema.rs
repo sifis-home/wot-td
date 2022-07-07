@@ -1,6 +1,7 @@
-use std::ops::Not;
+use std::{fmt, ops::Not};
 
 use crate::{
+    extend::ExtendableThing,
     hlist::Nil,
     thing::{
         ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
@@ -15,27 +16,99 @@ use super::{
     Error, MultiLanguageBuilder,
 };
 
-#[derive(Debug, Default, PartialEq)]
-pub struct PartialDataSchemaBuilder {
+#[derive(Default)]
+pub struct PartialDataSchemaBuilder<Other: ExtendableThing = Nil> {
     constant: Option<Value>,
     unit: Option<String>,
-    one_of: Vec<DataSchema>,
+    one_of: Vec<DataSchema<Other>>,
     enumeration: Vec<Value>,
     read_only: bool,
     write_only: bool,
     format: Option<String>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
-pub(super) struct PartialDataSchema {
+impl<Other> fmt::Debug for PartialDataSchemaBuilder<Other>
+where
+    Other: ExtendableThing,
+    DataSchema<Other>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PartialDataSchemaBuilder")
+            .field("constant", &self.constant)
+            .field("unit", &self.unit)
+            .field("one_of", &self.one_of)
+            .field("enumeration", &self.enumeration)
+            .field("read_only", &self.read_only)
+            .field("write_only", &self.write_only)
+            .field("format", &self.format)
+            .finish()
+    }
+}
+
+impl<Other> PartialEq for PartialDataSchemaBuilder<Other>
+where
+    Other: ExtendableThing,
+    DataSchema<Other>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.constant == other.constant
+            && self.unit == other.unit
+            && self.one_of == other.one_of
+            && self.enumeration == other.enumeration
+            && self.read_only == other.read_only
+            && self.write_only == other.write_only
+            && self.format == other.format
+    }
+}
+
+#[derive(Default)]
+pub(super) struct PartialDataSchema<Other: ExtendableThing = Nil> {
     pub(super) constant: Option<Value>,
     pub(super) unit: Option<String>,
-    pub(super) one_of: Option<Vec<DataSchema>>,
+    pub(super) one_of: Option<Vec<DataSchema<Other>>>,
     pub(super) enumeration: Option<Vec<Value>>,
     pub(super) read_only: bool,
     pub(super) write_only: bool,
     pub(super) format: Option<String>,
-    pub(super) subtype: Option<DataSchemaSubtype>,
+    pub(super) subtype: Option<DataSchemaSubtype<Other>>,
+}
+
+impl<Other> fmt::Debug for PartialDataSchema<Other>
+where
+    Other: ExtendableThing,
+    DataSchema<Other>: fmt::Debug,
+    DataSchemaSubtype<Other>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PartialDataSchema")
+            .field("constant", &self.constant)
+            .field("unit", &self.unit)
+            .field("one_of", &self.one_of)
+            .field("enumeration", &self.enumeration)
+            .field("read_only", &self.read_only)
+            .field("write_only", &self.write_only)
+            .field("format", &self.format)
+            .field("subtype", &self.subtype)
+            .finish()
+    }
+}
+
+impl<Other> PartialEq for PartialDataSchema<Other>
+where
+    Other: ExtendableThing,
+    DataSchema<Other>: PartialEq,
+    DataSchemaSubtype<Other>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.constant == other.constant
+            && self.unit == other.unit
+            && self.one_of == other.one_of
+            && self.enumeration == other.enumeration
+            && self.read_only == other.read_only
+            && self.write_only == other.write_only
+            && self.format == other.format
+            && self.subtype == other.subtype
+    }
 }
 
 /// Basic builder for [`DataSchema`].
@@ -49,10 +122,33 @@ pub(super) struct PartialDataSchema {
 /// # };
 /// let data_schema: DataSchema = DataSchemaBuilder::default().into();
 /// ```
-#[derive(Debug, Default, PartialEq)]
-pub struct DataSchemaBuilder {
-    partial: PartialDataSchemaBuilder,
+#[derive(Default)]
+pub struct DataSchemaBuilder<Other: ExtendableThing = Nil> {
+    partial: PartialDataSchemaBuilder<Other>,
     info: HumanReadableInfo,
+}
+
+impl<Other> fmt::Debug for DataSchemaBuilder<Other>
+where
+    Other: ExtendableThing,
+    PartialDataSchemaBuilder<Other>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DataSchemaBuilder")
+            .field("partial", &self.partial)
+            .field("info", &self.info)
+            .finish()
+    }
+}
+
+impl<Other> PartialEq for DataSchemaBuilder<Other>
+where
+    Other: ExtendableThing,
+    PartialDataSchemaBuilder<Other>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.partial == other.partial && self.info == other.info
+    }
 }
 
 trait IntoDataSchema: Into<Self::Target> {
@@ -833,6 +929,7 @@ where
 
 impl<T> From<ArrayDataSchemaBuilder<T>> for DataSchema
 where
+    // TODO
     T: Into<DataSchemaBuilder>,
 {
     fn from(builder: ArrayDataSchemaBuilder<T>) -> Self {
@@ -868,6 +965,8 @@ where
             items,
             min_items,
             max_items,
+            // TODO
+            other: Nil,
         }));
 
         DataSchema {
@@ -892,6 +991,7 @@ where
 
 impl<T> From<ArrayDataSchemaBuilder<T>> for PartialDataSchema
 where
+    // TODO
     T: Into<PartialDataSchemaBuilder>,
 {
     fn from(builder: ArrayDataSchemaBuilder<T>) -> Self {
@@ -916,6 +1016,8 @@ where
             items,
             min_items,
             max_items,
+            // TODO
+            other: Nil,
         }));
 
         PartialDataSchema {
@@ -1031,6 +1133,7 @@ where
 
 impl<T> From<IntegerDataSchemaBuilder<T>> for DataSchema
 where
+    // TODO
     T: Into<DataSchemaBuilder>,
 {
     fn from(builder: IntegerDataSchemaBuilder<T>) -> Self {
@@ -1123,9 +1226,11 @@ where
     }
 }
 
-impl<T> From<ObjectDataSchemaBuilder<T>> for DataSchema
+impl<T, Other> From<ObjectDataSchemaBuilder<T>> for DataSchema<Other>
 where
-    T: Into<DataSchemaBuilder>,
+    T: Into<DataSchemaBuilder<Other>>,
+    // TODO
+    Other: ExtendableThing<DataSchema = Nil, ObjectSchema = Nil>,
 {
     fn from(builder: ObjectDataSchemaBuilder<T>) -> Self {
         let ObjectDataSchemaBuilder {
@@ -1186,9 +1291,11 @@ where
     }
 }
 
-impl<T> From<ObjectDataSchemaBuilder<T>> for PartialDataSchema
+impl<T, Other> From<ObjectDataSchemaBuilder<T>> for PartialDataSchema<Other>
 where
     T: Into<PartialDataSchemaBuilder>,
+    // TODO
+    Other: ExtendableThing<DataSchema = Nil, ObjectSchema = Nil>,
 {
     fn from(builder: ObjectDataSchemaBuilder<T>) -> Self {
         let ObjectDataSchemaBuilder {
@@ -1233,6 +1340,7 @@ where
 
 impl<T> From<StringDataSchemaBuilder<T>> for DataSchema
 where
+    // TODO
     T: Into<DataSchemaBuilder>,
 {
     fn from(builder: StringDataSchemaBuilder<T>) -> Self {
@@ -1762,6 +1870,7 @@ mod tests {
                     items: None,
                     min_items: None,
                     max_items: None,
+                    other: Nil,
                 })),
                 // TODO
                 other: Nil,
@@ -1786,6 +1895,7 @@ mod tests {
                     items: None,
                     min_items: None,
                     max_items: None,
+                    other: Nil,
                 })),
             }
         );
@@ -2409,6 +2519,7 @@ mod tests {
                     ]),
                     min_items: Some(0),
                     max_items: Some(5),
+                    other: Nil,
                 })),
                 // TODO
                 other: Nil,
@@ -2474,6 +2585,7 @@ mod tests {
                     ]),
                     min_items: Some(0),
                     max_items: Some(5),
+                    other: Nil,
                 })),
             }
         );
