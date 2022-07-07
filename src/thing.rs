@@ -52,7 +52,7 @@ impl Buildable for Nil {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Thing<T: Buildable = Nil, I: Buildable = Nil> {
+pub struct Thing<T: Buildable = Nil, I: Buildable = Nil, F: Buildable = Nil> {
     // The context can be arbitrarily complex
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
@@ -108,13 +108,13 @@ pub struct Thing<T: Buildable = Nil, I: Buildable = Nil> {
     pub base: Option<String>,
 
     /// Property-based [Interaction Affordances]
-    pub properties: Option<HashMap<String, PropertyAffordance<I>>>,
+    pub properties: Option<HashMap<String, PropertyAffordance<I, F>>>,
 
     /// Action-based [Interaction Affordances]
-    pub actions: Option<HashMap<String, ActionAffordance<I>>>,
+    pub actions: Option<HashMap<String, ActionAffordance<I, F>>>,
 
     /// Event-based [Interaction Affordances]
-    pub events: Option<HashMap<String, EventAffordance<I>>>,
+    pub events: Option<HashMap<String, EventAffordance<I, F>>>,
 
     /// Arbitrary resources that relate to the current Thing
     ///
@@ -122,7 +122,7 @@ pub struct Thing<T: Buildable = Nil, I: Buildable = Nil> {
     pub links: Option<Vec<Link>>,
 
     /// Bulk-operations over the Thing properties
-    pub forms: Option<Vec<Form>>,
+    pub forms: Option<Vec<Form<F>>>,
 
     /// Thing-wide Security constraints
     ///
@@ -162,7 +162,7 @@ impl Thing {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InteractionAffordance<I: Buildable> {
+pub struct InteractionAffordance<I: Buildable, F: Buildable> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -175,7 +175,7 @@ pub struct InteractionAffordance<I: Buildable> {
 
     pub descriptions: Option<MultiLanguage>,
 
-    pub forms: Vec<Form>,
+    pub forms: Vec<Form<F>>,
 
     pub uri_variables: Option<DataSchemaMap>,
 
@@ -185,9 +185,9 @@ pub struct InteractionAffordance<I: Buildable> {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct PropertyAffordance<I: Buildable> {
+pub struct PropertyAffordance<I: Buildable, F: Buildable> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance<I>,
+    pub interaction: InteractionAffordance<I, F>,
 
     #[serde(flatten)]
     pub data_schema: DataSchema,
@@ -197,9 +197,9 @@ pub struct PropertyAffordance<I: Buildable> {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ActionAffordance<I: Buildable> {
+pub struct ActionAffordance<I: Buildable, F: Buildable> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance<I>,
+    pub interaction: InteractionAffordance<I, F>,
 
     pub input: Option<DataSchema>,
 
@@ -216,9 +216,9 @@ pub struct ActionAffordance<I: Buildable> {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct EventAffordance<I: Buildable> {
+pub struct EventAffordance<I: Buildable, F: Buildable> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance<I>,
+    pub interaction: InteractionAffordance<I, F>,
 
     pub subscription: Option<DataSchema>,
 
@@ -581,7 +581,7 @@ pub struct Link {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Form {
+pub struct Form<F: Buildable> {
     #[serde(default)]
     pub op: DefaultedFormOperations,
 
@@ -606,6 +606,9 @@ pub struct Form {
     pub scopes: Option<Vec<String>>,
 
     pub response: Option<ExpectedResponse>,
+
+    #[serde(flatten)]
+    pub other: F,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
