@@ -20,7 +20,7 @@ use crate::hlist::Nil;
 use crate::traits::{Buildable, Builder};
 
 pub(crate) type MultiLanguage = HashMap<String, String>;
-pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
+pub(crate) type DataSchemaMap<D> = HashMap<String, DataSchema<D>>;
 
 pub const TD_CONTEXT_10: &str = "https://www.w3.org/2019/wot/td/v1";
 pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
@@ -52,7 +52,7 @@ impl Buildable for Nil {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Thing<T: Buildable = Nil, I: Buildable = Nil, F: Buildable = Nil> {
+pub struct Thing<T: Buildable = Nil, I: Buildable = Nil, F: Buildable = Nil, D: Buildable = Nil> {
     // The context can be arbitrarily complex
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
@@ -108,13 +108,13 @@ pub struct Thing<T: Buildable = Nil, I: Buildable = Nil, F: Buildable = Nil> {
     pub base: Option<String>,
 
     /// Property-based [Interaction Affordances]
-    pub properties: Option<HashMap<String, PropertyAffordance<I, F>>>,
+    pub properties: Option<HashMap<String, PropertyAffordance<I, F, D>>>,
 
     /// Action-based [Interaction Affordances]
-    pub actions: Option<HashMap<String, ActionAffordance<I, F>>>,
+    pub actions: Option<HashMap<String, ActionAffordance<I, F, D>>>,
 
     /// Event-based [Interaction Affordances]
-    pub events: Option<HashMap<String, EventAffordance<I, F>>>,
+    pub events: Option<HashMap<String, EventAffordance<I, F, D>>>,
 
     /// Arbitrary resources that relate to the current Thing
     ///
@@ -138,7 +138,7 @@ pub struct Thing<T: Buildable = Nil, I: Buildable = Nil, F: Buildable = Nil> {
     /// resources.
     pub security_definitions: HashMap<String, SecurityScheme>,
 
-    pub uri_variables: Option<DataSchemaMap>,
+    pub uri_variables: Option<DataSchemaMap<D>>,
 
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
@@ -162,7 +162,7 @@ impl Thing {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InteractionAffordance<I: Buildable, F: Buildable> {
+pub struct InteractionAffordance<I: Buildable, F: Buildable, D: Buildable> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -177,7 +177,7 @@ pub struct InteractionAffordance<I: Buildable, F: Buildable> {
 
     pub forms: Vec<Form<F>>,
 
-    pub uri_variables: Option<DataSchemaMap>,
+    pub uri_variables: Option<DataSchemaMap<D>>,
 
     #[serde(flatten)]
     pub other: I,
@@ -185,25 +185,25 @@ pub struct InteractionAffordance<I: Buildable, F: Buildable> {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct PropertyAffordance<I: Buildable, F: Buildable> {
+pub struct PropertyAffordance<I: Buildable, F: Buildable, D: Buildable> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance<I, F>,
+    pub interaction: InteractionAffordance<I, F, D>,
 
     #[serde(flatten)]
-    pub data_schema: DataSchema,
+    pub data_schema: DataSchema<D>,
 
     pub observable: Option<bool>,
 }
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ActionAffordance<I: Buildable, F: Buildable> {
+pub struct ActionAffordance<I: Buildable, F: Buildable, D: Buildable> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance<I, F>,
+    pub interaction: InteractionAffordance<I, F, D>,
 
-    pub input: Option<DataSchema>,
+    pub input: Option<DataSchema<D>>,
 
-    pub output: Option<DataSchema>,
+    pub output: Option<DataSchema<D>>,
 
     #[serde(default)]
     pub safe: bool,
@@ -216,17 +216,17 @@ pub struct ActionAffordance<I: Buildable, F: Buildable> {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct EventAffordance<I: Buildable, F: Buildable> {
+pub struct EventAffordance<I: Buildable, F: Buildable, D: Buildable> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance<I, F>,
+    pub interaction: InteractionAffordance<I, F, D>,
 
-    pub subscription: Option<DataSchema>,
+    pub subscription: Option<DataSchema<D>>,
 
-    pub data: Option<DataSchema>,
+    pub data: Option<DataSchema<D>>,
 
-    pub data_response: Option<DataSchema>,
+    pub data_response: Option<DataSchema<D>>,
 
-    pub cancellation: Option<DataSchema>,
+    pub cancellation: Option<DataSchema<D>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -253,7 +253,7 @@ where
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DataSchema {
+pub struct DataSchema<D: Buildable> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -271,7 +271,7 @@ pub struct DataSchema {
 
     pub unit: Option<String>,
 
-    pub one_of: Option<Vec<DataSchema>>,
+    pub one_of: Option<Vec<DataSchema<D>>>,
 
     #[serde(rename = "enum")]
     pub enumeration: Option<Vec<Value>>,
@@ -285,17 +285,20 @@ pub struct DataSchema {
     pub format: Option<String>,
 
     #[serde(flatten)]
-    pub subtype: Option<DataSchemaSubtype>,
+    pub subtype: Option<DataSchemaSubtype<D>>,
+
+    #[serde(flatten)]
+    pub other: D,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
-pub enum DataSchemaSubtype {
-    Array(ArraySchema),
+pub enum DataSchemaSubtype<D: Buildable> {
+    Array(ArraySchema<D>),
     Boolean,
     Number(NumberSchema),
     Integer(IntegerSchema),
-    Object(ObjectSchema),
+    Object(ObjectSchema<D>),
     String(StringSchema),
     #[default]
     Null,
@@ -304,10 +307,14 @@ pub enum DataSchemaSubtype {
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ArraySchema {
-    #[serde(default)]
+pub struct ArraySchema<D: Buildable> {
+    #[serde(bound(
+        serialize = "D: serde::Serialize",
+        deserialize = "D: serde::Deserialize<'de>"
+    ))]
+    #[serde(default = "Option::<Vec<DataSchema<D>>>::default")]
     #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub items: Option<Vec<DataSchema>>,
+    pub items: Option<Vec<DataSchema<D>>>,
 
     pub min_items: Option<u32>,
 
@@ -336,8 +343,8 @@ pub struct IntegerSchema {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ObjectSchema {
-    pub properties: Option<DataSchemaMap>,
+pub struct ObjectSchema<D: Buildable> {
+    pub properties: Option<DataSchemaMap<D>>,
 
     pub required: Option<Vec<String>>,
 }
