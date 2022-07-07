@@ -16,6 +16,8 @@ use time::OffsetDateTime;
 
 // use crate::builder::ThingBuilder;
 
+use crate::traits::*;
+
 pub(crate) type MultiLanguage = HashMap<String, String>;
 pub(crate) type DataSchemaMap<E> = HashMap<String, DataSchema<E>>;
 
@@ -26,13 +28,6 @@ fn default_context() -> Value {
     TD_CONTEXT_11.into()
 }
 
-pub trait Extension {
-    type Thing: Clone + std::fmt::Debug + Default + PartialEq;
-    type InteractionAffordance: Clone + std::fmt::Debug + Default + PartialEq;
-    type Form: Clone + std::fmt::Debug + Default + PartialEq;
-    type DataSchema: Clone + std::fmt::Debug + Default + PartialEq;
-}
-
 use crate::hlist::Nil;
 
 impl Extension for Nil {
@@ -40,6 +35,22 @@ impl Extension for Nil {
     type InteractionAffordance = Nil;
     type Form = Nil;
     type DataSchema = Nil;
+}
+
+impl Builder for Nil {
+    type B = Nil;
+
+    fn build(&self) -> Nil {
+        Nil
+    }
+}
+
+impl Buildable for Nil {
+    type B = Nil;
+
+    fn builder() -> Nil {
+        Nil
+    }
 }
 
 /// An abstraction of a physical or a virtual entity
