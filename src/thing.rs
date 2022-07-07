@@ -52,7 +52,7 @@ impl Buildable for Nil {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Thing<T: Buildable = Nil> {
+pub struct Thing<T: Buildable = Nil, I: Buildable = Nil> {
     // The context can be arbitrarily complex
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
@@ -108,13 +108,13 @@ pub struct Thing<T: Buildable = Nil> {
     pub base: Option<String>,
 
     /// Property-based [Interaction Affordances]
-    pub properties: Option<HashMap<String, PropertyAffordance>>,
+    pub properties: Option<HashMap<String, PropertyAffordance<I>>>,
 
     /// Action-based [Interaction Affordances]
-    pub actions: Option<HashMap<String, ActionAffordance>>,
+    pub actions: Option<HashMap<String, ActionAffordance<I>>>,
 
     /// Event-based [Interaction Affordances]
-    pub events: Option<HashMap<String, EventAffordance>>,
+    pub events: Option<HashMap<String, EventAffordance<I>>>,
 
     /// Arbitrary resources that relate to the current Thing
     ///
@@ -162,7 +162,7 @@ impl Thing {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InteractionAffordance {
+pub struct InteractionAffordance<I: Buildable> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -178,13 +178,16 @@ pub struct InteractionAffordance {
     pub forms: Vec<Form>,
 
     pub uri_variables: Option<DataSchemaMap>,
+
+    #[serde(flatten)]
+    pub other: I,
 }
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct PropertyAffordance {
+pub struct PropertyAffordance<I: Buildable> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<I>,
 
     #[serde(flatten)]
     pub data_schema: DataSchema,
@@ -194,9 +197,9 @@ pub struct PropertyAffordance {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ActionAffordance {
+pub struct ActionAffordance<I: Buildable> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<I>,
 
     pub input: Option<DataSchema>,
 
@@ -213,9 +216,9 @@ pub struct ActionAffordance {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct EventAffordance {
+pub struct EventAffordance<I: Buildable> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<I>,
 
     pub subscription: Option<DataSchema>,
 
