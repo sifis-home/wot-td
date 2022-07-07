@@ -12,3 +12,4 @@
 // pub mod builder;
 mod hlist;
 pub mod thing;
+pub mod traits;

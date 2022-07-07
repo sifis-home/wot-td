@@ -16,6 +16,9 @@ use time::OffsetDateTime;
 
 // use crate::builder::ThingBuilder;
 
+use crate::hlist::Nil;
+use crate::traits::{Buildable, Builder};
+
 pub(crate) type MultiLanguage = HashMap<String, String>;
 pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
 
@@ -26,6 +29,22 @@ fn default_context() -> Value {
     TD_CONTEXT_11.into()
 }
 
+impl Builder for Nil {
+    type B = Nil;
+
+    fn build(&self) -> Nil {
+        Nil
+    }
+}
+
+impl Buildable for Nil {
+    type B = Nil;
+
+    fn builder() -> Nil {
+        Nil
+    }
+}
+
 /// An abstraction of a physical or a virtual entity
 ///
 /// It contains metadata and a description of its interfaces.
@@ -33,7 +52,7 @@ fn default_context() -> Value {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Thing {
+pub struct Thing<T: Buildable = Nil> {
     // The context can be arbitrarily complex
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
@@ -124,6 +143,9 @@ pub struct Thing {
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub profile: Option<Vec<String>>,
+
+    #[serde(flatten)]
+    pub other: T,
 }
 
 /*
