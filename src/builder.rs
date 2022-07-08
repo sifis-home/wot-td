@@ -392,7 +392,7 @@ impl ThingBuilder {
     );
 
     /// Add a new JSON-LD @context in the default namespace
-    pub fn context<S>(mut self, value: S) -> Self
+    pub fn context<S>(&mut self, value: S) -> &mut Self
     where
         S: Into<String> + AsRef<str>,
     {
@@ -406,7 +406,7 @@ impl ThingBuilder {
     }
 
     /// Add a new JSON-LD @context with a custom namespace
-    pub fn context_map<F>(mut self, f: F) -> Self
+    pub fn context_map<F>(&mut self, f: F) -> &mut Self
     where
         F: FnOnce(&mut ContextMapBuilder) -> &mut ContextMapBuilder,
     {
@@ -418,7 +418,7 @@ impl ThingBuilder {
     }
 
     /// Add a JSON-LD @type to the thing
-    pub fn attype(mut self, value: impl Into<String>) -> Self {
+    pub fn attype(&mut self, value: impl Into<String>) -> &mut Self {
         self.attype
             .get_or_insert_with(Default::default)
             .push(value.into());
@@ -426,7 +426,7 @@ impl ThingBuilder {
     }
 
     /// Set multi-language titles
-    pub fn titles<F>(mut self, f: F) -> Self
+    pub fn titles<F>(&mut self, f: F) -> &mut Self
     where
         F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
     {
@@ -438,7 +438,7 @@ impl ThingBuilder {
     }
 
     /// Set multi-language descriptions
-    pub fn descriptions<F>(mut self, f: F) -> Self
+    pub fn descriptions<F>(&mut self, f: F) -> &mut Self
     where
         F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
     {
@@ -449,7 +449,7 @@ impl ThingBuilder {
     }
 
     /// Add an additional link to the Thing Description
-    pub fn link(mut self, href: impl Into<String>) -> Self {
+    pub fn link(&mut self, href: impl Into<String>) -> &mut Self {
         let href = href.into();
 
         let link = Link {
@@ -464,7 +464,7 @@ impl ThingBuilder {
     }
 
     /// Add an additional link to the Thing Description, with specified optional fields.
-    pub fn link_with<F>(mut self, f: F) -> Self
+    pub fn link_with<F>(&mut self, f: F) -> &mut Self
     where
         F: FnOnce(LinkBuilder<()>) -> LinkBuilder<String>,
     {
@@ -487,7 +487,7 @@ impl ThingBuilder {
     }
 
     /// Add a security definition and, eventually, a required security
-    pub fn security<F, T>(mut self, f: F) -> Self
+    pub fn security<F, T>(&mut self, f: F) -> &mut Self
     where
         F: FnOnce(SecuritySchemeBuilder<()>) -> SecuritySchemeBuilder<T>,
         T: BuildableSecuritySchemeSubtype,
@@ -550,7 +550,7 @@ impl ThingBuilder {
     /// NOTE:
     ///     - It must explicitly state its operation
     ///     - It must use an `all` operation
-    pub fn form<F>(mut self, f: F) -> Self
+    pub fn form<F>(&mut self, f: F) -> &mut Self
     where
         F: FnOnce(FormBuilder<()>) -> FormBuilder<String>,
     {
@@ -560,7 +560,7 @@ impl ThingBuilder {
         self
     }
 
-    pub fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
+    pub fn uri_variable<F, T>(&mut self, name: impl Into<String>, f: F) -> &mut Self
     where
         F: FnOnce(DataSchemaBuilder) -> T,
         T: Into<DataSchema>,
@@ -571,7 +571,7 @@ impl ThingBuilder {
         self
     }
 
-    pub fn property<F, T>(mut self, name: impl Into<String>, f: F) -> Self
+    pub fn property<F, T>(&mut self, name: impl Into<String>, f: F) -> &mut Self
     where
         F: FnOnce(PropertyAffordanceBuilder<PartialDataSchemaBuilder>) -> T,
         T: Into<PropertyAffordanceBuilder<DataSchema>>,
@@ -585,7 +585,7 @@ impl ThingBuilder {
         self
     }
 
-    pub fn action<F, T>(mut self, name: impl Into<String>, f: F) -> Self
+    pub fn action<F, T>(&mut self, name: impl Into<String>, f: F) -> &mut Self
     where
         F: FnOnce(ActionAffordanceBuilder<(), ()>) -> T,
         T: Into<ActionAffordanceBuilder<Option<DataSchema>, Option<DataSchema>>>,
@@ -599,7 +599,7 @@ impl ThingBuilder {
         self
     }
 
-    pub fn event<F, T>(mut self, name: impl Into<String>, f: F) -> Self
+    pub fn event<F, T>(&mut self, name: impl Into<String>, f: F) -> &mut Self
     where
         F: FnOnce(EventAffordanceBuilder<(), (), (), ()>) -> T,
         T: Into<
@@ -620,7 +620,7 @@ impl ThingBuilder {
         self
     }
 
-    pub fn profile(mut self, value: impl Into<String>) -> Self {
+    pub fn profile(&mut self, value: impl Into<String>) -> &mut Self {
         self.profile.push(value.into());
         self
     }
