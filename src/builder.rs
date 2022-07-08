@@ -947,7 +947,7 @@ impl SecuritySchemeBuilder<()> {
     }
 }
 
-impl<T> SecuritySchemeBuilder<T> {
+impl<T: BuildableSecuritySchemeSubtype> SecuritySchemeBuilder<T> {
     opt_field_builder!(description: String, proxy: String);
 
     /// JSON-LD @type
