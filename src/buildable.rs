@@ -95,10 +95,12 @@ mod test {
 
         dbg!(&t);
 
-        let t = Thing::<TestExtension>::builder()
-            .other(|o| o.test("Success"))
-            .build();
+        let mut tb = Thing::<TestExtension>::builder();
+
+        let t = tb.other(|o| o.test("Success")).build();
+        let t2 = tb.other(|o| o.test("Second")).build();
 
         dbg!(&t);
+        dbg!(&t2);
     }
 }
