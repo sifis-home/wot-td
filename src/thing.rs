@@ -14,13 +14,44 @@ use serde_json::Value;
 use serde_with::{serde_as, skip_serializing_none, DeserializeAs, OneOrMany, Same};
 use time::OffsetDateTime;
 
-use crate::builder::ThingBuilder;
+// use crate::builder::ThingBuilder;
+
+use crate::traits::*;
 
 pub(crate) type MultiLanguage = HashMap<String, String>;
-pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
+pub(crate) type DataSchemaMap<E> = HashMap<String, DataSchema<E>>;
 
 pub const TD_CONTEXT_10: &str = "https://www.w3.org/2019/wot/td/v1";
 pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
+
+fn default_context() -> Value {
+    TD_CONTEXT_11.into()
+}
+
+use crate::hlist::Nil;
+
+impl Extension for Nil {
+    type Thing = Nil;
+    type InteractionAffordance = Nil;
+    type Form = Nil;
+    type DataSchema = Nil;
+}
+
+impl Builder for Nil {
+    type B = Nil;
+
+    fn build(&self) -> Nil {
+        Nil
+    }
+}
+
+impl Buildable for Nil {
+    type B = Nil;
+
+    fn builder() -> Nil {
+        Nil
+    }
+}
 
 /// An abstraction of a physical or a virtual entity
 ///
@@ -29,12 +60,12 @@ pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Thing {
+pub struct Thing<E: Extension = Nil> {
     // The context can be arbitrarily complex
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
     /// A [JSON-LD @context](https://www.w3.org/TR/json-ld11/#the-context)
-    #[serde(rename = "@context", default = "Thing::default_context")]
+    #[serde(rename = "@context", default = "default_context")]
     pub context: Value,
 
     /// A unique identifier
@@ -85,21 +116,37 @@ pub struct Thing {
     pub base: Option<String>,
 
     /// Property-based [Interaction Affordances]
-    pub properties: Option<HashMap<String, PropertyAffordance>>,
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
+    ))]
+    pub properties: Option<HashMap<String, PropertyAffordance<E>>>,
 
     /// Action-based [Interaction Affordances]
-    pub actions: Option<HashMap<String, ActionAffordance>>,
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
+    ))]
+    pub actions: Option<HashMap<String, ActionAffordance<E>>>,
 
     /// Event-based [Interaction Affordances]
-    pub events: Option<HashMap<String, EventAffordance>>,
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
+    ))]
+    pub events: Option<HashMap<String, EventAffordance<E>>>,
 
     /// Arbitrary resources that relate to the current Thing
     ///
     /// Its meaning depends on the @context and the semantic attributes attached.
     pub links: Option<Vec<Link>>,
 
+    #[serde(bound(
+        serialize = "E::Form: Serialize",
+        deserialize = "E::Form: Deserialize<'de>"
+    ))]
     /// Bulk-operations over the Thing properties
-    pub forms: Option<Vec<Form>>,
+    pub forms: Option<Vec<Form<E>>>,
 
     /// Thing-wide Security constraints
     ///
@@ -114,31 +161,35 @@ pub struct Thing {
     /// to express all the security constraints that must be satisfied in order to access the
     /// resources.
     pub security_definitions: HashMap<String, SecurityScheme>,
-
-    pub uri_variables: Option<DataSchemaMap>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub uri_variables: Option<DataSchemaMap<E>>,
 
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub profile: Option<Vec<String>>,
+
+    #[serde(flatten)]
+    pub other: E::Thing,
 }
 
+/*
 impl Thing {
     /// Shorthand for [ThingBuilder::new].
     #[inline]
     pub fn build(title: impl Into<String>) -> ThingBuilder {
         ThingBuilder::new(title)
     }
-
-    fn default_context() -> Value {
-        TD_CONTEXT_11.into()
-    }
 }
+*/
 
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InteractionAffordance {
+pub struct InteractionAffordance<E: Extension> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -151,32 +202,63 @@ pub struct InteractionAffordance {
 
     pub descriptions: Option<MultiLanguage>,
 
-    pub forms: Vec<Form>,
+    #[serde(bound(
+        serialize = "E::Form: Serialize",
+        deserialize = "E::Form: Deserialize<'de>"
+    ))]
+    pub forms: Vec<Form<E>>,
 
-    pub uri_variables: Option<DataSchemaMap>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub uri_variables: Option<DataSchemaMap<E>>,
+
+    #[serde(flatten)]
+    pub other: E::InteractionAffordance,
 }
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct PropertyAffordance {
+pub struct PropertyAffordance<E: Extension> {
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
+    ))]
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<E>,
 
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
     #[serde(flatten)]
-    pub data_schema: DataSchema,
+    pub data_schema: DataSchema<E>,
 
     pub observable: Option<bool>,
 }
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ActionAffordance {
+pub struct ActionAffordance<E: Extension> {
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
+    ))]
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<E>,
 
-    pub input: Option<DataSchema>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub input: Option<DataSchema<E>>,
 
-    pub output: Option<DataSchema>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub output: Option<DataSchema<E>>,
 
     #[serde(default)]
     pub safe: bool,
@@ -189,17 +271,33 @@ pub struct ActionAffordance {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct EventAffordance {
+pub struct EventAffordance<E: Extension> {
+    #[serde(bound(
+        serialize = "E::InteractionAffordance: Serialize, E::Form: Serialize, E::DataSchema: Serialize",
+        deserialize = "E::InteractionAffordance: Deserialize<'de>, E::Form: Deserialize<'de>, E::DataSchema: Deserialize<'de>"
+    ))]
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
-
-    pub subscription: Option<DataSchema>,
-
-    pub data: Option<DataSchema>,
-
-    pub data_response: Option<DataSchema>,
-
-    pub cancellation: Option<DataSchema>,
+    pub interaction: InteractionAffordance<E>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub subscription: Option<DataSchema<E>>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub data: Option<DataSchema<E>>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub data_response: Option<DataSchema<E>>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub cancellation: Option<DataSchema<E>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -226,7 +324,7 @@ where
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DataSchema {
+pub struct DataSchema<E: Extension> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -244,7 +342,11 @@ pub struct DataSchema {
 
     pub unit: Option<String>,
 
-    pub one_of: Option<Vec<DataSchema>>,
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub one_of: Option<Vec<DataSchema<E>>>,
 
     #[serde(rename = "enum")]
     pub enumeration: Option<Vec<Value>>,
@@ -257,30 +359,54 @@ pub struct DataSchema {
 
     pub format: Option<String>,
 
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
     #[serde(flatten)]
-    pub subtype: Option<DataSchemaSubtype>,
+    pub subtype: Option<DataSchemaSubtype<E>>,
+
+    #[serde(flatten)]
+    pub other: E::DataSchema,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
-pub enum DataSchemaSubtype {
-    Array(ArraySchema),
+pub enum DataSchemaSubtype<E: Extension> {
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    Array(ArraySchema<E>),
     Boolean,
     Number(NumberSchema),
     Integer(IntegerSchema),
-    Object(ObjectSchema),
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    Object(ObjectSchema<E>),
     String(StringSchema),
-    #[default]
     Null,
+}
+
+impl<E: Extension> Default for DataSchemaSubtype<E> {
+    fn default() -> Self {
+        Self::Null
+    }
 }
 
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ArraySchema {
-    #[serde(default)]
+pub struct ArraySchema<E: Extension> {
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    #[serde(default = "Option::<Vec<DataSchema<E>>>::default")]
     #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub items: Option<Vec<DataSchema>>,
+    pub items: Option<Vec<DataSchema<E>>>,
 
     pub min_items: Option<u32>,
 
@@ -309,8 +435,12 @@ pub struct IntegerSchema {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ObjectSchema {
-    pub properties: Option<DataSchemaMap>,
+pub struct ObjectSchema<E: Extension> {
+    #[serde(bound(
+        serialize = "E::DataSchema: Serialize",
+        deserialize = "E::DataSchema: Deserialize<'de>"
+    ))]
+    pub properties: Option<DataSchemaMap<E>>,
 
     pub required: Option<Vec<String>>,
 }
@@ -554,7 +684,7 @@ pub struct Link {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Form {
+pub struct Form<E: Extension> {
     #[serde(default)]
     pub op: DefaultedFormOperations,
 
@@ -579,6 +709,13 @@ pub struct Form {
     pub scopes: Option<Vec<String>>,
 
     pub response: Option<ExpectedResponse>,
+
+    #[serde(bound(
+        serialize = "E::Form: Serialize",
+        deserialize = "E::Form: Deserialize<'de>"
+    ))]
+    #[serde(flatten)]
+    pub other: E::Form,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
