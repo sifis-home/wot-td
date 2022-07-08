@@ -1,7 +1,7 @@
 use crate::thing::Thing;
 use crate::traits::*;
 
-#[derive(Default, Clone, Debug, PartialEq)]
+#[derive(Default, Debug)]
 pub struct ThingBuilder<E: Extension> {
     other: <E::Thing as Buildable>::B,
 }
@@ -36,6 +36,8 @@ impl<E: Extension> ThingBuilder<E> {
 
 #[cfg(test)]
 mod test {
+    use std::sync::{Arc, Mutex};
+
     use super::*;
     use crate::hlist::Nil;
     use crate::thing::Thing;
@@ -46,9 +48,10 @@ mod test {
         test: String,
     }
 
-    #[derive(Default, Clone, Debug, PartialEq)]
+    #[derive(Default, Debug)]
     struct TestThingBuilder {
         test: String,
+        something: Option<Arc<Mutex<usize>>>,
     }
 
     impl TestThingBuilder {

@@ -6,7 +6,7 @@ pub trait Extension: Default + Clone + std::fmt::Debug + PartialEq {
     type DataSchema: Buildable;
 }
 
-pub trait Builder: Default + Clone + std::fmt::Debug + PartialEq {
+pub trait Builder: Default + std::fmt::Debug {
     type B: Buildable<B = Self>;
 
     fn build(&self) -> Self::B;
