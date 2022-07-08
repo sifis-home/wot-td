@@ -34,13 +34,13 @@ pub trait BuildableInteractionAffordance {
         T: Into<DataSchema>;
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PartialInteractionAffordanceBuilder {
     pub(super) forms: Vec<FormBuilder<String>>,
     pub(super) uri_variables: HashMap<String, DataSchema>,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct InteractionAffordanceBuilder {
     pub(super) partial: PartialInteractionAffordanceBuilder,
     pub(super) info: HumanReadableInfo,
@@ -98,7 +98,7 @@ impl_buildable_interaction_affordance!(
     EventAffordanceBuilder<SS, DS, CS, RS> on interaction.partial,
 );
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PropertyAffordanceBuilder<DataSchema> {
     pub(super) interaction: PartialInteractionAffordanceBuilder,
     pub(super) info: HumanReadableInfo,
@@ -106,7 +106,7 @@ pub struct PropertyAffordanceBuilder<DataSchema> {
     pub(super) observable: Option<bool>,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ActionAffordanceBuilder<InputSchema, OutputSchema> {
     pub(super) interaction: InteractionAffordanceBuilder,
     pub(super) input: InputSchema,
@@ -116,7 +116,7 @@ pub struct ActionAffordanceBuilder<InputSchema, OutputSchema> {
     pub(super) synchronous: Option<bool>,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct EventAffordanceBuilder<
     SubscriptionSchema,
     DataSchema,

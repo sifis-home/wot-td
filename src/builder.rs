@@ -167,7 +167,7 @@ impl ThingBuilder {
     /// Consume the builder to produce the configured Thing
     ///
     /// This step will perform the final validation of the builder state.
-    pub fn build(self) -> Result<Thing, Error> {
+    pub fn build(&self) -> Result<Thing, Error> {
         use std::collections::hash_map::Entry;
 
         let Self {
@@ -196,9 +196,9 @@ impl ThingBuilder {
 
         let mut security_definitions = HashMap::with_capacity(security_definitions_vec.len());
         for (name, scheme) in security_definitions_vec {
-            match security_definitions.entry(name) {
+            match security_definitions.entry(name.to_owned()) {
                 Entry::Vacant(entry) => {
-                    entry.insert(scheme);
+                    entry.insert(scheme.to_owned());
                 }
                 Entry::Occupied(entry) => {
                     return Err(Error::DuplicatedSecurityDefinition(entry.remove_entry().0));
@@ -206,12 +206,13 @@ impl ThingBuilder {
             }
         }
 
-        let profile = profile.is_empty().not().then(|| profile);
+        let profile = profile.is_empty().not().then(|| profile.clone());
 
         let forms = forms
+            .as_ref()
             .map(|forms| {
                 forms
-                    .into_iter()
+                    .iter()
                     .map(|form_builder| {
                         Self::build_form_from_builder(form_builder, &security_definitions)
                     })
@@ -222,14 +223,17 @@ impl ThingBuilder {
         let context = {
             // TODO: improve this
             if context.len() == 1 {
-                Value::String(context.into_iter().next().unwrap().into_simple().unwrap())
+                Value::String(context.iter().next().unwrap().to_simple().unwrap())
             } else {
                 context
-                    .into_iter()
+                    .iter()
                     .map(|context| match context {
-                        Context::Simple(s) => Value::from(s),
+                        Context::Simple(s) => Value::from(s.to_owned()),
                         Context::Map(map) => {
-                            let map = map.into_iter().map(|(k, v)| (k, Value::from(v))).collect();
+                            let map = map
+                                .iter()
+                                .map(|(k, v)| (k.to_owned(), Value::from(v.to_owned())))
+                                .collect();
                             Value::Object(map)
                         }
                     })
@@ -265,6 +269,22 @@ impl ThingBuilder {
             &security_definitions,
         )?;
 
+        // TODO: make each and every field `.build()?`;
+        let id = id.to_owned();
+        let attype = attype.to_owned();
+        let title = title.to_owned();
+        let titles = titles.to_owned();
+        let description = description.to_owned();
+        let descriptions = descriptions.to_owned();
+        let support = support.to_owned();
+        let security = security.to_owned();
+        let version = version.to_owned();
+        let created = created.to_owned();
+        let modified = modified.to_owned();
+        let links = links.to_owned();
+        let uri_variables = uri_variables.to_owned();
+        let base = base.to_owned();
+
         Ok(Thing {
             context,
             id,
@@ -291,7 +311,7 @@ impl ThingBuilder {
     }
 
     fn build_form_from_builder(
-        form_builder: FormBuilder<String>,
+        form_builder: &FormBuilder<String>,
         security_definitions: &HashMap<String, SecurityScheme>,
     ) -> Result<Form, Error> {
         use DefaultedFormOperations::*;
@@ -303,19 +323,19 @@ impl ThingBuilder {
             content_type,
             content_coding,
             subprotocol,
-            mut security,
+            security,
             scopes,
             response,
         } = form_builder;
 
         security
-            .as_mut()
+            .as_ref()
             .map(|security| {
-                security.iter_mut().try_for_each(|security| {
+                security.iter().try_for_each(|security| {
                     if security_definitions.contains_key(security) {
                         Ok(())
                     } else {
-                        Err(Error::UndefinedSecurity(std::mem::take(security)))
+                        Err(Error::UndefinedSecurity(security.to_owned()))
                     }
                 })
             })
@@ -339,6 +359,15 @@ impl ThingBuilder {
                 }
             }
         }
+
+        let op = op.to_owned();
+        let href = href.to_owned();
+        let content_type = content_type.to_owned();
+        let content_coding = content_coding.to_owned();
+        let subprotocol = subprotocol.to_owned();
+        let security = security.to_owned();
+        let scopes = scopes.to_owned();
+        let response = response.to_owned();
 
         Ok(Form {
             op,
@@ -598,7 +627,7 @@ impl ThingBuilder {
 }
 
 fn try_build_affordance<A, F, IA, G, DS, T, const N: usize>(
-    affordances: Vec<AffordanceBuilder<A>>,
+    affordances: &[AffordanceBuilder<A>],
     affordance_type: AffordanceType,
     mut get_interaction: F,
     mut get_data_schemas: G,
@@ -609,7 +638,7 @@ where
     IA: CheckableInteractionAffordanceBuilder,
     G: FnMut(&A) -> [Option<&DS>; N],
     DS: CheckableDataSchema,
-    A: Into<T>,
+    A: Into<T> + Clone,
 {
     use std::collections::hash_map::Entry;
 
@@ -617,11 +646,13 @@ where
         .is_empty()
         .not()
         .then(|| {
-            let new_affordances = HashMap::with_capacity(affordances.len());
+            let new_affordances = HashMap::<String, T>::with_capacity(affordances.len());
             affordances
-                .into_iter()
+                .iter()
                 .try_fold(new_affordances, |mut affordances, affordance| {
                     let AffordanceBuilder { name, affordance } = affordance;
+
+                    let affordance: A = affordance.to_owned();
 
                     get_interaction(&affordance).check(security_definitions)?;
                     get_data_schemas(&affordance)
@@ -629,7 +660,7 @@ where
                         .flatten()
                         .try_for_each(CheckableDataSchema::check)?;
 
-                    match affordances.entry(name) {
+                    match affordances.entry(name.to_owned()) {
                         Entry::Vacant(entry) => {
                             entry.insert(affordance.into());
                             Ok(affordances)
@@ -653,9 +684,9 @@ enum Context {
 }
 
 impl Context {
-    fn into_simple(self) -> Option<String> {
+    fn to_simple(&self) -> Option<String> {
         match self {
-            Self::Simple(s) => Some(s),
+            Self::Simple(s) => Some(s.to_owned()),
             _ => None,
         }
     }
@@ -1146,6 +1177,7 @@ impl SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
 }
 
 /// Builder for the Form
+#[derive(Clone)]
 pub struct FormBuilder<Href> {
     op: DefaultedFormOperations,
     href: Href,
