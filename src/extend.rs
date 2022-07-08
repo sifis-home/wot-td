@@ -9,7 +9,6 @@ pub trait Extendable: Serialize + for<'a> Deserialize<'a> {}
 impl<T> Extendable for T where T: Serialize + for<'a> Deserialize<'a> {}
 
 pub trait ExtendableThing {
-    type Thing: Extendable;
     type InteractionAffordance: Extendable;
     type PropertyAffordance: Extendable;
     type ActionAffordance: Extendable;
@@ -22,7 +21,6 @@ pub trait ExtendableThing {
 }
 
 impl ExtendableThing for Nil {
-    type Thing = Nil;
     type InteractionAffordance = Nil;
     type PropertyAffordance = Nil;
     type ActionAffordance = Nil;

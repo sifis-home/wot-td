@@ -27,33 +27,33 @@ pub(super) struct AffordanceBuilder<Affordance> {
     pub(super) affordance: Affordance,
 }
 
-pub trait BuildableInteractionAffordance {
+pub trait BuildableInteractionAffordance<Other> {
     fn form<F>(self, f: F) -> Self
     where
-        F: FnOnce(FormBuilder<()>) -> FormBuilder<String>;
+        F: FnOnce(FormBuilder<Other, ()>) -> FormBuilder<Other, String>;
 
     fn uri_variable<F, T>(self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(DataSchemaBuilder) -> T,
-        T: Into<DataSchema>;
+        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        T: Into<DataSchema<Other>>;
 }
 
 #[derive(Default)]
-pub struct PartialInteractionAffordanceBuilder {
-    pub(super) forms: Vec<FormBuilder<String>>,
-    pub(super) uri_variables: HashMap<String, DataSchema>,
+pub struct PartialInteractionAffordanceBuilder<Other> {
+    pub(super) forms: Vec<FormBuilder<Other, String>>,
+    pub(super) uri_variables: HashMap<String, DataSchema<Other>>,
 }
 
 #[derive(Default)]
-pub struct InteractionAffordanceBuilder {
-    pub(super) partial: PartialInteractionAffordanceBuilder,
+pub struct InteractionAffordanceBuilder<Other> {
+    pub(super) partial: PartialInteractionAffordanceBuilder<Other>,
     pub(super) info: HumanReadableInfo,
 }
 
-impl BuildableInteractionAffordance for PartialInteractionAffordanceBuilder {
+impl<Other> BuildableInteractionAffordance<Other> for PartialInteractionAffordanceBuilder<Other> {
     fn form<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(FormBuilder<()>) -> FormBuilder<String>,
+        F: FnOnce(FormBuilder<Other, ()>) -> FormBuilder<Other, String>,
     {
         self.forms.push(f(FormBuilder::new()));
         self
@@ -61,8 +61,8 @@ impl BuildableInteractionAffordance for PartialInteractionAffordanceBuilder {
 
     fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(DataSchemaBuilder) -> T,
-        T: Into<DataSchema>,
+        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        T: Into<DataSchema<Other>>,
     {
         self.uri_variables
             .insert(name.into(), f(DataSchemaBuilder::default()).into());
@@ -73,10 +73,10 @@ impl BuildableInteractionAffordance for PartialInteractionAffordanceBuilder {
 macro_rules! impl_buildable_interaction_affordance {
     ($($ty:ident $( <$($generic:ident),+> )? on $($interaction_path:ident).+),+ $(,)?) => {
         $(
-            impl $(< $($generic),+ >)? BuildableInteractionAffordance for $ty $(< $($generic),+ >)? {
+            impl $(< $($generic),+ >)? BuildableInteractionAffordance<Other> for $ty $(< $($generic),+ >)? {
                 fn form<F>(mut self, f: F) -> Self
                 where
-                    F: FnOnce(FormBuilder<()>) -> FormBuilder<String>,
+                    F: FnOnce(FormBuilder<Other, ()>) -> FormBuilder<Other, String>,
                 {
                     self.$($interaction_path).* = self.$($interaction_path).*.form(f);
                     self
@@ -84,8 +84,8 @@ macro_rules! impl_buildable_interaction_affordance {
 
                 fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
                 where
-                    F: FnOnce(DataSchemaBuilder) -> T,
-                    T: Into<DataSchema>,
+                    F: FnOnce(DataSchemaBuilder<Other>) -> T,
+                    T: Into<DataSchema<Other>>,
                 {
                     self.$($interaction_path).* = self.$($interaction_path).*.uri_variable(name, f);
                     self
@@ -96,23 +96,23 @@ macro_rules! impl_buildable_interaction_affordance {
 }
 
 impl_buildable_interaction_affordance!(
-    InteractionAffordanceBuilder on partial,
-    PropertyAffordanceBuilder<DS> on interaction,
-    ActionAffordanceBuilder<I, O> on interaction.partial,
-    EventAffordanceBuilder<SS, DS, CS, RS> on interaction.partial,
+    InteractionAffordanceBuilder<Other> on partial,
+    PropertyAffordanceBuilder<Other, DS> on interaction,
+    ActionAffordanceBuilder<Other, I, O> on interaction.partial,
+    EventAffordanceBuilder<Other, SS, DS, CS, RS> on interaction.partial,
 );
 
 #[derive(Default)]
-pub struct PropertyAffordanceBuilder<DataSchema> {
-    pub(super) interaction: PartialInteractionAffordanceBuilder,
+pub struct PropertyAffordanceBuilder<Other, DataSchema> {
+    pub(super) interaction: PartialInteractionAffordanceBuilder<Other>,
     pub(super) info: HumanReadableInfo,
     pub(super) data_schema: DataSchema,
     pub(super) observable: Option<bool>,
 }
 
 #[derive(Default)]
-pub struct ActionAffordanceBuilder<InputSchema, OutputSchema> {
-    pub(super) interaction: InteractionAffordanceBuilder,
+pub struct ActionAffordanceBuilder<Other, InputSchema, OutputSchema> {
+    pub(super) interaction: InteractionAffordanceBuilder<Other>,
     pub(super) input: InputSchema,
     pub(super) output: OutputSchema,
     pub(super) safe: bool,
@@ -122,40 +122,43 @@ pub struct ActionAffordanceBuilder<InputSchema, OutputSchema> {
 
 #[derive(Default)]
 pub struct EventAffordanceBuilder<
+    Other,
     SubscriptionSchema,
     DataSchema,
     CancellationSchema,
     ResponseSchema,
 > {
-    pub(super) interaction: InteractionAffordanceBuilder,
+    pub(super) interaction: InteractionAffordanceBuilder<Other>,
     pub(super) subscription: SubscriptionSchema,
     pub(super) data: DataSchema,
     pub(super) cancellation: CancellationSchema,
     pub(super) data_response: ResponseSchema,
 }
 
-pub(super) type UsablePropertyAffordanceBuilder = PropertyAffordanceBuilder<DataSchema>;
-pub(super) type UsableActionAffordanceBuilder =
-    ActionAffordanceBuilder<Option<DataSchema>, Option<DataSchema>>;
-pub(super) type UsableEventAffordanceBuilder = EventAffordanceBuilder<
-    Option<DataSchema>,
-    Option<DataSchema>,
-    Option<DataSchema>,
-    Option<DataSchema>,
+pub(super) type UsablePropertyAffordanceBuilder<Other> =
+    PropertyAffordanceBuilder<Other, DataSchema<Other>>;
+pub(super) type UsableActionAffordanceBuilder<Other> =
+    ActionAffordanceBuilder<Other, Option<DataSchema<Other>>, Option<DataSchema<Other>>>;
+pub(super) type UsableEventAffordanceBuilder<Other> = EventAffordanceBuilder<
+    Other,
+    Option<DataSchema<Other>>,
+    Option<DataSchema<Other>>,
+    Option<DataSchema<Other>>,
+    Option<DataSchema<Other>>,
 >;
 
 impl_delegate_buildable_data_schema!(
-    PropertyAffordanceBuilder<DS>: data_schema,
+    PropertyAffordanceBuilder<Other, DS>: data_schema,
 );
 
 impl_delegate_buildable_hr_info!(
-    InteractionAffordanceBuilder on info,
-    PropertyAffordanceBuilder<DS> on info,
-    ActionAffordanceBuilder<I, O> on interaction,
-    EventAffordanceBuilder<SS, DS, CS, RS> on interaction,
+    InteractionAffordanceBuilder<Other> on info,
+    PropertyAffordanceBuilder<Other, DS> on info,
+    ActionAffordanceBuilder<Other, I, O> on interaction,
+    EventAffordanceBuilder<Other, SS, DS, CS, RS> on interaction,
 );
 
-impl<DataSchema> PropertyAffordanceBuilder<DataSchema> {
+impl<Other, DataSchema> PropertyAffordanceBuilder<Other, DataSchema> {
     pub fn observable(mut self, value: bool) -> Self {
         self.observable = Some(value);
         self
@@ -185,17 +188,18 @@ macro_rules! impl_property_affordance_builder_delegator {
     };
 }
 
-impl<DataSchema> SpecializableDataSchema for PropertyAffordanceBuilder<DataSchema>
+impl<Other, DataSchema> SpecializableDataSchema<Other>
+    for PropertyAffordanceBuilder<Other, DataSchema>
 where
-    DataSchema: SpecializableDataSchema,
+    DataSchema: SpecializableDataSchema<Other>,
 {
-    type Stateless = PropertyAffordanceBuilder<DataSchema::Stateless>;
-    type Array = PropertyAffordanceBuilder<DataSchema::Array>;
-    type Number = PropertyAffordanceBuilder<DataSchema::Number>;
-    type Integer = PropertyAffordanceBuilder<DataSchema::Integer>;
-    type Object = PropertyAffordanceBuilder<DataSchema::Object>;
-    type String = PropertyAffordanceBuilder<DataSchema::String>;
-    type Constant = PropertyAffordanceBuilder<DataSchema::Constant>;
+    type Stateless = PropertyAffordanceBuilder<Other, DataSchema::Stateless>;
+    type Array = PropertyAffordanceBuilder<Other, DataSchema::Array>;
+    type Number = PropertyAffordanceBuilder<Other, DataSchema::Number>;
+    type Integer = PropertyAffordanceBuilder<Other, DataSchema::Integer>;
+    type Object = PropertyAffordanceBuilder<Other, DataSchema::Object>;
+    type String = PropertyAffordanceBuilder<Other, DataSchema::String>;
+    type Constant = PropertyAffordanceBuilder<Other, DataSchema::Constant>;
 
     impl_property_affordance_builder_delegator!(
         array -> Self::Array,
@@ -209,11 +213,11 @@ where
     );
 }
 
-impl<DataSchema> EnumerableDataSchema for PropertyAffordanceBuilder<DataSchema>
+impl<Other, DataSchema> EnumerableDataSchema<Other> for PropertyAffordanceBuilder<Other, DataSchema>
 where
-    DataSchema: EnumerableDataSchema,
+    DataSchema: EnumerableDataSchema<Other>,
 {
-    type Target = PropertyAffordanceBuilder<DataSchema::Target>;
+    type Target = PropertyAffordanceBuilder<Other, DataSchema::Target>;
 
     fn enumeration(self, value: impl Into<Value>) -> Self::Target {
         let Self {
@@ -234,16 +238,16 @@ where
     }
 }
 
-impl<DS> UnionDataSchema for PropertyAffordanceBuilder<DS>
+impl<Other, DS> UnionDataSchema<Other> for PropertyAffordanceBuilder<Other, DS>
 where
-    DS: UnionDataSchema,
+    DS: UnionDataSchema<Other>,
 {
-    type Target = PropertyAffordanceBuilder<DS::Target>;
+    type Target = PropertyAffordanceBuilder<Other, DS::Target>;
 
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
-        F: FnOnce(DataSchemaBuilder) -> T,
-        T: Into<DataSchema>,
+        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        T: Into<DataSchema<Other>>,
     {
         let Self {
             interaction,
@@ -262,12 +266,12 @@ where
     }
 }
 
-impl<DS> ReadableWriteableDataSchema for PropertyAffordanceBuilder<DS>
+impl<Other, DS> ReadableWriteableDataSchema<Other> for PropertyAffordanceBuilder<Other, DS>
 where
-    DS: ReadableWriteableDataSchema,
+    DS: ReadableWriteableDataSchema<Other>,
 {
-    type ReadOnly = PropertyAffordanceBuilder<DS::ReadOnly>;
-    type WriteOnly = PropertyAffordanceBuilder<DS::WriteOnly>;
+    type ReadOnly = PropertyAffordanceBuilder<Other, DS::ReadOnly>;
+    type WriteOnly = PropertyAffordanceBuilder<Other, DS::WriteOnly>;
 
     fn read_only(self) -> Self::ReadOnly {
         let Self {
@@ -304,13 +308,13 @@ where
     }
 }
 
-impl_delegate_schema_builder_like!(PropertyAffordanceBuilder<DS> on data_schema);
+impl_delegate_schema_builder_like!(PropertyAffordanceBuilder<Other, DS> on data_schema);
 
-impl<OutputSchema> ActionAffordanceBuilder<(), OutputSchema> {
-    pub fn input<F, T>(self, f: F) -> ActionAffordanceBuilder<DataSchema, OutputSchema>
+impl<Other, OutputSchema> ActionAffordanceBuilder<Other, (), OutputSchema> {
+    pub fn input<F, T>(self, f: F) -> ActionAffordanceBuilder<Other, DataSchema, OutputSchema>
     where
-        F: FnOnce(DataSchemaBuilder) -> T,
-        T: Into<DataSchema>,
+        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        T: Into<DataSchema<Other>>,
     {
         let Self {
             interaction,

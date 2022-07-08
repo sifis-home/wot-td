@@ -122,18 +122,17 @@ pub struct Thing<Other: ExtendableThing = Nil> {
     pub profile: Option<Vec<String>>,
 
     #[serde(flatten)]
-    pub other: Other::Thing,
+    pub other: Other,
 }
 
 impl<Other> fmt::Debug for Thing<Other>
 where
-    Other: ExtendableThing,
+    Other: ExtendableThing + fmt::Debug,
     PropertyAffordance<Other>: fmt::Debug,
     ActionAffordance<Other>: fmt::Debug,
     EventAffordance<Other>: fmt::Debug,
     Form<Other>: fmt::Debug,
     DataSchema<Other>: fmt::Debug,
-    Other::Thing: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Thing")
@@ -165,8 +164,7 @@ where
 
 impl<Other> Default for Thing<Other>
 where
-    Other: ExtendableThing,
-    Other::Thing: Default,
+    Other: ExtendableThing + Default,
     Form<Other>: Default,
     PropertyAffordance<Other>: Default,
     ActionAffordance<Other>: Default,
@@ -203,8 +201,7 @@ where
 
 impl<Other> PartialEq for Thing<Other>
 where
-    Other: ExtendableThing,
-    Other::Thing: PartialEq,
+    Other: ExtendableThing + PartialEq,
     Form<Other>: PartialEq,
     PropertyAffordance<Other>: PartialEq,
     ActionAffordance<Other>: PartialEq,
@@ -244,7 +241,7 @@ fn default_context() -> Value {
 // impl Thing<Nil> {
 //     /// Shorthand for [ThingBuilder::new].
 //     #[inline]
-//     pub fn build(title: impl Into<String>) -> ThingBuilder {
+//     pub fn build(title: impl Into<String>) -> ThingBuilder<Nil> {
 //         ThingBuilder::new(title)
 //     }
 // }
@@ -253,7 +250,7 @@ fn default_context() -> Value {
 #[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InteractionAffordance<Other: ExtendableThing = Nil> {
+pub struct InteractionAffordance<Other: ExtendableThing> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -328,7 +325,7 @@ where
 
 #[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
-pub struct PropertyAffordance<Other: ExtendableThing = Nil> {
+pub struct PropertyAffordance<Other: ExtendableThing> {
     #[serde(flatten)]
     pub interaction: InteractionAffordance<Other>,
 
@@ -383,7 +380,7 @@ where
 
 #[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
-pub struct ActionAffordance<Other: ExtendableThing = Nil> {
+pub struct ActionAffordance<Other: ExtendableThing> {
     #[serde(flatten)]
     pub interaction: InteractionAffordance<Other>,
 
@@ -454,7 +451,7 @@ where
 
 #[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
-pub struct EventAffordance<Other: ExtendableThing = Nil> {
+pub struct EventAffordance<Other: ExtendableThing> {
     #[serde(flatten)]
     pub interaction: InteractionAffordance<Other>,
 
@@ -540,7 +537,7 @@ where
 #[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DataSchema<Other: ExtendableThing = Nil> {
+pub struct DataSchema<Other: ExtendableThing> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -656,7 +653,7 @@ where
 
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
-pub enum DataSchemaSubtype<Other: ExtendableThing = Nil> {
+pub enum DataSchemaSubtype<Other: ExtendableThing> {
     Array(ArraySchema<Other::DataSchema, Other::ArraySchema>),
     Boolean,
     Number(NumberSchema),
@@ -999,7 +996,7 @@ pub struct Link {
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Form<Other: ExtendableThing = Nil> {
+pub struct Form<Other: ExtendableThing> {
     #[serde(default)]
     pub op: DefaultedFormOperations,
 
@@ -1050,10 +1047,8 @@ where
     }
 }
 
-impl Form {
-    pub(crate) const fn default_content_type() -> Cow<'static, str> {
-        Cow::Borrowed("application/json")
-    }
+pub(crate) const fn default_form_content_type() -> Cow<'static, str> {
+    Cow::Borrowed("application/json")
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -1107,7 +1102,7 @@ where
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ExpectedResponse<Other = Nil> {
+pub struct ExpectedResponse<Other> {
     pub content_type: String,
 
     #[serde(flatten)]
@@ -1382,5 +1377,105 @@ mod test {
 
         let thing: Thing = serde_json::from_str(RAW).unwrap();
         assert_eq!(thing, expected_thing);
+    }
+
+    #[test]
+    fn extend_single_thing() {
+        #[derive(Serialize, Deserialize)]
+        struct A(i32);
+
+        impl Default for A {
+            fn default() -> Self {
+                A(42)
+            }
+        }
+
+        #[derive(Default, Serialize)]
+        struct ThingExt {
+            a: A,
+        }
+
+        #[derive(Default, Serialize)]
+        struct IntAffExt {
+            b: A,
+        }
+
+        #[derive(Default, Serialize)]
+        struct ActionAffExt {
+            c: A,
+        }
+
+        #[derive(Default, Serialize)]
+        struct PropAffExt {
+            d: A,
+        }
+
+        #[derive(Default, Serialize)]
+        struct EventAffExt {
+            e: A,
+        }
+
+        #[derive(Default, Serialize)]
+        struct FormExt {
+            f: A,
+        }
+
+        #[derive(Default, Serialize)]
+        struct RespExt {
+            g: A,
+        }
+
+        #[derive(Default, Serialize)]
+        struct DataSchemaExt {
+            h: A,
+        }
+
+        #[derive(Default, Serialize)]
+        struct ObjectSchemaExt {
+            i: A,
+        }
+
+        #[derive(Default, Serialize)]
+        struct ArraySchemaExt {
+            j: A,
+        }
+
+        impl ExtendableThing for ThingExt {
+            type InteractionAffordance = IntAffExt;
+            type PropertyAffordance = PropAffExt;
+            type ActionAffordance = ActionAffExt;
+            type EventAffordance = PropAffExt;
+            type Form = EventAffExt;
+            type ExpectedResponse = RespExt;
+            type DataSchema = DataSchemaExt;
+            type ObjectSchema = ObjectSchemaExt;
+            type ArraySchema = ArraySchemaExt;
+        }
+
+        let thing = Thing::<ThingExt> {
+            context: "test".into(),
+            id: None,
+            attype: None,
+            title: Default::default(),
+            titles: Default::default(),
+            description: Default::default(),
+            created: todo!(),
+            modified: todo!(),
+            support: todo!(),
+            base: todo!(),
+            properties: todo!(),
+            actions: todo!(),
+            events: todo!(),
+            links: todo!(),
+            forms: todo!(),
+            security: todo!(),
+            security_definitions: todo!(),
+            uri_variables: todo!(),
+            profile: todo!(),
+            other: ThingExt { a: 42 },
+            ..Thing::default()
+        };
+
+        todo!()
     }
 }

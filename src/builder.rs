@@ -8,6 +8,7 @@ use serde_json::Value;
 use time::OffsetDateTime;
 
 use crate::{
+    extend::ExtendableThing,
     hlist::Nil,
     thing::{
         ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchema,
@@ -31,7 +32,7 @@ use self::{
 ///
 /// TODO: Write an example usage
 #[must_use]
-pub struct ThingBuilder {
+pub struct ThingBuilder<Other: ExtendableThing> {
     context: Vec<Context>,
     id: Option<String>,
     attype: Option<Vec<String>>,
@@ -48,8 +49,8 @@ pub struct ThingBuilder {
     actions: Vec<AffordanceBuilder<UsableActionAffordanceBuilder>>,
     events: Vec<AffordanceBuilder<UsableEventAffordanceBuilder>>,
     links: Option<Vec<Link>>,
-    forms: Option<Vec<FormBuilder<String>>>,
-    uri_variables: Option<HashMap<String, DataSchema>>,
+    forms: Option<Vec<FormBuilder<Other, String>>>,
+    uri_variables: Option<HashMap<String, DataSchema<Other>>>,
     security: Vec<String>,
     security_definitions: Vec<(String, SecurityScheme)>,
     profile: Vec<String>,
@@ -136,7 +137,10 @@ impl fmt::Display for AffordanceType {
     }
 }
 
-impl ThingBuilder {
+impl<Other> ThingBuilder<Other>
+where
+    DataSchema<Other>: Default,
+{
     /// Create a new default builder with a specified title
     pub fn new(title: impl Into<String>) -> Self {
         let title = title.into();
@@ -296,9 +300,9 @@ impl ThingBuilder {
     }
 
     fn build_form_from_builder(
-        form_builder: FormBuilder<String>,
+        form_builder: FormBuilder<Other, String>,
         security_definitions: &HashMap<String, SecurityScheme>,
-    ) -> Result<Form, Error> {
+    ) -> Result<Form<Other>, Error> {
         use DefaultedFormOperations::*;
         use FormOperation::*;
 
@@ -530,7 +534,7 @@ impl ThingBuilder {
     ///     - It must use an `all` operation
     pub fn form<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(FormBuilder<()>) -> FormBuilder<String>,
+        F: FnOnce(FormBuilder<Other, ()>) -> FormBuilder<Other, String>,
     {
         self.forms
             .get_or_insert_with(Default::default)
@@ -540,8 +544,8 @@ impl ThingBuilder {
 
     pub fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(DataSchemaBuilder) -> T,
-        T: Into<DataSchema>,
+        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        T: Into<DataSchema<Other>>,
     {
         self.uri_variables
             .get_or_insert_with(Default::default)
@@ -551,8 +555,8 @@ impl ThingBuilder {
 
     pub fn property<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(PropertyAffordanceBuilder<PartialDataSchemaBuilder>) -> T,
-        T: Into<PropertyAffordanceBuilder<DataSchema>>,
+        F: FnOnce(PropertyAffordanceBuilder<PartialDataSchemaBuilder<Other>>) -> T,
+        T: Into<PropertyAffordanceBuilder<DataSchema<Other>>>,
     {
         let affordance = f(PropertyAffordanceBuilder::default()).into();
         let affordance_builder = AffordanceBuilder {
@@ -566,7 +570,7 @@ impl ThingBuilder {
     pub fn action<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(ActionAffordanceBuilder<(), ()>) -> T,
-        T: Into<ActionAffordanceBuilder<Option<DataSchema>, Option<DataSchema>>>,
+        T: Into<ActionAffordanceBuilder<Option<DataSchema<Other>>, Option<DataSchema<Other>>>>,
     {
         let affordance = f(ActionAffordanceBuilder::default()).into();
         let affordance_builder = AffordanceBuilder {
@@ -582,10 +586,10 @@ impl ThingBuilder {
         F: FnOnce(EventAffordanceBuilder<(), (), (), ()>) -> T,
         T: Into<
             EventAffordanceBuilder<
-                Option<DataSchema>,
-                Option<DataSchema>,
-                Option<DataSchema>,
-                Option<DataSchema>,
+                Option<DataSchema<Other>>,
+                Option<DataSchema<Other>>,
+                Option<DataSchema<Other>>,
+                Option<DataSchema<Other>>,
             >,
         >,
     {
@@ -1153,7 +1157,7 @@ impl SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
 }
 
 /// Builder for the Form
-pub struct FormBuilder<Href> {
+pub struct FormBuilder<Other, Href> {
     op: DefaultedFormOperations,
     href: Href,
     content_type: Option<String>,
@@ -1161,10 +1165,13 @@ pub struct FormBuilder<Href> {
     subprotocol: Option<String>,
     security: Option<Vec<String>>,
     scopes: Option<Vec<String>>,
-    response: Option<ExpectedResponse>,
+    response: Option<ExpectedResponse<Other>>,
 }
 
-impl FormBuilder<()> {
+impl<Other> FormBuilder<Other, ()>
+where
+    ExpectedResponse<Other>: Default,
+{
     fn new() -> Self {
         Self {
             op: Default::default(),
@@ -1177,9 +1184,11 @@ impl FormBuilder<()> {
             response: Default::default(),
         }
     }
+}
 
+impl<Other> FormBuilder<Other, ()> {
     /// Create a new builder with the specified Href
-    pub fn href(self, value: impl Into<String>) -> FormBuilder<String> {
+    pub fn href(self, value: impl Into<String>) -> FormBuilder<Other, String> {
         let Self {
             op,
             href: (),
@@ -1205,7 +1214,7 @@ impl FormBuilder<()> {
     }
 }
 
-impl<T> FormBuilder<T> {
+impl<Other, T> FormBuilder<Other, T> {
     opt_field_builder!(
         content_type: String,
         content_coding: String,
@@ -1261,8 +1270,8 @@ impl<T> FormBuilder<T> {
     }
 }
 
-impl From<FormBuilder<String>> for Form {
-    fn from(builder: FormBuilder<String>) -> Self {
+impl<Other> From<FormBuilder<Other, String>> for Form<Other> {
+    fn from(builder: FormBuilder<Other, String>) -> Self {
         let FormBuilder {
             op,
             href,
