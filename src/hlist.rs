@@ -64,6 +64,14 @@ impl<T, U> Cons<T, U> {
             tail: self,
         }
     }
+
+    pub(crate) fn next(&self) -> &U {
+        &self.tail
+    }
+
+    pub(crate) fn next_mut(&mut self) -> &mut U {
+        &mut self.tail
+    }
 }
 
 impl Serialize for Nil {
@@ -101,6 +109,18 @@ mod tests {
             .add("C".to_string());
 
         dbg!(&v);
+    }
+
+    #[test]
+    fn edit() {
+        let mut e = Cons::new_head("A".to_string())
+            .add("B".to_string())
+            .add("C".to_string());
+
+        e.next_mut().head.push('a');
+        e.next_mut().next_mut().head.push('b');
+
+        dbg!(&e);
     }
 
     #[test]
