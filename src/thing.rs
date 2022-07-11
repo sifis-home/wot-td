@@ -266,6 +266,9 @@ pub struct InteractionAffordance<Other: ExtendableThing> {
     pub forms: Vec<Form<Other>>,
 
     pub uri_variables: Option<DataSchemaMap<Other>>,
+
+    #[serde(flatten)]
+    pub other: Other::InteractionAffordance,
 }
 
 impl<Other> fmt::Debug for InteractionAffordance<Other>
@@ -273,6 +276,7 @@ where
     Other: ExtendableThing,
     Form<Other>: fmt::Debug,
     DataSchema<Other>: fmt::Debug,
+    Other::InteractionAffordance: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("InteractionAffordance")
@@ -283,6 +287,7 @@ where
             .field("descriptions", &self.descriptions)
             .field("forms", &self.forms)
             .field("uri_variables", &self.uri_variables)
+            .field("other", &self.other)
             .finish()
     }
 }
@@ -292,6 +297,7 @@ where
     Other: ExtendableThing,
     Form<Other>: Default,
     DataSchema<Other>: Default,
+    Other::InteractionAffordance: Default,
 {
     fn default() -> Self {
         Self {
@@ -302,6 +308,7 @@ where
             descriptions: Default::default(),
             forms: Default::default(),
             uri_variables: Default::default(),
+            other: Default::default(),
         }
     }
 }
@@ -311,6 +318,7 @@ where
     Other: ExtendableThing,
     Form<Other>: PartialEq,
     DataSchema<Other>: PartialEq,
+    Other::InteractionAffordance: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.attype == other.attype
@@ -320,6 +328,7 @@ where
             && self.descriptions == other.descriptions
             && self.forms == other.forms
             && self.uri_variables == other.uri_variables
+            && self.other == other.other
     }
 }
 
@@ -333,6 +342,9 @@ pub struct PropertyAffordance<Other: ExtendableThing> {
     pub data_schema: DataSchema<Other>,
 
     pub observable: Option<bool>,
+
+    #[serde(flatten)]
+    pub other: Other::PropertyAffordance,
 }
 
 impl<Other> fmt::Debug for PropertyAffordance<Other>
@@ -340,12 +352,14 @@ where
     Other: ExtendableThing,
     InteractionAffordance<Other>: fmt::Debug,
     DataSchema<Other>: fmt::Debug,
+    Other::PropertyAffordance: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PropertyAffordance")
             .field("interaction", &self.interaction)
             .field("data_schema", &self.data_schema)
             .field("observable", &self.observable)
+            .field("other", &self.other)
             .finish()
     }
 }
@@ -355,12 +369,14 @@ where
     Other: ExtendableThing,
     InteractionAffordance<Other>: Default,
     DataSchema<Other>: Default,
+    Other::PropertyAffordance: Default,
 {
     fn default() -> Self {
         Self {
             interaction: Default::default(),
             data_schema: Default::default(),
             observable: Default::default(),
+            other: Default::default(),
         }
     }
 }
@@ -370,11 +386,13 @@ where
     Other: ExtendableThing,
     InteractionAffordance<Other>: PartialEq,
     DataSchema<Other>: PartialEq,
+    Other::PropertyAffordance: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.interaction == other.interaction
             && self.data_schema == other.data_schema
             && self.observable == other.observable
+            && self.other == other.other
     }
 }
 
@@ -395,6 +413,9 @@ pub struct ActionAffordance<Other: ExtendableThing> {
     pub idempotent: bool,
 
     pub synchronous: Option<bool>,
+
+    #[serde(flatten)]
+    pub other: Other::ActionAffordance,
 }
 
 impl<Other> fmt::Debug for ActionAffordance<Other>
@@ -402,6 +423,7 @@ where
     Other: ExtendableThing,
     InteractionAffordance<Other>: fmt::Debug,
     DataSchema<Other>: fmt::Debug,
+    Other::ActionAffordance: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ActionAffordance")
@@ -411,6 +433,7 @@ where
             .field("safe", &self.safe)
             .field("idempotent", &self.idempotent)
             .field("synchronous", &self.synchronous)
+            .field("other", &self.other)
             .finish()
     }
 }
@@ -420,6 +443,7 @@ where
     Other: ExtendableThing,
     InteractionAffordance<Other>: Default,
     DataSchema<Other>: Default,
+    Other::ActionAffordance: Default,
 {
     fn default() -> Self {
         Self {
@@ -429,6 +453,7 @@ where
             safe: Default::default(),
             idempotent: Default::default(),
             synchronous: Default::default(),
+            other: Default::default(),
         }
     }
 }
@@ -438,6 +463,7 @@ where
     Other: ExtendableThing,
     InteractionAffordance<Other>: PartialEq,
     DataSchema<Other>: PartialEq,
+    Other::ActionAffordance: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.interaction == other.interaction
@@ -446,6 +472,7 @@ where
             && self.safe == other.safe
             && self.idempotent == other.idempotent
             && self.synchronous == other.synchronous
+            && self.other == other.other
     }
 }
 
@@ -462,6 +489,9 @@ pub struct EventAffordance<Other: ExtendableThing> {
     pub data_response: Option<DataSchema<Other>>,
 
     pub cancellation: Option<DataSchema<Other>>,
+
+    #[serde(flatten)]
+    pub other: Other::EventAffordance,
 }
 
 impl<Other> fmt::Debug for EventAffordance<Other>
@@ -469,6 +499,7 @@ where
     Other: ExtendableThing,
     InteractionAffordance<Other>: fmt::Debug,
     DataSchema<Other>: fmt::Debug,
+    Other::EventAffordance: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EventAffordance")
@@ -477,6 +508,7 @@ where
             .field("data", &self.data)
             .field("data_response", &self.data_response)
             .field("cancellation", &self.cancellation)
+            .field("other", &self.other)
             .finish()
     }
 }
@@ -486,6 +518,7 @@ where
     Other: ExtendableThing,
     InteractionAffordance<Other>: Default,
     DataSchema<Other>: Default,
+    Other::EventAffordance: Default,
 {
     fn default() -> Self {
         Self {
@@ -494,6 +527,7 @@ where
             data: Default::default(),
             data_response: Default::default(),
             cancellation: Default::default(),
+            other: Default::default(),
         }
     }
 }
@@ -503,6 +537,7 @@ where
     Other: ExtendableThing,
     InteractionAffordance<Other>: PartialEq,
     DataSchema<Other>: PartialEq,
+    Other::EventAffordance: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.interaction == other.interaction
@@ -510,6 +545,7 @@ where
             && self.data == other.data
             && self.data_response == other.data_response
             && self.cancellation == other.cancellation
+            && self.other == other.other
     }
 }
 
@@ -1047,10 +1083,6 @@ where
     }
 }
 
-pub(crate) const fn default_form_content_type() -> Cow<'static, str> {
-    Cow::Borrowed("application/json")
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FormOperation {
@@ -1111,7 +1143,10 @@ pub struct ExpectedResponse<Other> {
 
 #[cfg(test)]
 mod test {
+    use serde_json::json;
     use time::macros::datetime;
+
+    use crate::hlist::Cons;
 
     use super::*;
 
@@ -1379,103 +1414,566 @@ mod test {
         assert_eq!(thing, expected_thing);
     }
 
+    #[derive(Serialize, Deserialize)]
+    struct A(i32);
+
+    impl Default for A {
+        fn default() -> Self {
+            A(42)
+        }
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct ThingExtA {
+        a: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct IntAffExtA {
+        b: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct ActionAffExtA {
+        c: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct PropAffExtA {
+        d: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct EventAffExtA {
+        e: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct FormExtA {
+        f: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct RespExtA {
+        g: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct DataSchemaExtA {
+        h: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct ObjectSchemaExtA {
+        i: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct ArraySchemaExtA {
+        j: A,
+    }
+
+    impl ExtendableThing for ThingExtA {
+        type InteractionAffordance = IntAffExtA;
+        type PropertyAffordance = PropAffExtA;
+        type ActionAffordance = ActionAffExtA;
+        type EventAffordance = EventAffExtA;
+        type Form = FormExtA;
+        type ExpectedResponse = RespExtA;
+        type DataSchema = DataSchemaExtA;
+        type ObjectSchema = ObjectSchemaExtA;
+        type ArraySchema = ArraySchemaExtA;
+    }
+
     #[test]
     fn extend_single_thing() {
-        #[derive(Serialize, Deserialize)]
-        struct A(i32);
-
-        impl Default for A {
-            fn default() -> Self {
-                A(42)
-            }
-        }
-
-        #[derive(Default, Serialize)]
-        struct ThingExt {
-            a: A,
-        }
-
-        #[derive(Default, Serialize)]
-        struct IntAffExt {
-            b: A,
-        }
-
-        #[derive(Default, Serialize)]
-        struct ActionAffExt {
-            c: A,
-        }
-
-        #[derive(Default, Serialize)]
-        struct PropAffExt {
-            d: A,
-        }
-
-        #[derive(Default, Serialize)]
-        struct EventAffExt {
-            e: A,
-        }
-
-        #[derive(Default, Serialize)]
-        struct FormExt {
-            f: A,
-        }
-
-        #[derive(Default, Serialize)]
-        struct RespExt {
-            g: A,
-        }
-
-        #[derive(Default, Serialize)]
-        struct DataSchemaExt {
-            h: A,
-        }
-
-        #[derive(Default, Serialize)]
-        struct ObjectSchemaExt {
-            i: A,
-        }
-
-        #[derive(Default, Serialize)]
-        struct ArraySchemaExt {
-            j: A,
-        }
-
-        impl ExtendableThing for ThingExt {
-            type InteractionAffordance = IntAffExt;
-            type PropertyAffordance = PropAffExt;
-            type ActionAffordance = ActionAffExt;
-            type EventAffordance = PropAffExt;
-            type Form = EventAffExt;
-            type ExpectedResponse = RespExt;
-            type DataSchema = DataSchemaExt;
-            type ObjectSchema = ObjectSchemaExt;
-            type ArraySchema = ArraySchemaExt;
-        }
-
-        let thing = Thing::<ThingExt> {
+        let thing = Thing::<ThingExtA> {
             context: "test".into(),
-            id: None,
-            attype: None,
-            title: Default::default(),
-            titles: Default::default(),
-            description: Default::default(),
-            created: todo!(),
-            modified: todo!(),
-            support: todo!(),
-            base: todo!(),
-            properties: todo!(),
-            actions: todo!(),
-            events: todo!(),
-            links: todo!(),
-            forms: todo!(),
-            security: todo!(),
-            security_definitions: todo!(),
-            uri_variables: todo!(),
-            profile: todo!(),
-            other: ThingExt { a: 42 },
-            ..Thing::default()
+            properties: Some(
+                [(
+                    "prop".to_string(),
+                    PropertyAffordance {
+                        interaction: InteractionAffordance {
+                            other: IntAffExtA { b: A(1) },
+                            ..Default::default()
+                        },
+                        data_schema: DataSchema {
+                            subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                                other: ArraySchemaExtA { j: A(2) },
+                                ..Default::default()
+                            })),
+                            other: DataSchemaExtA { h: A(3) },
+                            ..Default::default()
+                        },
+                        other: PropAffExtA { d: A(4) },
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            actions: Some(
+                [(
+                    "action".to_string(),
+                    ActionAffordance {
+                        interaction: InteractionAffordance {
+                            other: IntAffExtA { b: A(5) },
+                            ..Default::default()
+                        },
+                        input: Some(DataSchema {
+                            subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
+                                other: ObjectSchemaExtA { i: A(6) },
+                                ..Default::default()
+                            })),
+                            other: DataSchemaExtA { h: A(7) },
+                            ..Default::default()
+                        }),
+                        output: Some(DataSchema::default()),
+                        other: ActionAffExtA { c: A(8) },
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            events: Some(
+                [(
+                    "event".to_string(),
+                    EventAffordance {
+                        other: EventAffExtA { e: A(9) },
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            forms: Some(vec![Form {
+                response: Some(ExpectedResponse {
+                    other: RespExtA { g: A(10) },
+                    ..Default::default()
+                }),
+                other: FormExtA { f: A(11) },
+                ..Default::default()
+            }]),
+            other: ThingExtA { a: A(12) },
+            ..Default::default()
         };
 
-        todo!()
+        let thing_json = serde_json::to_value(thing).unwrap();
+        assert_eq!(
+            thing_json,
+            json!({
+                "@context": "test",
+                "title": "",
+                "properties": {
+                    "prop": {
+                        "b": 1,
+                        "j": 2,
+                        "h": 3,
+                        "d": 4,
+                        "forms": [],
+                        "type": "array",
+                        "readOnly": false,
+                        "writeOnly": false,
+                    }
+                },
+                "actions": {
+                    "action": {
+                        "b": 5,
+                        "input": {
+                            "i": 6,
+                            "h": 7,
+                            "readOnly": false,
+                            "writeOnly": false,
+                            "type": "object",
+                        },
+                        "output": {
+                            "h": 42,
+                            "readOnly": false,
+                            "writeOnly": false,
+                        },
+                        "forms": [],
+                        "idempotent": false,
+                        "safe": false,
+                        "c": 8,
+                    }
+                },
+                "events": {
+                    "event": {
+                        "b": 42,
+                        "e": 9,
+                        "forms": [],
+                    }
+                },
+                "forms": [{
+                    "href": "",
+                    "op": null,
+                    "response": {
+                        "contentType": "",
+                        "g": 10,
+                    },
+                    "f": 11,
+                }],
+                "security": [],
+                "securityDefinitions": {},
+                "a": 12,
+            }),
+        );
+    }
+
+    #[test]
+    fn extend_single_thing_with_hlist() {
+        let thing = Thing::<Cons<ThingExtA, Nil>> {
+            context: "test".into(),
+            properties: Some(
+                [(
+                    "prop".to_string(),
+                    PropertyAffordance {
+                        interaction: InteractionAffordance {
+                            other: Cons::new_head(IntAffExtA { b: A(1) }),
+                            ..Default::default()
+                        },
+                        data_schema: DataSchema {
+                            subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                                other: Cons::new_head(ArraySchemaExtA { j: A(2) }),
+                                ..Default::default()
+                            })),
+                            other: Cons::new_head(DataSchemaExtA { h: A(3) }),
+                            ..Default::default()
+                        },
+                        other: Cons::new_head(PropAffExtA { d: A(4) }),
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            actions: Some(
+                [(
+                    "action".to_string(),
+                    ActionAffordance {
+                        interaction: InteractionAffordance {
+                            other: Cons::new_head(IntAffExtA { b: A(5) }),
+                            ..Default::default()
+                        },
+                        input: Some(DataSchema {
+                            subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
+                                other: Cons::new_head(ObjectSchemaExtA { i: A(6) }),
+                                ..Default::default()
+                            })),
+                            other: Cons::new_head(DataSchemaExtA { h: A(7) }),
+                            ..Default::default()
+                        }),
+                        output: Some(DataSchema::default()),
+                        other: Cons::new_head(ActionAffExtA { c: A(8) }),
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            events: Some(
+                [(
+                    "event".to_string(),
+                    EventAffordance {
+                        other: Cons::new_head(EventAffExtA { e: A(9) }),
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            forms: Some(vec![Form {
+                response: Some(ExpectedResponse {
+                    other: Cons::new_head(RespExtA { g: A(10) }),
+                    ..Default::default()
+                }),
+                other: Cons::new_head(FormExtA { f: A(11) }),
+                ..Default::default()
+            }]),
+            other: Cons::new_head(ThingExtA { a: A(12) }),
+            ..Default::default()
+        };
+
+        let thing_json = serde_json::to_value(thing).unwrap();
+        assert_eq!(
+            thing_json,
+            json!({
+                "@context": "test",
+                "title": "",
+                "properties": {
+                    "prop": {
+                        "b": 1,
+                        "j": 2,
+                        "h": 3,
+                        "d": 4,
+                        "forms": [],
+                        "type": "array",
+                        "readOnly": false,
+                        "writeOnly": false,
+                    }
+                },
+                "actions": {
+                    "action": {
+                        "b": 5,
+                        "input": {
+                            "i": 6,
+                            "h": 7,
+                            "readOnly": false,
+                            "writeOnly": false,
+                            "type": "object",
+                        },
+                        "output": {
+                            "h": 42,
+                            "readOnly": false,
+                            "writeOnly": false,
+                        },
+                        "forms": [],
+                        "idempotent": false,
+                        "safe": false,
+                        "c": 8,
+                    }
+                },
+                "events": {
+                    "event": {
+                        "b": 42,
+                        "e": 9,
+                        "forms": [],
+                    }
+                },
+                "forms": [{
+                    "href": "",
+                    "op": null,
+                    "response": {
+                        "contentType": "",
+                        "g": 10,
+                    },
+                    "f": 11,
+                }],
+                "security": [],
+                "securityDefinitions": {},
+                "a": 12,
+            }),
+        );
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct ThingExtB {
+        k: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct IntAffExtB {
+        l: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct ActionAffExtB {
+        m: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct PropAffExtB {
+        n: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct EventAffExtB {
+        o: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct FormExtB {
+        p: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct RespExtB {
+        q: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct DataSchemaExtB {
+        r: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct ObjectSchemaExtB {
+        s: A,
+    }
+
+    #[derive(Default, Serialize, Deserialize)]
+    struct ArraySchemaExtB {
+        t: A,
+    }
+
+    impl ExtendableThing for ThingExtB {
+        type InteractionAffordance = IntAffExtB;
+        type PropertyAffordance = PropAffExtB;
+        type ActionAffordance = ActionAffExtB;
+        type EventAffordance = EventAffExtB;
+        type Form = FormExtB;
+        type ExpectedResponse = RespExtB;
+        type DataSchema = DataSchemaExtB;
+        type ObjectSchema = ObjectSchemaExtB;
+        type ArraySchema = ArraySchemaExtB;
+    }
+
+    #[test]
+    fn extend_thing_with_two() {
+        let thing = Thing::<Cons<ThingExtB, Cons<ThingExtA, Nil>>> {
+            context: "test".into(),
+            properties: Some(
+                [(
+                    "prop".to_string(),
+                    PropertyAffordance {
+                        interaction: InteractionAffordance {
+                            other: Cons::new_head(IntAffExtA { b: A(1) })
+                                .add(IntAffExtB { l: A(2) }),
+                            ..Default::default()
+                        },
+                        data_schema: DataSchema {
+                            subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                                other: Cons::new_head(ArraySchemaExtA { j: A(3) })
+                                    .add(ArraySchemaExtB { t: A(4) }),
+                                ..Default::default()
+                            })),
+                            other: Cons::new_head(DataSchemaExtA { h: A(5) })
+                                .add(DataSchemaExtB { r: A(6) }),
+                            ..Default::default()
+                        },
+                        other: Cons::new_head(PropAffExtA { d: A(7) }).add(PropAffExtB { n: A(8) }),
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            actions: Some(
+                [(
+                    "action".to_string(),
+                    ActionAffordance {
+                        interaction: InteractionAffordance {
+                            other: Cons::new_head(IntAffExtA { b: A(9) })
+                                .add(IntAffExtB { l: A(10) }),
+                            ..Default::default()
+                        },
+                        input: Some(DataSchema {
+                            subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
+                                other: Cons::new_head(ObjectSchemaExtA { i: A(11) })
+                                    .add(ObjectSchemaExtB { s: A(12) }),
+                                ..Default::default()
+                            })),
+                            other: Cons::new_head(DataSchemaExtA { h: A(13) })
+                                .add(DataSchemaExtB { r: A(14) }),
+                            ..Default::default()
+                        }),
+                        output: Some(DataSchema::default()),
+                        other: Cons::new_head(ActionAffExtA { c: A(15) })
+                            .add(ActionAffExtB { m: A(16) }),
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            events: Some(
+                [(
+                    "event".to_string(),
+                    EventAffordance {
+                        other: Cons::new_head(EventAffExtA { e: A(17) })
+                            .add(EventAffExtB { o: A(18) }),
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            forms: Some(vec![Form {
+                response: Some(ExpectedResponse {
+                    other: Cons::new_head(RespExtA { g: A(19) }).add(RespExtB { q: A(20) }),
+                    ..Default::default()
+                }),
+                other: Cons::new_head(FormExtA { f: A(21) }).add(FormExtB { p: A(22) }),
+                ..Default::default()
+            }]),
+            other: Cons::new_head(ThingExtA { a: A(23) }).add(ThingExtB { k: A(24) }),
+            ..Default::default()
+        };
+
+        let thing_json = serde_json::to_value(thing).unwrap();
+        assert_eq!(
+            thing_json,
+            json!({
+                "@context": "test",
+                "title": "",
+                "properties": {
+                    "prop": {
+                        "b": 1,
+                        "l": 2,
+                        "j": 3,
+                        "t": 4,
+                        "h": 5,
+                        "r": 6,
+                        "d": 7,
+                        "n": 8,
+                        "forms": [],
+                        "type": "array",
+                        "readOnly": false,
+                        "writeOnly": false,
+                    }
+                },
+                "actions": {
+                    "action": {
+                        "b": 9,
+                        "l": 10,
+                        "input": {
+                            "i": 11,
+                            "s": 12,
+                            "h": 13,
+                            "r": 14,
+                            "readOnly": false,
+                            "writeOnly": false,
+                            "type": "object",
+                        },
+                        "output": {
+                            "h": 42,
+                            "r": 42,
+                            "readOnly": false,
+                            "writeOnly": false,
+                        },
+                        "forms": [],
+                        "idempotent": false,
+                        "safe": false,
+                        "c": 15,
+                        "m": 16,
+                    }
+                },
+                "events": {
+                    "event": {
+                        "b": 42,
+                        "l": 42,
+                        "e": 17,
+                        "o": 18,
+                        "forms": [],
+                    }
+                },
+                "forms": [{
+                    "href": "",
+                    "op": null,
+                    "response": {
+                        "contentType": "",
+                        "g": 19,
+                        "q": 20,
+                    },
+                    "f": 21,
+                    "p": 22,
+                }],
+                "security": [],
+                "securityDefinitions": {},
+                "a": 23,
+                "k": 24,
+            }),
+        );
     }
 }
