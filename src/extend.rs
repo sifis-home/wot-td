@@ -45,3 +45,64 @@ where
     type ObjectSchema = Cons<T::ObjectSchema, U::ObjectSchema>;
     type ArraySchema = Cons<T::ArraySchema, U::ArraySchema>;
 }
+
+pub trait Buildable {
+    type B: Builder<B = Self>;
+
+    fn builder() -> Self::B;
+}
+
+pub trait Builder {
+    type B: Buildable<B = Self>;
+
+    // TODO: Switch to Result<>
+    fn build(self) -> Self::B;
+}
+
+impl Buildable for Nil {
+    type B = Nil;
+
+    fn builder() -> Self::B {
+        Nil
+    }
+}
+
+impl Builder for Nil {
+    type B = Nil;
+
+    fn build(self) -> Self::B {
+        Nil
+    }
+}
+
+impl<T, U> Buildable for Cons<T, U>
+where
+    T: Buildable,
+    U: Buildable,
+{
+    type B = Cons<T::B, U::B>;
+
+    fn builder() -> Self::B {
+        Cons {
+            head: T::builder(),
+            tail: U::builder(),
+        }
+    }
+}
+
+impl<T, U> Builder for Cons<T, U>
+where
+    T: Builder,
+    U: Builder,
+{
+    type B = Cons<T::B, U::B>;
+
+    fn build(self) -> Self::B {
+        let Cons { head, tail } = self;
+
+        Cons {
+            head: head.build(),
+            tail: tail.build(),
+        }
+    }
+}
