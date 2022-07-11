@@ -1819,9 +1819,13 @@ mod test {
         type ArraySchema = ArraySchemaExtB;
     }
 
+    crate::make_hlist! {
+        type TwoExts = [ThingExtA, ThingExtB];
+    }
+
     #[test]
     fn extend_thing_with_two() {
-        let thing = Thing::<Cons<ThingExtB, Cons<ThingExtA, Nil>>> {
+        let thing = Thing::<TwoExts> {
             context: "test".into(),
             properties: Some(
                 [(

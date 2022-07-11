@@ -11,6 +11,29 @@ pub struct Cons<T, U = Nil> {
     pub(crate) tail: U,
 }
 
+#[macro_use]
+mod macros {
+    /// Assemble a lifo hlist type out of a list of type
+    #[macro_export]
+    macro_rules! make_hlist {
+        {type $id:ident = [$first:ty, $($next:ty),+];} => {
+          $crate::make_hlist!(type $id = [$($next),+] => Cons<$first, Nil>);
+        };
+
+        {type $id:ident = [$first:ty, $($next:ty),+] => $prev:ty } => {
+          $crate::make_hlist!(type $id = [$($next),+] => Cons<$first, $prev>);
+        };
+
+        {type $id:ident = [$first:ty] => $prev:ty} => {
+            type $id = Cons<$first, $prev>;
+        };
+
+        {type $id:ident = [$first:ty];} => {
+            type $id = Cons<$first, Nil>;
+        };
+    }
+}
+
 pub(crate) trait HList: Sized {
     const SIZE: usize;
 }
