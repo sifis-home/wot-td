@@ -577,18 +577,18 @@ macro_rules! trait_opt_field_builder {
 }
 
 impl_delegate_buildable_hr_info! (
-    DataSchemaBuilder<Other> on info,
+    DataSchemaBuilder<Other: ExtendableThing> on info,
 );
 
-impl<Other> BuildableDataSchema<Other> for PartialDataSchemaBuilder<Other> {
+impl<Other: ExtendableThing> BuildableDataSchema<Other> for PartialDataSchemaBuilder<Other> {
     trait_opt_field_builder!(unit: String, format: String);
 }
 
 impl_delegate_buildable_hr_info!(
-    ArrayDataSchemaBuilder<Other, Inner: BuildableHumanReadableInfo> on inner,
+    ArrayDataSchemaBuilder<Other: ExtendableThing, Inner: BuildableHumanReadableInfo> on inner,
     NumberDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     IntegerDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
-    ObjectDataSchemaBuilder<Other, Inner: BuildableHumanReadableInfo> on inner,
+    ObjectDataSchemaBuilder<Other: ExtendableThing, Inner: BuildableHumanReadableInfo> on inner,
     StringDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     EnumDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     OneOfDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
@@ -600,7 +600,7 @@ impl_delegate_buildable_hr_info!(
 macro_rules! impl_specializable_data_schema {
     ($($ty:ty $( : $($inner_path:ident).+ )? ),+ $(,)?) => {
         $(
-            impl<Other> SpecializableDataSchema<Other> for $ty {
+            impl<Other: ExtendableThing> SpecializableDataSchema<Other> for $ty {
                 type Stateless = StatelessDataSchemaBuilder<Self>;
                 type Array = ArrayDataSchemaBuilder<Other, Self>;
                 type Number = NumberDataSchemaBuilder<Self>;
@@ -683,7 +683,7 @@ impl_specializable_data_schema!(PartialDataSchemaBuilder<Other>, DataSchemaBuild
 macro_rules! impl_enumerable_data_schema {
     ($($ty:ty $( : $($inner_path:ident).+ )? ),+ $(,)?) => {
         $(
-        impl<Other> EnumerableDataSchema<Other> for $ty {
+        impl<Other: ExtendableThing> EnumerableDataSchema<Other> for $ty {
             type Target = EnumDataSchemaBuilder<Self>;
 
             fn enumeration(mut self, value: impl Into<Value>) -> EnumDataSchemaBuilder<Self> {
@@ -715,6 +715,7 @@ where
 impl<Other, Inner> EnumerableDataSchema<Other> for WriteOnly<Inner>
 where
     Inner: EnumerableDataSchema<Other>,
+    Other: ExtendableThing,
 {
     type Target = WriteOnly<Inner::Target>;
 
@@ -727,7 +728,9 @@ where
     }
 }
 
-impl<Other> EnumerableDataSchema<Other> for EnumDataSchemaBuilder<PartialDataSchemaBuilder<Other>> {
+impl<Other: ExtendableThing> EnumerableDataSchema<Other>
+    for EnumDataSchemaBuilder<PartialDataSchemaBuilder<Other>>
+{
     type Target = Self;
 
     #[inline]
@@ -737,7 +740,9 @@ impl<Other> EnumerableDataSchema<Other> for EnumDataSchemaBuilder<PartialDataSch
     }
 }
 
-impl<Other> EnumerableDataSchema<Other> for EnumDataSchemaBuilder<DataSchemaBuilder<Other>> {
+impl<Other: ExtendableThing> EnumerableDataSchema<Other>
+    for EnumDataSchemaBuilder<DataSchemaBuilder<Other>>
+{
     type Target = Self;
 
     #[inline]
@@ -750,7 +755,7 @@ impl<Other> EnumerableDataSchema<Other> for EnumDataSchemaBuilder<DataSchemaBuil
 macro_rules! impl_union_data_schema {
     ($($ty:ty $( : $($inner_path:ident).+ )? ),+ $(,)?) => {
         $(
-            impl<Other> UnionDataSchema<Other> for $ty {
+            impl<Other: ExtendableThing> UnionDataSchema<Other> for $ty {
                 type Target = OneOfDataSchemaBuilder<Self>;
 
                 fn one_of<F, T>(mut self, f: F) -> Self::Target
@@ -771,6 +776,7 @@ impl_union_data_schema!(PartialDataSchemaBuilder<Other>, DataSchemaBuilder<Other
 impl<Other, Inner> UnionDataSchema<Other> for ReadOnly<Inner>
 where
     Inner: UnionDataSchema<Other>,
+    Other: ExtendableThing,
 {
     type Target = ReadOnly<Inner::Target>;
 
@@ -788,6 +794,7 @@ where
 impl<Other, Inner> UnionDataSchema<Other> for WriteOnly<Inner>
 where
     Inner: UnionDataSchema<Other>,
+    Other: ExtendableThing,
 {
     type Target = WriteOnly<Inner::Target>;
 
@@ -802,7 +809,9 @@ where
     }
 }
 
-impl<Other> UnionDataSchema<Other> for OneOfDataSchemaBuilder<PartialDataSchemaBuilder<Other>> {
+impl<Other: ExtendableThing> UnionDataSchema<Other>
+    for OneOfDataSchemaBuilder<PartialDataSchemaBuilder<Other>>
+{
     type Target = Self;
 
     fn one_of<F, T>(mut self, f: F) -> Self::Target
@@ -815,7 +824,9 @@ impl<Other> UnionDataSchema<Other> for OneOfDataSchemaBuilder<PartialDataSchemaB
     }
 }
 
-impl<Other> UnionDataSchema<Other> for OneOfDataSchemaBuilder<DataSchemaBuilder<Other>> {
+impl<Other: ExtendableThing> UnionDataSchema<Other>
+    for OneOfDataSchemaBuilder<DataSchemaBuilder<Other>>
+{
     type Target = Self;
 
     fn one_of<F, T>(mut self, f: F) -> Self::Target
@@ -831,7 +842,7 @@ impl<Other> UnionDataSchema<Other> for OneOfDataSchemaBuilder<DataSchemaBuilder<
 macro_rules! impl_rw_data_schema {
     ($( $ty:ty; $($inner_path:ident).+ ),+ $(,)?) => {
         $(
-            impl<Other> ReadableWriteableDataSchema<Other> for $ty
+            impl<Other: ExtendableThing> ReadableWriteableDataSchema<Other> for $ty
             {
                 type ReadOnly = ReadOnly<Self>;
                 type WriteOnly = WriteOnly<Self>;
@@ -876,6 +887,7 @@ impl_rw_data_schema!(
 impl<Other, T> From<ReadOnly<T>> for DataSchemaBuilder<Other>
 where
     T: Into<DataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(data_schema: ReadOnly<T>) -> Self {
         let DataSchemaBuilder { mut partial, info } = data_schema.inner.into();
@@ -888,6 +900,7 @@ where
 impl<Other, T> From<WriteOnly<T>> for DataSchemaBuilder<Other>
 where
     T: Into<DataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(data_schema: WriteOnly<T>) -> Self {
         let DataSchemaBuilder { mut partial, info } = data_schema.inner.into();
@@ -900,6 +913,7 @@ where
 impl<Other, T> From<ReadOnly<T>> for PartialDataSchemaBuilder<Other>
 where
     T: Into<PartialDataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(data_schema: ReadOnly<T>) -> Self {
         let mut data_schema = data_schema.inner.into();
@@ -911,6 +925,7 @@ where
 impl<Other, T> From<WriteOnly<T>> for PartialDataSchemaBuilder<Other>
 where
     T: Into<PartialDataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(data_schema: WriteOnly<T>) -> Self {
         let mut data_schema = data_schema.inner.into();
@@ -919,7 +934,7 @@ where
     }
 }
 
-impl<Other> From<StatelessDataSchemaType> for DataSchemaSubtype<Other> {
+impl<Other: ExtendableThing> From<StatelessDataSchemaType> for DataSchemaSubtype<Other> {
     fn from(ty: StatelessDataSchemaType) -> Self {
         match ty {
             StatelessDataSchemaType::Boolean => DataSchemaSubtype::Boolean,
@@ -931,6 +946,7 @@ impl<Other> From<StatelessDataSchemaType> for DataSchemaSubtype<Other> {
 impl<Other, T> From<StatelessDataSchemaBuilder<T>> for DataSchema<Other>
 where
     T: Into<DataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: StatelessDataSchemaBuilder<T>) -> Self {
         let StatelessDataSchemaBuilder { inner, ty } = builder;
@@ -980,6 +996,7 @@ where
 impl<Other, T> From<StatelessDataSchemaBuilder<T>> for PartialDataSchema<Other>
 where
     T: Into<PartialDataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: StatelessDataSchemaBuilder<T>) -> Self {
         let StatelessDataSchemaBuilder { inner, ty } = builder;
@@ -1012,6 +1029,7 @@ impl<Other, T> From<ArrayDataSchemaBuilder<Other, T>> for DataSchema<Other>
 where
     // TODO
     T: Into<DataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: ArrayDataSchemaBuilder<Other, T>) -> Self {
         let ArrayDataSchemaBuilder {
@@ -1074,6 +1092,7 @@ impl<Other, T> From<ArrayDataSchemaBuilder<Other, T>> for PartialDataSchema<Othe
 where
     // TODO
     T: Into<PartialDataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: ArrayDataSchemaBuilder<Other, T>) -> Self {
         let ArrayDataSchemaBuilder {
@@ -1117,6 +1136,7 @@ where
 impl<Other, T> From<NumberDataSchemaBuilder<T>> for DataSchema<Other>
 where
     T: Into<DataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: NumberDataSchemaBuilder<T>) -> Self {
         let NumberDataSchemaBuilder {
@@ -1175,6 +1195,7 @@ where
 impl<Other, T> From<NumberDataSchemaBuilder<T>> for PartialDataSchema<Other>
 where
     T: Into<PartialDataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: NumberDataSchemaBuilder<T>) -> Self {
         let NumberDataSchemaBuilder {
@@ -1216,6 +1237,7 @@ impl<Other, T> From<IntegerDataSchemaBuilder<T>> for DataSchema<Other>
 where
     // TODO
     T: Into<DataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: IntegerDataSchemaBuilder<T>) -> Self {
         let IntegerDataSchemaBuilder {
@@ -1272,6 +1294,7 @@ where
 impl<Other, T> From<IntegerDataSchemaBuilder<T>> for PartialDataSchema<Other>
 where
     T: Into<PartialDataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: IntegerDataSchemaBuilder<T>) -> Self {
         let IntegerDataSchemaBuilder {
@@ -1310,6 +1333,7 @@ where
 impl<Other, T> From<ObjectDataSchemaBuilder<Other, T>> for DataSchema<Other>
 where
     T: Into<DataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: ObjectDataSchemaBuilder<Other, T>) -> Self {
         let ObjectDataSchemaBuilder {
@@ -1373,6 +1397,7 @@ where
 impl<Other, T> From<ObjectDataSchemaBuilder<Other, T>> for PartialDataSchema<Other>
 where
     T: Into<PartialDataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: ObjectDataSchemaBuilder<Other, T>) -> Self {
         let ObjectDataSchemaBuilder {
@@ -1418,6 +1443,7 @@ where
 impl<Other, T> From<StringDataSchemaBuilder<T>> for DataSchema<Other>
 where
     T: Into<DataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: StringDataSchemaBuilder<T>) -> Self {
         let StringDataSchemaBuilder { inner, max_length } = builder;
@@ -1467,6 +1493,7 @@ where
 impl<Other, T> From<StringDataSchemaBuilder<T>> for PartialDataSchema<Other>
 where
     T: Into<PartialDataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: StringDataSchemaBuilder<T>) -> Self {
         let StringDataSchemaBuilder { inner, max_length } = builder;
@@ -1498,6 +1525,7 @@ where
 impl<Other, T> From<ReadOnly<T>> for DataSchema<Other>
 where
     T: Into<DataSchema<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: ReadOnly<T>) -> Self {
         let data_schema = builder.inner.into();
@@ -1511,6 +1539,7 @@ where
 impl<Other, T> From<WriteOnly<T>> for DataSchema<Other>
 where
     T: Into<DataSchema<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: WriteOnly<T>) -> Self {
         let data_schema = builder.inner.into();
@@ -1524,6 +1553,7 @@ where
 impl<Other, T> From<ReadOnly<T>> for PartialDataSchema<Other>
 where
     T: Into<PartialDataSchema<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: ReadOnly<T>) -> Self {
         let data_schema = builder.inner.into();
@@ -1537,6 +1567,7 @@ where
 impl<Other, T> From<WriteOnly<T>> for PartialDataSchema<Other>
 where
     T: Into<PartialDataSchema<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: WriteOnly<T>) -> Self {
         let data_schema = builder.inner.into();
@@ -1550,6 +1581,7 @@ where
 impl<Other, T> From<EnumDataSchemaBuilder<T>> for DataSchema<Other>
 where
     T: Into<DataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: EnumDataSchemaBuilder<T>) -> Self {
         let DataSchemaBuilder {
@@ -1597,6 +1629,7 @@ where
 impl<Other, T> From<EnumDataSchemaBuilder<T>> for PartialDataSchema<Other>
 where
     T: Into<PartialDataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: EnumDataSchemaBuilder<T>) -> Self {
         let PartialDataSchemaBuilder {
@@ -1626,6 +1659,7 @@ where
 impl<Other, T> From<OneOfDataSchemaBuilder<T>> for DataSchema<Other>
 where
     T: Into<DataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: OneOfDataSchemaBuilder<T>) -> Self {
         let DataSchemaBuilder {
@@ -1673,6 +1707,7 @@ where
 impl<Other, T> From<OneOfDataSchemaBuilder<T>> for PartialDataSchema<Other>
 where
     T: Into<PartialDataSchemaBuilder<Other>>,
+    Other: ExtendableThing,
 {
     fn from(builder: OneOfDataSchemaBuilder<T>) -> Self {
         let PartialDataSchemaBuilder {
@@ -1703,7 +1738,7 @@ pub(super) trait CheckableDataSchema {
     fn check(&self) -> Result<(), Error>;
 }
 
-impl<Other> CheckableDataSchema for DataSchema<Other> {
+impl<Other: ExtendableThing> CheckableDataSchema for DataSchema<Other> {
     fn check(&self) -> Result<(), Error> {
         check_data_schema_subtype(&self.subtype)?;
         check_one_of_schema(self.one_of.as_deref())?;
@@ -1711,7 +1746,7 @@ impl<Other> CheckableDataSchema for DataSchema<Other> {
     }
 }
 
-impl<Other> CheckableDataSchema for PartialDataSchema<Other> {
+impl<Other: ExtendableThing> CheckableDataSchema for PartialDataSchema<Other> {
     fn check(&self) -> Result<(), Error> {
         check_data_schema_subtype(&self.subtype)?;
         check_one_of_schema(self.one_of.as_deref())?;
@@ -1719,7 +1754,7 @@ impl<Other> CheckableDataSchema for PartialDataSchema<Other> {
     }
 }
 
-pub(super) fn check_data_schema_subtype<Other>(
+pub(super) fn check_data_schema_subtype<Other: ExtendableThing>(
     mut subtype: &Option<DataSchemaSubtype<Other>>,
 ) -> Result<(), Error> {
     use DataSchemaSubtype::*;

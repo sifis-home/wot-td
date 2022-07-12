@@ -155,10 +155,10 @@ impl_delegate_buildable_data_schema!(
 );
 
 impl_delegate_buildable_hr_info!(
-    InteractionAffordanceBuilder<Other> on info,
-    PropertyAffordanceBuilder<Other, DS> on info,
-    ActionAffordanceBuilder<Other, I, O> on interaction,
-    EventAffordanceBuilder<Other, SS, DS, CS, RS> on interaction,
+    InteractionAffordanceBuilder<Other: ExtendableThing> on info,
+    PropertyAffordanceBuilder<Other: ExtendableThing, DS> on info,
+    ActionAffordanceBuilder<Other: ExtendableThing, I, O> on interaction,
+    EventAffordanceBuilder<Other: ExtendableThing, SS, DS, CS, RS> on interaction,
 );
 
 impl<Other: ExtendableThing, DataSchema> PropertyAffordanceBuilder<Other, DataSchema> {

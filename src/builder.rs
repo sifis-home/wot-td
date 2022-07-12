@@ -137,7 +137,7 @@ impl fmt::Display for AffordanceType {
     }
 }
 
-impl<Other> ThingBuilder<Other>
+impl<Other: ExtendableThing> ThingBuilder<Other>
 where
     DataSchema<Other>: Default,
 {
@@ -1267,13 +1267,13 @@ impl<Other, T> FormBuilder<Other, T> {
         self.response = Some(ExpectedResponse {
             content_type: content_type.into(),
             // TODO
-            other: Nil,
+            other: Other,
         });
         self
     }
 }
 
-impl<Other> From<FormBuilder<Other, String>> for Form<Other> {
+impl<Other: ExtendableThing> From<FormBuilder<Other, String>> for Form<Other> {
     fn from(builder: FormBuilder<Other, String>) -> Self {
         let FormBuilder {
             op,
@@ -1296,7 +1296,7 @@ impl<Other> From<FormBuilder<Other, String>> for Form<Other> {
             scopes,
             response,
             // TODO
-            other: Nil,
+            other: Other,
         }
     }
 }
