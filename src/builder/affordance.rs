@@ -4,7 +4,6 @@ use serde_json::Value;
 
 use crate::{
     extend::ExtendableThing,
-    hlist::Nil,
     thing::{
         ActionAffordance, DataSchema, EventAffordance, Form, InteractionAffordance,
         PropertyAffordance, SecurityScheme,
@@ -552,7 +551,7 @@ impl<Other: ExtendableThing> From<InteractionAffordanceBuilder<Other>>
             forms,
             uri_variables,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -563,7 +562,7 @@ trait IntoOptionDataSchema: Sized {
 }
 
 impl IntoOptionDataSchema for () {
-    type Other = Nil;
+    type Other = crate::hlist::Nil;
 
     #[inline(always)]
     fn into_option_data_schema(self) -> Option<DataSchema<Self::Other>> {
@@ -627,7 +626,7 @@ where
             format,
             subtype,
             // TODO
-            other: Nil,
+            other: Default::default(),
         };
 
         Self {
@@ -673,7 +672,7 @@ impl<Other: ExtendableThing> From<UsablePropertyAffordanceBuilder<Other>>
             forms,
             uri_variables,
             // TODO
-            other: Nil,
+            other: Default::default(),
         };
 
         Self {
@@ -681,7 +680,7 @@ impl<Other: ExtendableThing> From<UsablePropertyAffordanceBuilder<Other>>
             data_schema,
             observable,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -740,7 +739,7 @@ impl<Other: ExtendableThing> From<UsableActionAffordanceBuilder<Other>>
             idempotent,
             synchronous,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -813,7 +812,7 @@ impl<Other: ExtendableThing> From<UsableEventAffordanceBuilder<Other>> for Event
             cancellation,
             data_response,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -838,7 +837,7 @@ impl<Other: ExtendableThing> CheckableInteractionAffordanceBuilder
     }
 }
 
-pub(super) fn check_form_builders<Other>(
+pub(super) fn check_form_builders<Other: ExtendableThing>(
     forms: &[FormBuilder<Other, String>],
     security_definitions: &HashMap<String, SecurityScheme>,
 ) -> Result<(), Error> {
@@ -950,7 +949,7 @@ mod test {
                     .into_iter()
                     .collect()
                 ),
-                other: Nil,
+                other: Default::default(),
             },
         );
     }
