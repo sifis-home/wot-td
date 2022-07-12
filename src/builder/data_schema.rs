@@ -185,7 +185,7 @@ pub trait EnumerableDataSchema<Other>: BuildableDataSchema<Other> {
     fn enumeration(self, value: impl Into<Value>) -> Self::Target;
 }
 
-pub trait UnionDataSchema<Other>: BuildableDataSchema<Other> {
+pub trait UnionDataSchema<Other: ExtendableThing>: BuildableDataSchema<Other> {
     type Target: BuildableDataSchema<Other>;
 
     fn one_of<F, T>(self, f: F) -> Self::Target
@@ -202,7 +202,7 @@ pub trait ReadableWriteableDataSchema<Other>: BuildableDataSchema<Other> {
     fn write_only(self) -> Self::WriteOnly;
 }
 
-pub struct ArrayDataSchemaBuilder<Other, Inner> {
+pub struct ArrayDataSchemaBuilder<Other: ExtendableThing, Inner> {
     inner: Inner,
     items: Vec<DataSchema<Other>>,
     min_items: Option<u32>,
@@ -222,7 +222,7 @@ pub struct IntegerDataSchemaBuilder<Inner> {
     minimum: Option<usize>,
 }
 
-pub struct ObjectDataSchemaBuilder<Other, Inner> {
+pub struct ObjectDataSchemaBuilder<Other: ExtendableThing, Inner> {
     inner: Inner,
     properties: Vec<(String, DataSchema<Other>)>,
     required: Vec<String>,
@@ -267,7 +267,7 @@ macro_rules! opt_field_decl {
     };
 }
 
-pub trait ArrayDataSchemaBuilderLike<Other> {
+pub trait ArrayDataSchemaBuilderLike<Other: ExtendableThing> {
     opt_field_decl!(min_items: u32, max_items: u32);
 
     fn append<F, T>(self, f: F) -> Self
@@ -276,22 +276,22 @@ pub trait ArrayDataSchemaBuilderLike<Other> {
         T: Into<DataSchema<Other>>;
 }
 
-pub trait NumberDataSchemaBuilderLike {
+pub trait NumberDataSchemaBuilderLike<Other: ExtendableThing> {
     opt_field_decl!(minimum: f64, maximum: f64, multiple_of: f64);
 }
 
-pub trait IntegerDataSchemaBuilderLike {
+pub trait IntegerDataSchemaBuilderLike<Other: ExtendableThing> {
     opt_field_decl!(minimum: usize, maximum: usize);
 }
 
-pub trait ObjectDataSchemaBuilderLike<Other> {
+pub trait ObjectDataSchemaBuilderLike<Other: ExtendableThing> {
     fn property<F, T>(self, name: impl Into<String>, required: bool, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder<Other>) -> T,
         T: Into<DataSchema<Other>>;
 }
 
-pub trait StringDataSchemaBuilderLike {
+pub trait StringDataSchemaBuilderLike<Other: ExtendableThing> {
     opt_field_decl!(max_length: u32);
 }
 
@@ -306,7 +306,7 @@ macro_rules! opt_field_builder {
     };
 }
 
-impl<Other, Inner: BuildableDataSchema<Other>> ArrayDataSchemaBuilderLike<Other>
+impl<Other: ExtendableThing, Inner: BuildableDataSchema<Other>> ArrayDataSchemaBuilderLike<Other>
     for ArrayDataSchemaBuilder<Other, Inner>
 {
     opt_field_builder!(min_items: u32, max_items: u32);
@@ -321,19 +321,19 @@ impl<Other, Inner: BuildableDataSchema<Other>> ArrayDataSchemaBuilderLike<Other>
     }
 }
 
-impl<Other, Inner: BuildableDataSchema<Other>> NumberDataSchemaBuilderLike
+impl<Other: ExtendableThing, Inner: BuildableDataSchema<Other>> NumberDataSchemaBuilderLike<Other>
     for NumberDataSchemaBuilder<Inner>
 {
     opt_field_builder!(minimum: f64, maximum: f64, multiple_of: f64);
 }
 
-impl<Other, Inner: BuildableDataSchema<Other>> IntegerDataSchemaBuilderLike
+impl<Other: ExtendableThing, Inner: BuildableDataSchema<Other>> IntegerDataSchemaBuilderLike<Other>
     for IntegerDataSchemaBuilder<Inner>
 {
     opt_field_builder!(minimum: usize, maximum: usize);
 }
 
-impl<Other, Inner: BuildableDataSchema<Other>> ObjectDataSchemaBuilderLike<Other>
+impl<Other: ExtendableThing, Inner: BuildableDataSchema<Other>> ObjectDataSchemaBuilderLike<Other>
     for ObjectDataSchemaBuilder<Other, Inner>
 {
     fn property<F, T>(mut self, name: impl Into<String>, required: bool, f: F) -> Self
@@ -353,94 +353,136 @@ impl<Other, Inner: BuildableDataSchema<Other>> ObjectDataSchemaBuilderLike<Other
     }
 }
 
-impl<Other, Inner: BuildableDataSchema<Other>> StringDataSchemaBuilderLike
+impl<Other: ExtendableThing, Inner: BuildableDataSchema<Other>> StringDataSchemaBuilderLike<Other>
     for StringDataSchemaBuilder<Inner>
 {
     opt_field_builder!(max_length: u32);
 }
 
-macro_rules! impl_delegate_schema_builder_like {
-    (@arraybound Other: $bound:tt) => {};
+macro_rules! impl_inner_delegate_schema_builder_like_array {
+    ($inner:ident) => {
+        #[inline]
+        fn min_items(mut self, value: u32) -> Self {
+            self.$inner = self.$inner.min_items(value);
+            self
+        }
 
-    (@arraybound $ty:ident: $bound:tt) => {
-        $ty: $bound,
+        #[inline]
+        fn max_items(mut self, value: u32) -> Self {
+            self.$inner = self.$inner.max_items(value);
+            self
+        }
+
+        #[inline]
+        fn append<F, T>(mut self, f: F) -> Self
+        where
+            F: FnOnce(crate::builder::data_schema::DataSchemaBuilder<Other>) -> T,
+            T: Into<crate::thing::DataSchema<Other>>,
+        {
+            self.$inner = self.$inner.append(f);
+            self
+        }
+    };
+}
+
+macro_rules! impl_inner_delegate_schema_builder_like_number {
+    ($inner:ident) => {
+        #[inline]
+        fn minimum(mut self, value: f64) -> Self {
+            self.$inner = self.$inner.minimum(value);
+            self
+        }
+
+        #[inline]
+        fn maximum(mut self, value: f64) -> Self {
+            self.$inner = self.$inner.maximum(value);
+            self
+        }
+
+        #[inline]
+        fn multiple_of(mut self, value: f64) -> Self {
+            self.$inner = self.$inner.multiple_of(value);
+            self
+        }
+    };
+}
+
+macro_rules! impl_inner_delegate_schema_builder_like_integer {
+    ($inner:ident) => {
+        #[inline]
+        fn minimum(mut self, value: usize) -> Self {
+            self.$inner = self.$inner.minimum(value);
+            self
+        }
+
+        #[inline]
+        fn maximum(mut self, value: usize) -> Self {
+            self.$inner = self.$inner.maximum(value);
+            self
+        }
+    };
+}
+
+macro_rules! impl_inner_delegate_schema_builder_like_object {
+    ($inner:ident) => {
+        #[inline]
+        fn property<F, T>(mut self, name: impl Into<String>, required: bool, f: F) -> Self
+        where
+            F: FnOnce(crate::builder::data_schema::DataSchemaBuilder<Other>) -> T,
+            T: Into<crate::thing::DataSchema<Other>>,
+        {
+            self.$inner = self.$inner.property(name, required, f);
+            self
+        }
+    };
+}
+
+macro_rules! impl_delegate_schema_builder_like {
+    ($( $ty:ident <Other, $( $generic:ident ),+> on $inner:ident ),+ $(,)?) => {
+        $(
+            impl<Other: ExtendableThing, $($generic: crate::builder::data_schema::ArrayDataSchemaBuilderLike<Other>),+ > crate::builder::data_schema::ArrayDataSchemaBuilderLike<Other> for $ty< Other, $($generic),+ > {
+                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_array!($inner);
+            }
+
+            impl<Other: ExtendableThing, $($generic: crate::builder::data_schema::NumberDataSchemaBuilderLike<Other>),+ > crate::builder::data_schema::NumberDataSchemaBuilderLike<Other> for $ty< Other, $($generic),+ > {
+                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_number!($inner);
+            }
+
+            impl<Other: ExtendableThing, $($generic: crate::builder::data_schema::IntegerDataSchemaBuilderLike<Other>),+ > crate::builder::data_schema::IntegerDataSchemaBuilderLike<Other> for $ty< Other, $($generic),+ > {
+                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_integer!($inner);
+            }
+
+            impl<Other: ExtendableThing, $($generic: crate::builder::data_schema::ObjectDataSchemaBuilderLike<Other>),+ > crate::builder::data_schema::ObjectDataSchemaBuilderLike<Other> for $ty< Other, $($generic),+ > {
+                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_object!($inner);
+            }
+        )+
     };
 
     ($( $ty:ident <$( $generic:ident ),+> on $inner:ident ),+ $(,)?) => {
         $(
-            impl<Other, $(impl_delegate_schema_builder_like!(@arraybound $generic: crate::builder::data_schema::ArrayDataSchemaBuilderLike<Other>))+ > crate::builder::data_schema::ArrayDataSchemaBuilderLike<Other> for $ty< $($generic),+ > {
-                #[inline]
-                fn min_items(mut self, value: u32) -> Self {
-                    self.$inner = self.$inner.min_items(value);
-                    self
-                }
-
-                #[inline]
-                fn max_items(mut self, value: u32) -> Self {
-                    self.$inner = self.$inner.max_items(value);
-                    self
-                }
-
-                #[inline]
-                fn append<F, T>(mut self, f: F) -> Self
-                where
-                    F: FnOnce(crate::builder::data_schema::DataSchemaBuilder<Other>) -> T,
-                    T: Into<crate::thing::DataSchema<Other>>,
-                {
-                    self.$inner = self.$inner.append(f);
-                    self
-                }
+            impl<Other: ExtendableThing, $($generic: crate::builder::data_schema::ArrayDataSchemaBuilderLike<Other>),+ > crate::builder::data_schema::ArrayDataSchemaBuilderLike<Other> for $ty< $($generic),+ > {
+                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_array!($inner);
             }
 
-            impl< $($generic: crate::builder::data_schema::NumberDataSchemaBuilderLike),+ > crate::builder::data_schema::NumberDataSchemaBuilderLike for $ty< $($generic),+ > {
-                #[inline]
-                fn minimum(mut self, value: f64) -> Self {
-                    self.$inner = self.$inner.minimum(value);
-                    self
-                }
-
-                #[inline]
-                fn maximum(mut self, value: f64) -> Self {
-                    self.$inner = self.$inner.maximum(value);
-                    self
-                }
-
-                #[inline]
-                fn multiple_of(mut self, value: f64) -> Self {
-                    self.$inner = self.$inner.multiple_of(value);
-                    self
-                }
+            impl<Other: ExtendableThing, $($generic: crate::builder::data_schema::NumberDataSchemaBuilderLike<Other>),+ > crate::builder::data_schema::NumberDataSchemaBuilderLike<Other> for $ty< $($generic),+ > {
+                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_number!($inner);
             }
 
-            impl< $($generic: crate::builder::data_schema::IntegerDataSchemaBuilderLike),+ > crate::builder::data_schema::IntegerDataSchemaBuilderLike for $ty< $($generic),+ > {
-                #[inline]
-                fn minimum(mut self, value: usize) -> Self {
-                    self.$inner = self.$inner.minimum(value);
-                    self
-                }
-
-                #[inline]
-                fn maximum(mut self, value: usize) -> Self {
-                    self.$inner = self.$inner.maximum(value);
-                    self
-                }
+            impl<Other: ExtendableThing, $($generic: crate::builder::data_schema::IntegerDataSchemaBuilderLike<Other>),+ > crate::builder::data_schema::IntegerDataSchemaBuilderLike<Other> for $ty< $($generic),+ > {
+                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_integer!($inner);
             }
 
-            impl<Other, $($generic: crate::builder::data_schema::ObjectDataSchemaBuilderLike<Other>),+ > crate::builder::data_schema::ObjectDataSchemaBuilderLike<Other> for $ty< $($generic),+ > {
-                #[inline]
-                fn property<F, T>(mut self, name: impl Into<String>, required: bool, f: F) -> Self
-                where
-                    F: FnOnce(crate::builder::data_schema::DataSchemaBuilder<Other>) -> T,
-                    T: Into<crate::thing::DataSchema<Other>>,
-                {
-                    self.$inner = self.$inner.property(name, required, f);
-                    self
-                }
+            impl<Other: ExtendableThing, $($generic: crate::builder::data_schema::ObjectDataSchemaBuilderLike<Other>),+ > crate::builder::data_schema::ObjectDataSchemaBuilderLike<Other> for $ty< $($generic),+ > {
+                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_object!($inner);
             }
         )+
     };
 }
 pub(super) use impl_delegate_schema_builder_like;
+pub(super) use impl_inner_delegate_schema_builder_like_array;
+pub(super) use impl_inner_delegate_schema_builder_like_integer;
+pub(super) use impl_inner_delegate_schema_builder_like_number;
+pub(super) use impl_inner_delegate_schema_builder_like_object;
 
 impl_delegate_schema_builder_like!(ReadOnly<Inner> on inner, WriteOnly<Innner> on inner);
 
@@ -455,7 +497,7 @@ macro_rules! impl_delegate_buildable_data_schema {
     () => {};
 
     ($kind:ident <Other $(, $($ty:ident),+)?> : $inner:ident $(, $($rest:tt)*)?) => {
-        impl <Other $(, $($ty),+)? > crate::builder::data_schema::BuildableDataSchema<Other> for $kind <Other $(, $($ty),+)?>
+        impl <Other: ExtendableThing $(, $($ty),+)? > crate::builder::data_schema::BuildableDataSchema<Other> for $kind <Other $(, $($ty),+)?>
         $(
             where
                 $($ty: crate::builder::data_schema::BuildableDataSchema<Other>),+

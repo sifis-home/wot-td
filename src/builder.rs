@@ -45,9 +45,9 @@ pub struct ThingBuilder<Other: ExtendableThing> {
     modified: Option<OffsetDateTime>,
     support: Option<String>,
     base: Option<String>,
-    properties: Vec<AffordanceBuilder<UsablePropertyAffordanceBuilder>>,
-    actions: Vec<AffordanceBuilder<UsableActionAffordanceBuilder>>,
-    events: Vec<AffordanceBuilder<UsableEventAffordanceBuilder>>,
+    properties: Vec<AffordanceBuilder<UsablePropertyAffordanceBuilder<Other>>>,
+    actions: Vec<AffordanceBuilder<UsableActionAffordanceBuilder<Other>>>,
+    events: Vec<AffordanceBuilder<UsableEventAffordanceBuilder<Other>>>,
     links: Option<Vec<Link>>,
     forms: Option<Vec<FormBuilder<Other, String>>>,
     uri_variables: Option<HashMap<String, DataSchema<Other>>>,
@@ -555,8 +555,8 @@ where
 
     pub fn property<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(PropertyAffordanceBuilder<PartialDataSchemaBuilder<Other>>) -> T,
-        T: Into<PropertyAffordanceBuilder<DataSchema<Other>>>,
+        F: FnOnce(PropertyAffordanceBuilder<Other, PartialDataSchemaBuilder<Other>>) -> T,
+        T: Into<PropertyAffordanceBuilder<Other, DataSchema<Other>>>,
     {
         let affordance = f(PropertyAffordanceBuilder::default()).into();
         let affordance_builder = AffordanceBuilder {
@@ -569,8 +569,10 @@ where
 
     pub fn action<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(ActionAffordanceBuilder<(), ()>) -> T,
-        T: Into<ActionAffordanceBuilder<Option<DataSchema<Other>>, Option<DataSchema<Other>>>>,
+        F: FnOnce(ActionAffordanceBuilder<Other, (), ()>) -> T,
+        T: Into<
+            ActionAffordanceBuilder<Other, Option<DataSchema<Other>>, Option<DataSchema<Other>>>,
+        >,
     {
         let affordance = f(ActionAffordanceBuilder::default()).into();
         let affordance_builder = AffordanceBuilder {
@@ -583,9 +585,10 @@ where
 
     pub fn event<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(EventAffordanceBuilder<(), (), (), ()>) -> T,
+        F: FnOnce(EventAffordanceBuilder<Other, (), (), (), ()>) -> T,
         T: Into<
             EventAffordanceBuilder<
+                Other,
                 Option<DataSchema<Other>>,
                 Option<DataSchema<Other>>,
                 Option<DataSchema<Other>>,
@@ -2344,6 +2347,7 @@ mod tests {
                                     descriptions: None,
                                     forms: vec![],
                                     uri_variables: None,
+                                    other: Nil,
                                 },
                                 data_schema: DataSchema {
                                     attype: None,
@@ -2359,10 +2363,10 @@ mod tests {
                                     write_only: false,
                                     format: None,
                                     subtype: Some(DataSchemaSubtype::Boolean),
-                                    // TODO
                                     other: Nil,
                                 },
                                 observable: Some(true),
+                                other: Nil,
                             }
                         ),
                         (
@@ -2376,6 +2380,7 @@ mod tests {
                                     descriptions: None,
                                     forms: vec![],
                                     uri_variables: None,
+                                    other: Nil,
                                 },
                                 data_schema: DataSchema {
                                     attype: None,
@@ -2391,10 +2396,10 @@ mod tests {
                                     write_only: false,
                                     format: None,
                                     subtype: Some(DataSchemaSubtype::Null),
-                                    // TODO
                                     other: Nil,
                                 },
                                 observable: None,
+                                other: Nil,
                             }
                         ),
                     ]
@@ -2434,12 +2439,14 @@ mod tests {
                                     descriptions: None,
                                     forms: vec![],
                                     uri_variables: None,
+                                    other: Nil,
                                 },
                                 input: None,
                                 output: None,
                                 safe: false,
                                 idempotent: false,
                                 synchronous: None,
+                                other: Nil,
                             }
                         ),
                         (
@@ -2453,6 +2460,7 @@ mod tests {
                                     descriptions: None,
                                     forms: vec![],
                                     uri_variables: None,
+                                    other: Nil,
                                 },
                                 input: Some(DataSchema {
                                     attype: None,
@@ -2468,13 +2476,13 @@ mod tests {
                                     write_only: false,
                                     format: None,
                                     subtype: Some(DataSchemaSubtype::Null),
-                                    // TODO
                                     other: Nil,
                                 }),
                                 output: None,
                                 safe: false,
                                 idempotent: true,
                                 synchronous: None,
+                                other: Nil,
                             }
                         ),
                     ]
@@ -2512,11 +2520,13 @@ mod tests {
                                     descriptions: None,
                                     forms: vec![],
                                     uri_variables: None,
+                                    other: Nil,
                                 },
                                 subscription: None,
                                 data: None,
                                 cancellation: None,
                                 data_response: None,
+                                other: Nil,
                             }
                         ),
                         (
@@ -2530,6 +2540,7 @@ mod tests {
                                     descriptions: None,
                                     forms: vec![],
                                     uri_variables: None,
+                                    other: Nil,
                                 },
                                 subscription: None,
                                 data: None,
@@ -2551,6 +2562,7 @@ mod tests {
                                     other: Nil,
                                 }),
                                 data_response: None,
+                                other: Nil,
                             }
                         ),
                     ]

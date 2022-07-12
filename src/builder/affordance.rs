@@ -3,6 +3,7 @@ use std::{collections::HashMap, ops::Not};
 use serde_json::Value;
 
 use crate::{
+    extend::ExtendableThing,
     hlist::Nil,
     thing::{
         ActionAffordance, DataSchema, EventAffordance, Form, InteractionAffordance,
@@ -27,7 +28,7 @@ pub(super) struct AffordanceBuilder<Affordance> {
     pub(super) affordance: Affordance,
 }
 
-pub trait BuildableInteractionAffordance<Other> {
+pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
     fn form<F>(self, f: F) -> Self
     where
         F: FnOnce(FormBuilder<Other, ()>) -> FormBuilder<Other, String>;
@@ -39,18 +40,20 @@ pub trait BuildableInteractionAffordance<Other> {
 }
 
 #[derive(Default)]
-pub struct PartialInteractionAffordanceBuilder<Other> {
+pub struct PartialInteractionAffordanceBuilder<Other: ExtendableThing> {
     pub(super) forms: Vec<FormBuilder<Other, String>>,
     pub(super) uri_variables: HashMap<String, DataSchema<Other>>,
 }
 
 #[derive(Default)]
-pub struct InteractionAffordanceBuilder<Other> {
+pub struct InteractionAffordanceBuilder<Other: ExtendableThing> {
     pub(super) partial: PartialInteractionAffordanceBuilder<Other>,
     pub(super) info: HumanReadableInfo,
 }
 
-impl<Other> BuildableInteractionAffordance<Other> for PartialInteractionAffordanceBuilder<Other> {
+impl<Other: ExtendableThing> BuildableInteractionAffordance<Other>
+    for PartialInteractionAffordanceBuilder<Other>
+{
     fn form<F>(mut self, f: F) -> Self
     where
         F: FnOnce(FormBuilder<Other, ()>) -> FormBuilder<Other, String>,
@@ -71,9 +74,9 @@ impl<Other> BuildableInteractionAffordance<Other> for PartialInteractionAffordan
 }
 
 macro_rules! impl_buildable_interaction_affordance {
-    ($($ty:ident $( <$($generic:ident),+> )? on $($interaction_path:ident).+),+ $(,)?) => {
+    ($($ty:ident $( <$($generic:ident $(: $bound:path)?),+> )? on $($interaction_path:ident).+),+ $(,)?) => {
         $(
-            impl $(< $($generic),+ >)? BuildableInteractionAffordance<Other> for $ty $(< $($generic),+ >)? {
+            impl $(< $($generic $(: $bound)?),+ >)? BuildableInteractionAffordance<Other> for $ty $(< $($generic),+ >)? {
                 fn form<F>(mut self, f: F) -> Self
                 where
                     F: FnOnce(FormBuilder<Other, ()>) -> FormBuilder<Other, String>,
@@ -96,14 +99,14 @@ macro_rules! impl_buildable_interaction_affordance {
 }
 
 impl_buildable_interaction_affordance!(
-    InteractionAffordanceBuilder<Other> on partial,
-    PropertyAffordanceBuilder<Other, DS> on interaction,
-    ActionAffordanceBuilder<Other, I, O> on interaction.partial,
-    EventAffordanceBuilder<Other, SS, DS, CS, RS> on interaction.partial,
+    InteractionAffordanceBuilder<Other: ExtendableThing> on partial,
+    PropertyAffordanceBuilder<Other: ExtendableThing, DS> on interaction,
+    ActionAffordanceBuilder<Other: ExtendableThing, I, O> on interaction.partial,
+    EventAffordanceBuilder<Other: ExtendableThing, SS, DS, CS, RS> on interaction.partial,
 );
 
 #[derive(Default)]
-pub struct PropertyAffordanceBuilder<Other, DataSchema> {
+pub struct PropertyAffordanceBuilder<Other: ExtendableThing, DataSchema> {
     pub(super) interaction: PartialInteractionAffordanceBuilder<Other>,
     pub(super) info: HumanReadableInfo,
     pub(super) data_schema: DataSchema,
@@ -111,7 +114,7 @@ pub struct PropertyAffordanceBuilder<Other, DataSchema> {
 }
 
 #[derive(Default)]
-pub struct ActionAffordanceBuilder<Other, InputSchema, OutputSchema> {
+pub struct ActionAffordanceBuilder<Other: ExtendableThing, InputSchema, OutputSchema> {
     pub(super) interaction: InteractionAffordanceBuilder<Other>,
     pub(super) input: InputSchema,
     pub(super) output: OutputSchema,
@@ -122,7 +125,7 @@ pub struct ActionAffordanceBuilder<Other, InputSchema, OutputSchema> {
 
 #[derive(Default)]
 pub struct EventAffordanceBuilder<
-    Other,
+    Other: ExtendableThing,
     SubscriptionSchema,
     DataSchema,
     CancellationSchema,
@@ -158,7 +161,7 @@ impl_delegate_buildable_hr_info!(
     EventAffordanceBuilder<Other, SS, DS, CS, RS> on interaction,
 );
 
-impl<Other, DataSchema> PropertyAffordanceBuilder<Other, DataSchema> {
+impl<Other: ExtendableThing, DataSchema> PropertyAffordanceBuilder<Other, DataSchema> {
     pub fn observable(mut self, value: bool) -> Self {
         self.observable = Some(value);
         self
@@ -188,7 +191,7 @@ macro_rules! impl_property_affordance_builder_delegator {
     };
 }
 
-impl<Other, DataSchema> SpecializableDataSchema<Other>
+impl<Other: ExtendableThing, DataSchema> SpecializableDataSchema<Other>
     for PropertyAffordanceBuilder<Other, DataSchema>
 where
     DataSchema: SpecializableDataSchema<Other>,
@@ -213,7 +216,8 @@ where
     );
 }
 
-impl<Other, DataSchema> EnumerableDataSchema<Other> for PropertyAffordanceBuilder<Other, DataSchema>
+impl<Other: ExtendableThing, DataSchema> EnumerableDataSchema<Other>
+    for PropertyAffordanceBuilder<Other, DataSchema>
 where
     DataSchema: EnumerableDataSchema<Other>,
 {
@@ -238,7 +242,7 @@ where
     }
 }
 
-impl<Other, DS> UnionDataSchema<Other> for PropertyAffordanceBuilder<Other, DS>
+impl<Other: ExtendableThing, DS> UnionDataSchema<Other> for PropertyAffordanceBuilder<Other, DS>
 where
     DS: UnionDataSchema<Other>,
 {
@@ -266,7 +270,8 @@ where
     }
 }
 
-impl<Other, DS> ReadableWriteableDataSchema<Other> for PropertyAffordanceBuilder<Other, DS>
+impl<Other: ExtendableThing, DS> ReadableWriteableDataSchema<Other>
+    for PropertyAffordanceBuilder<Other, DS>
 where
     DS: ReadableWriteableDataSchema<Other>,
 {
@@ -310,8 +315,11 @@ where
 
 impl_delegate_schema_builder_like!(PropertyAffordanceBuilder<Other, DS> on data_schema);
 
-impl<Other, OutputSchema> ActionAffordanceBuilder<Other, (), OutputSchema> {
-    pub fn input<F, T>(self, f: F) -> ActionAffordanceBuilder<Other, DataSchema, OutputSchema>
+impl<Other: ExtendableThing, OutputSchema> ActionAffordanceBuilder<Other, (), OutputSchema> {
+    pub fn input<F, T>(
+        self,
+        f: F,
+    ) -> ActionAffordanceBuilder<Other, DataSchema<Other>, OutputSchema>
     where
         F: FnOnce(DataSchemaBuilder<Other>) -> T,
         T: Into<DataSchema<Other>>,
@@ -337,11 +345,14 @@ impl<Other, OutputSchema> ActionAffordanceBuilder<Other, (), OutputSchema> {
     }
 }
 
-impl<InputSchema> ActionAffordanceBuilder<InputSchema, ()> {
-    pub fn output<F, T>(self, f: F) -> ActionAffordanceBuilder<InputSchema, DataSchema>
+impl<Other: ExtendableThing, InputSchema> ActionAffordanceBuilder<Other, InputSchema, ()> {
+    pub fn output<F, T>(
+        self,
+        f: F,
+    ) -> ActionAffordanceBuilder<Other, InputSchema, DataSchema<Other>>
     where
-        F: FnOnce(DataSchemaBuilder) -> T,
-        T: Into<DataSchema>,
+        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        T: Into<DataSchema<Other>>,
     {
         let Self {
             interaction,
@@ -364,7 +375,9 @@ impl<InputSchema> ActionAffordanceBuilder<InputSchema, ()> {
     }
 }
 
-impl<InputSchema, OutputSchema> ActionAffordanceBuilder<InputSchema, OutputSchema> {
+impl<Other: ExtendableThing, InputSchema, OutputSchema>
+    ActionAffordanceBuilder<Other, InputSchema, OutputSchema>
+{
     pub fn safe(mut self) -> Self {
         self.safe = true;
         self
@@ -381,16 +394,16 @@ impl<InputSchema, OutputSchema> ActionAffordanceBuilder<InputSchema, OutputSchem
     }
 }
 
-impl<DS, CancellationSchema, ResponseSchema>
-    EventAffordanceBuilder<(), DS, CancellationSchema, ResponseSchema>
+impl<Other: ExtendableThing, DS, CancellationSchema, ResponseSchema>
+    EventAffordanceBuilder<Other, (), DS, CancellationSchema, ResponseSchema>
 {
     pub fn subscription<F, T>(
         self,
         f: F,
-    ) -> EventAffordanceBuilder<DataSchema, DS, CancellationSchema, ResponseSchema>
+    ) -> EventAffordanceBuilder<Other, DataSchema<Other>, DS, CancellationSchema, ResponseSchema>
     where
-        F: FnOnce(DataSchemaBuilder) -> T,
-        T: Into<DataSchema>,
+        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        T: Into<DataSchema<Other>>,
     {
         let Self {
             interaction,
@@ -411,16 +424,22 @@ impl<DS, CancellationSchema, ResponseSchema>
     }
 }
 
-impl<SubscriptionSchema, CancellationSchema, ResponseSchema>
-    EventAffordanceBuilder<SubscriptionSchema, (), CancellationSchema, ResponseSchema>
+impl<Other: ExtendableThing, SubscriptionSchema, CancellationSchema, ResponseSchema>
+    EventAffordanceBuilder<Other, SubscriptionSchema, (), CancellationSchema, ResponseSchema>
 {
     pub fn data<F, T>(
         self,
         f: F,
-    ) -> EventAffordanceBuilder<SubscriptionSchema, DataSchema, CancellationSchema, ResponseSchema>
+    ) -> EventAffordanceBuilder<
+        Other,
+        SubscriptionSchema,
+        DataSchema<Other>,
+        CancellationSchema,
+        ResponseSchema,
+    >
     where
-        F: FnOnce(DataSchemaBuilder) -> T,
-        T: Into<DataSchema>,
+        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        T: Into<DataSchema<Other>>,
     {
         let Self {
             interaction,
@@ -441,16 +460,16 @@ impl<SubscriptionSchema, CancellationSchema, ResponseSchema>
     }
 }
 
-impl<SubscriptionSchema, DS, ResponseSchema>
-    EventAffordanceBuilder<SubscriptionSchema, DS, (), ResponseSchema>
+impl<Other: ExtendableThing, SubscriptionSchema, DS, ResponseSchema>
+    EventAffordanceBuilder<Other, SubscriptionSchema, DS, (), ResponseSchema>
 {
     pub fn cancellation<F, T>(
         self,
         f: F,
-    ) -> EventAffordanceBuilder<SubscriptionSchema, DS, DataSchema, ResponseSchema>
+    ) -> EventAffordanceBuilder<Other, SubscriptionSchema, DS, DataSchema<Other>, ResponseSchema>
     where
-        F: FnOnce(DataSchemaBuilder) -> T,
-        T: Into<DataSchema>,
+        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        T: Into<DataSchema<Other>>,
     {
         let Self {
             interaction,
@@ -471,16 +490,16 @@ impl<SubscriptionSchema, DS, ResponseSchema>
     }
 }
 
-impl<SubscriptionSchema, DS, CancellationSchema>
-    EventAffordanceBuilder<SubscriptionSchema, DS, CancellationSchema, ()>
+impl<Other: ExtendableThing, SubscriptionSchema, DS, CancellationSchema>
+    EventAffordanceBuilder<Other, SubscriptionSchema, DS, CancellationSchema, ()>
 {
     pub fn data_response<F, T>(
         self,
         f: F,
-    ) -> EventAffordanceBuilder<SubscriptionSchema, DS, CancellationSchema, DataSchema>
+    ) -> EventAffordanceBuilder<Other, SubscriptionSchema, DS, CancellationSchema, DataSchema<Other>>
     where
-        F: FnOnce(DataSchemaBuilder) -> T,
-        T: Into<DataSchema>,
+        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        T: Into<DataSchema<Other>>,
     {
         let Self {
             interaction,
@@ -501,8 +520,10 @@ impl<SubscriptionSchema, DS, CancellationSchema>
     }
 }
 
-impl From<InteractionAffordanceBuilder> for InteractionAffordance {
-    fn from(builder: InteractionAffordanceBuilder) -> Self {
+impl<Other: ExtendableThing> From<InteractionAffordanceBuilder<Other>>
+    for InteractionAffordance<Other>
+{
+    fn from(builder: InteractionAffordanceBuilder<Other>) -> Self {
         let InteractionAffordanceBuilder {
             info:
                 HumanReadableInfo {
@@ -530,33 +551,41 @@ impl From<InteractionAffordanceBuilder> for InteractionAffordance {
             descriptions,
             forms,
             uri_variables,
+            // TODO
+            other: Nil,
         }
     }
 }
 
 trait IntoOptionDataSchema: Sized {
-    fn into_option_data_schema(self) -> Option<DataSchema>;
+    type Other: ExtendableThing;
+    fn into_option_data_schema(self) -> Option<DataSchema<Self::Other>>;
 }
 
 impl IntoOptionDataSchema for () {
+    type Other = Nil;
+
     #[inline(always)]
-    fn into_option_data_schema(self) -> Option<DataSchema> {
+    fn into_option_data_schema(self) -> Option<DataSchema<Self::Other>> {
         None
     }
 }
 
-impl IntoOptionDataSchema for DataSchema {
+impl<Other: ExtendableThing> IntoOptionDataSchema for DataSchema<Other> {
+    type Other = Other;
+
     #[inline(always)]
-    fn into_option_data_schema(self) -> Option<DataSchema> {
+    fn into_option_data_schema(self) -> Option<DataSchema<Other>> {
         Some(self)
     }
 }
 
-impl<DS> From<PropertyAffordanceBuilder<DS>> for UsablePropertyAffordanceBuilder
+impl<Other: ExtendableThing, DS> From<PropertyAffordanceBuilder<Other, DS>>
+    for UsablePropertyAffordanceBuilder<Other>
 where
-    DS: Into<PartialDataSchema>,
+    DS: Into<PartialDataSchema<Other>>,
 {
-    fn from(builder: PropertyAffordanceBuilder<DS>) -> Self {
+    fn from(builder: PropertyAffordanceBuilder<Other, DS>) -> Self {
         let PropertyAffordanceBuilder {
             interaction,
             info,
@@ -610,8 +639,10 @@ where
     }
 }
 
-impl From<UsablePropertyAffordanceBuilder> for PropertyAffordance {
-    fn from(builder: UsablePropertyAffordanceBuilder) -> Self {
+impl<Other: ExtendableThing> From<UsablePropertyAffordanceBuilder<Other>>
+    for PropertyAffordance<Other>
+{
+    fn from(builder: UsablePropertyAffordanceBuilder<Other>) -> Self {
         let PropertyAffordanceBuilder {
             interaction:
                 PartialInteractionAffordanceBuilder {
@@ -641,23 +672,28 @@ impl From<UsablePropertyAffordanceBuilder> for PropertyAffordance {
             descriptions,
             forms,
             uri_variables,
+            // TODO
+            other: Nil,
         };
 
         Self {
             interaction,
             data_schema,
             observable,
+            // TODO
+            other: Nil,
         }
     }
 }
 
-impl<InputSchema, OutputSchema> From<ActionAffordanceBuilder<InputSchema, OutputSchema>>
-    for UsableActionAffordanceBuilder
+impl<Other: ExtendableThing, InputSchema, OutputSchema>
+    From<ActionAffordanceBuilder<Other, InputSchema, OutputSchema>>
+    for UsableActionAffordanceBuilder<Other>
 where
-    InputSchema: IntoOptionDataSchema,
-    OutputSchema: IntoOptionDataSchema,
+    InputSchema: IntoOptionDataSchema<Other = Other>,
+    OutputSchema: IntoOptionDataSchema<Other = Other>,
 {
-    fn from(builder: ActionAffordanceBuilder<InputSchema, OutputSchema>) -> Self {
+    fn from(builder: ActionAffordanceBuilder<Other, InputSchema, OutputSchema>) -> Self {
         let ActionAffordanceBuilder {
             interaction,
             input,
@@ -681,8 +717,10 @@ where
     }
 }
 
-impl From<UsableActionAffordanceBuilder> for ActionAffordance {
-    fn from(builder: UsableActionAffordanceBuilder) -> Self {
+impl<Other: ExtendableThing> From<UsableActionAffordanceBuilder<Other>>
+    for ActionAffordance<Other>
+{
+    fn from(builder: UsableActionAffordanceBuilder<Other>) -> Self {
         let ActionAffordanceBuilder {
             interaction,
             input,
@@ -701,21 +739,32 @@ impl From<UsableActionAffordanceBuilder> for ActionAffordance {
             safe,
             idempotent,
             synchronous,
+            // TODO
+            other: Nil,
         }
     }
 }
 
-impl<SubscriptionSchema, DataSchema, CancellationSchema, ResponseSchema>
-    From<EventAffordanceBuilder<SubscriptionSchema, DataSchema, CancellationSchema, ResponseSchema>>
-    for UsableEventAffordanceBuilder
+impl<Other, SubscriptionSchema, DataSchema, CancellationSchema, ResponseSchema>
+    From<
+        EventAffordanceBuilder<
+            Other,
+            SubscriptionSchema,
+            DataSchema,
+            CancellationSchema,
+            ResponseSchema,
+        >,
+    > for UsableEventAffordanceBuilder<Other>
 where
-    SubscriptionSchema: IntoOptionDataSchema,
-    DataSchema: IntoOptionDataSchema,
-    CancellationSchema: IntoOptionDataSchema,
-    ResponseSchema: IntoOptionDataSchema,
+    Other: ExtendableThing,
+    SubscriptionSchema: IntoOptionDataSchema<Other = Other>,
+    DataSchema: IntoOptionDataSchema<Other = Other>,
+    CancellationSchema: IntoOptionDataSchema<Other = Other>,
+    ResponseSchema: IntoOptionDataSchema<Other = Other>,
 {
     fn from(
         builder: EventAffordanceBuilder<
+            Other,
             SubscriptionSchema,
             DataSchema,
             CancellationSchema,
@@ -745,8 +794,8 @@ where
     }
 }
 
-impl From<UsableEventAffordanceBuilder> for EventAffordance {
-    fn from(builder: UsableEventAffordanceBuilder) -> Self {
+impl<Other: ExtendableThing> From<UsableEventAffordanceBuilder<Other>> for EventAffordance<Other> {
+    fn from(builder: UsableEventAffordanceBuilder<Other>) -> Self {
         let EventAffordanceBuilder {
             interaction,
             subscription,
@@ -763,6 +812,8 @@ impl From<UsableEventAffordanceBuilder> for EventAffordance {
             data,
             cancellation,
             data_response,
+            // TODO
+            other: Nil,
         }
     }
 }
@@ -771,20 +822,24 @@ pub(super) trait CheckableInteractionAffordanceBuilder {
     fn check(&self, security_definitions: &HashMap<String, SecurityScheme>) -> Result<(), Error>;
 }
 
-impl CheckableInteractionAffordanceBuilder for PartialInteractionAffordanceBuilder {
+impl<Other: ExtendableThing> CheckableInteractionAffordanceBuilder
+    for PartialInteractionAffordanceBuilder<Other>
+{
     fn check(&self, security_definitions: &HashMap<String, SecurityScheme>) -> Result<(), Error> {
         check_form_builders(&self.forms, security_definitions)
     }
 }
 
-impl CheckableInteractionAffordanceBuilder for InteractionAffordanceBuilder {
+impl<Other: ExtendableThing> CheckableInteractionAffordanceBuilder
+    for InteractionAffordanceBuilder<Other>
+{
     fn check(&self, security_definitions: &HashMap<String, SecurityScheme>) -> Result<(), Error> {
         check_form_builders(&self.partial.forms, security_definitions)
     }
 }
 
-pub(super) fn check_form_builders(
-    forms: &[FormBuilder<String>],
+pub(super) fn check_form_builders<Other>(
+    forms: &[FormBuilder<Other, String>],
     security_definitions: &HashMap<String, SecurityScheme>,
 ) -> Result<(), Error> {
     for form in forms {
@@ -895,6 +950,7 @@ mod test {
                     .into_iter()
                     .collect()
                 ),
+                other: Nil,
             },
         );
     }
@@ -948,6 +1004,7 @@ mod test {
                     ..Default::default()
                 },
                 observable: Some(true),
+                other: Nil,
             },
         );
     }
@@ -986,6 +1043,7 @@ mod test {
                     ..Default::default()
                 },
                 observable: Some(true),
+                other: Nil,
             },
         );
     }
@@ -1031,6 +1089,7 @@ mod test {
                     ..Default::default()
                 },
                 observable: Some(true),
+                other: Nil,
             },
         );
     }
@@ -1120,6 +1179,7 @@ mod test {
                 safe: true,
                 idempotent: true,
                 synchronous: Some(true),
+                other: Nil,
             },
         );
     }
@@ -1206,6 +1266,7 @@ mod test {
                     subtype: Some(DataSchemaSubtype::String(Default::default())),
                     ..Default::default()
                 }),
+                other: Nil,
             },
         );
     }
