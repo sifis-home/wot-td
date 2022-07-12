@@ -2,7 +2,6 @@ use std::{fmt, ops::Not};
 
 use crate::{
     extend::ExtendableThing,
-    hlist::Nil,
     thing::{
         ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
         StringSchema,
@@ -988,7 +987,7 @@ where
             format,
             subtype,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -1065,7 +1064,7 @@ where
             min_items,
             max_items,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }));
 
         DataSchema {
@@ -1083,7 +1082,7 @@ where
             format,
             subtype,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -1117,7 +1116,7 @@ where
             min_items,
             max_items,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }));
 
         PartialDataSchema {
@@ -1187,7 +1186,7 @@ where
             format,
             subtype,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -1286,7 +1285,7 @@ where
             format,
             subtype,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -1371,7 +1370,7 @@ where
             properties,
             required,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }));
 
         DataSchema {
@@ -1389,7 +1388,7 @@ where
             format,
             subtype,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -1424,7 +1423,7 @@ where
             properties,
             required,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }));
 
         PartialDataSchema {
@@ -1485,7 +1484,7 @@ where
             format,
             subtype,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -1621,7 +1620,7 @@ where
             format,
             subtype: None,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }
@@ -1699,7 +1698,7 @@ where
             format,
             subtype: None,
             // TODO
-            other: Nil,
+            other: Default::default(),
         }
     }
 }

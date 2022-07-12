@@ -9,7 +9,6 @@ use time::OffsetDateTime;
 
 use crate::{
     extend::ExtendableThing,
-    hlist::Nil,
     thing::{
         ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchema,
         DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
@@ -295,7 +294,7 @@ where
             uri_variables,
             profile,
             // TODO
-            other: Nil,
+            other: Default::default(),
         })
     }
 
@@ -359,7 +358,7 @@ where
             scopes,
             response,
             // TODO
-            other: Nil,
+            other: std::default::Default::default(),
         })
     }
 
@@ -1160,7 +1159,7 @@ impl SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
 }
 
 /// Builder for the Form
-pub struct FormBuilder<Other, Href> {
+pub struct FormBuilder<Other: ExtendableThing, Href> {
     op: DefaultedFormOperations,
     href: Href,
     content_type: Option<String>,
@@ -1168,12 +1167,12 @@ pub struct FormBuilder<Other, Href> {
     subprotocol: Option<String>,
     security: Option<Vec<String>>,
     scopes: Option<Vec<String>>,
-    response: Option<ExpectedResponse<Other>>,
+    response: Option<ExpectedResponse<Other::ExpectedResponse>>,
 }
 
-impl<Other> FormBuilder<Other, ()>
+impl<Other: ExtendableThing> FormBuilder<Other, ()>
 where
-    ExpectedResponse<Other>: Default,
+    ExpectedResponse<Other::ExpectedResponse>: Default,
 {
     fn new() -> Self {
         Self {
@@ -1189,7 +1188,7 @@ where
     }
 }
 
-impl<Other> FormBuilder<Other, ()> {
+impl<Other: ExtendableThing> FormBuilder<Other, ()> {
     /// Create a new builder with the specified Href
     pub fn href(self, value: impl Into<String>) -> FormBuilder<Other, String> {
         let Self {
@@ -1217,7 +1216,7 @@ impl<Other> FormBuilder<Other, ()> {
     }
 }
 
-impl<Other, T> FormBuilder<Other, T> {
+impl<Other: ExtendableThing, T> FormBuilder<Other, T> {
     opt_field_builder!(
         content_type: String,
         content_coding: String,
@@ -1267,7 +1266,7 @@ impl<Other, T> FormBuilder<Other, T> {
         self.response = Some(ExpectedResponse {
             content_type: content_type.into(),
             // TODO
-            other: Other,
+            other: Default::default(),
         });
         self
     }
@@ -1296,7 +1295,7 @@ impl<Other: ExtendableThing> From<FormBuilder<Other, String>> for Form<Other> {
             scopes,
             response,
             // TODO
-            other: Other,
+            other: Default::default(),
         }
     }
 }
