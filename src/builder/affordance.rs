@@ -4,9 +4,10 @@ use serde_json::Value;
 
 use crate::{
     extend::ExtendableThing,
+    hlist::Nil,
     thing::{
-        ActionAffordance, DataSchema, EventAffordance, Form, InteractionAffordance,
-        PropertyAffordance, SecurityScheme,
+        ActionAffordance, DataSchema, EventAffordance, Form, GenericDataSchema,
+        InteractionAffordance, PropertyAffordance, SecurityScheme,
     },
 };
 
@@ -34,7 +35,9 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
 
     fn uri_variable<F, T>(self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        F: FnOnce(
+            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        ) -> T,
         T: Into<DataSchema<Other>>;
 }
 
@@ -63,7 +66,9 @@ impl<Other: ExtendableThing> BuildableInteractionAffordance<Other>
 
     fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        F: FnOnce(
+            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        ) -> T,
         T: Into<DataSchema<Other>>,
     {
         self.uri_variables
@@ -86,7 +91,7 @@ macro_rules! impl_buildable_interaction_affordance {
 
                 fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
                 where
-                    F: FnOnce(DataSchemaBuilder<Other>) -> T,
+                    F: FnOnce(DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>) -> T,
                     T: Into<DataSchema<Other>>,
                 {
                     self.$($interaction_path).* = self.$($interaction_path).*.uri_variable(name, f);
@@ -249,7 +254,9 @@ where
 
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
-        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        F: FnOnce(
+            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        ) -> T,
         T: Into<DataSchema<Other>>,
     {
         let Self {
@@ -320,7 +327,9 @@ impl<Other: ExtendableThing, OutputSchema> ActionAffordanceBuilder<Other, (), Ou
         f: F,
     ) -> ActionAffordanceBuilder<Other, DataSchema<Other>, OutputSchema>
     where
-        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        F: FnOnce(
+            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        ) -> T,
         T: Into<DataSchema<Other>>,
     {
         let Self {
@@ -350,7 +359,9 @@ impl<Other: ExtendableThing, InputSchema> ActionAffordanceBuilder<Other, InputSc
         f: F,
     ) -> ActionAffordanceBuilder<Other, InputSchema, DataSchema<Other>>
     where
-        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        F: FnOnce(
+            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        ) -> T,
         T: Into<DataSchema<Other>>,
     {
         let Self {
@@ -401,7 +412,9 @@ impl<Other: ExtendableThing, DS, CancellationSchema, ResponseSchema>
         f: F,
     ) -> EventAffordanceBuilder<Other, DataSchema<Other>, DS, CancellationSchema, ResponseSchema>
     where
-        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        F: FnOnce(
+            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        ) -> T,
         T: Into<DataSchema<Other>>,
     {
         let Self {
@@ -437,7 +450,9 @@ impl<Other: ExtendableThing, SubscriptionSchema, CancellationSchema, ResponseSch
         ResponseSchema,
     >
     where
-        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        F: FnOnce(
+            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        ) -> T,
         T: Into<DataSchema<Other>>,
     {
         let Self {
@@ -467,7 +482,9 @@ impl<Other: ExtendableThing, SubscriptionSchema, DS, ResponseSchema>
         f: F,
     ) -> EventAffordanceBuilder<Other, SubscriptionSchema, DS, DataSchema<Other>, ResponseSchema>
     where
-        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        F: FnOnce(
+            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        ) -> T,
         T: Into<DataSchema<Other>>,
     {
         let Self {
@@ -497,7 +514,9 @@ impl<Other: ExtendableThing, SubscriptionSchema, DS, CancellationSchema>
         f: F,
     ) -> EventAffordanceBuilder<Other, SubscriptionSchema, DS, CancellationSchema, DataSchema<Other>>
     where
-        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        F: FnOnce(
+            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        ) -> T,
         T: Into<DataSchema<Other>>,
     {
         let Self {
@@ -557,24 +576,37 @@ impl<Other: ExtendableThing> From<InteractionAffordanceBuilder<Other>>
 }
 
 trait IntoOptionDataSchema: Sized {
-    type Other: ExtendableThing;
-    fn into_option_data_schema(self) -> Option<DataSchema<Self::Other>>;
+    type DataSchema;
+    type ArraySchema;
+    type ObjectSchema;
+
+    fn into_option_data_schema(
+        self,
+    ) -> Option<GenericDataSchema<Self::DataSchema, Self::ArraySchema, Self::ObjectSchema>>;
 }
 
 impl IntoOptionDataSchema for () {
-    type Other = crate::hlist::Nil;
+    type DataSchema = Nil;
+    type ArraySchema = Nil;
+    type ObjectSchema = Nil;
 
     #[inline(always)]
-    fn into_option_data_schema(self) -> Option<DataSchema<Self::Other>> {
+    fn into_option_data_schema(
+        self,
+    ) -> Option<GenericDataSchema<Self::DataSchema, Self::ArraySchema, Self::ObjectSchema>> {
         None
     }
 }
 
-impl<Other: ExtendableThing> IntoOptionDataSchema for DataSchema<Other> {
-    type Other = Other;
+impl<DS, AS, OS> IntoOptionDataSchema for GenericDataSchema<DS, AS, OS> {
+    type DataSchema = DS;
+    type ArraySchema = AS;
+    type ObjectSchema = OS;
 
     #[inline(always)]
-    fn into_option_data_schema(self) -> Option<DataSchema<Other>> {
+    fn into_option_data_schema(
+        self,
+    ) -> Option<GenericDataSchema<Self::DataSchema, Self::ArraySchema, Self::ObjectSchema>> {
         Some(self)
     }
 }
@@ -689,8 +721,16 @@ impl<Other: ExtendableThing, InputSchema, OutputSchema>
     From<ActionAffordanceBuilder<Other, InputSchema, OutputSchema>>
     for UsableActionAffordanceBuilder<Other>
 where
-    InputSchema: IntoOptionDataSchema<Other = Other>,
-    OutputSchema: IntoOptionDataSchema<Other = Other>,
+    InputSchema: IntoOptionDataSchema<
+        DataSchema = Other::DataSchema,
+        ArraySchema = Other::ArraySchema,
+        ObjectSchema = Other::ObjectSchema,
+    >,
+    OutputSchema: IntoOptionDataSchema<
+        DataSchema = Other::DataSchema,
+        ArraySchema = Other::ArraySchema,
+        ObjectSchema = Other::ObjectSchema,
+    >,
 {
     fn from(builder: ActionAffordanceBuilder<Other, InputSchema, OutputSchema>) -> Self {
         let ActionAffordanceBuilder {
@@ -756,10 +796,26 @@ impl<Other, SubscriptionSchema, DataSchema, CancellationSchema, ResponseSchema>
     > for UsableEventAffordanceBuilder<Other>
 where
     Other: ExtendableThing,
-    SubscriptionSchema: IntoOptionDataSchema<Other = Other>,
-    DataSchema: IntoOptionDataSchema<Other = Other>,
-    CancellationSchema: IntoOptionDataSchema<Other = Other>,
-    ResponseSchema: IntoOptionDataSchema<Other = Other>,
+    SubscriptionSchema: IntoOptionDataSchema<
+        DataSchema = Other::DataSchema,
+        ArraySchema = Other::ArraySchema,
+        ObjectSchema = Other::ObjectSchema,
+    >,
+    DataSchema: IntoOptionDataSchema<
+        DataSchema = Other::DataSchema,
+        ArraySchema = Other::ArraySchema,
+        ObjectSchema = Other::ObjectSchema,
+    >,
+    CancellationSchema: IntoOptionDataSchema<
+        DataSchema = Other::DataSchema,
+        ArraySchema = Other::ArraySchema,
+        ObjectSchema = Other::ObjectSchema,
+    >,
+    ResponseSchema: IntoOptionDataSchema<
+        DataSchema = Other::DataSchema,
+        ArraySchema = Other::ArraySchema,
+        ObjectSchema = Other::ObjectSchema,
+    >,
 {
     fn from(
         builder: EventAffordanceBuilder<

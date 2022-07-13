@@ -9,6 +9,7 @@ use time::OffsetDateTime;
 
 use crate::{
     extend::ExtendableThing,
+    hlist::Nil,
     thing::{
         ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchema,
         DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
@@ -136,10 +137,8 @@ impl fmt::Display for AffordanceType {
     }
 }
 
-impl<Other: ExtendableThing> ThingBuilder<Other>
-where
-    DataSchema<Other>: Default,
-{
+// TODO
+impl ThingBuilder<Nil> {
     /// Create a new default builder with a specified title
     pub fn new(title: impl Into<String>) -> Self {
         let title = title.into();
@@ -173,7 +172,7 @@ where
     /// Consume the builder to produce the configured Thing
     ///
     /// This step will perform the final validation of the builder state.
-    pub fn build(self) -> Result<Thing, Error> {
+    pub fn build(self) -> Result<Thing<Nil>, Error> {
         use std::collections::hash_map::Entry;
 
         let Self {
@@ -294,14 +293,15 @@ where
             uri_variables,
             profile,
             // TODO
-            other: Default::default(),
+            other: Nil,
         })
     }
 
+    // TODO
     fn build_form_from_builder(
-        form_builder: FormBuilder<Other, String>,
+        form_builder: FormBuilder<Nil, String>,
         security_definitions: &HashMap<String, SecurityScheme>,
-    ) -> Result<Form<Other>, Error> {
+    ) -> Result<Form<Nil>, Error> {
         use DefaultedFormOperations::*;
         use FormOperation::*;
 
@@ -358,7 +358,7 @@ where
             scopes,
             response,
             // TODO
-            other: std::default::Default::default(),
+            other: Nil,
         })
     }
 
@@ -525,7 +525,14 @@ where
 
         self
     }
+}
 
+impl<Other> ThingBuilder<Other>
+where
+    // TODO
+    Other: ExtendableThing + Default,
+    Other::ExpectedResponse: Default,
+{
     /// Add a Thing-level form
     ///
     /// NOTE:
@@ -543,7 +550,9 @@ where
 
     pub fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(DataSchemaBuilder<Other>) -> T,
+        F: FnOnce(
+            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        ) -> T,
         T: Into<DataSchema<Other>>,
     {
         self.uri_variables
@@ -554,7 +563,16 @@ where
 
     pub fn property<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(PropertyAffordanceBuilder<Other, PartialDataSchemaBuilder<Other>>) -> T,
+        F: FnOnce(
+            PropertyAffordanceBuilder<
+                Other,
+                PartialDataSchemaBuilder<
+                    Other::DataSchema,
+                    Other::ArraySchema,
+                    Other::ObjectSchema,
+                >,
+            >,
+        ) -> T,
         T: Into<PropertyAffordanceBuilder<Other, DataSchema<Other>>>,
     {
         let affordance = f(PropertyAffordanceBuilder::default()).into();
@@ -1216,7 +1234,12 @@ impl<Other: ExtendableThing> FormBuilder<Other, ()> {
     }
 }
 
-impl<Other: ExtendableThing, T> FormBuilder<Other, T> {
+impl<Other, T> FormBuilder<Other, T>
+where
+    Other: ExtendableThing,
+    // TODO
+    Other::ExpectedResponse: Default,
+{
     opt_field_builder!(
         content_type: String,
         content_coding: String,
@@ -1272,7 +1295,11 @@ impl<Other: ExtendableThing, T> FormBuilder<Other, T> {
     }
 }
 
-impl<Other: ExtendableThing> From<FormBuilder<Other, String>> for Form<Other> {
+impl<Other> From<FormBuilder<Other, String>> for Form<Other>
+where
+    Other: ExtendableThing,
+    Other::Form: Default,
+{
     fn from(builder: FormBuilder<Other, String>) -> Self {
         let FormBuilder {
             op,

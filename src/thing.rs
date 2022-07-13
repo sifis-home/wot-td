@@ -17,7 +17,14 @@ use time::OffsetDateTime;
 use crate::{/* builder::ThingBuilder, */ extend::ExtendableThing, hlist::Nil};
 
 pub(crate) type MultiLanguage = HashMap<String, String>;
-pub(crate) type DataSchemaMap<T> = HashMap<String, DataSchema<T>>;
+pub(crate) type DataSchemaMap<Other> = HashMap<
+    String,
+    GenericDataSchema<
+        <Other as ExtendableThing>::DataSchema,
+        <Other as ExtendableThing>::ArraySchema,
+        <Other as ExtendableThing>::ObjectSchema,
+    >,
+>;
 
 pub const TD_CONTEXT_10: &str = "https://www.w3.org/2019/wot/td/v1";
 pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
@@ -571,9 +578,9 @@ where
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DataSchema<Other: ExtendableThing> {
+pub struct GenericDataSchema<DS, AS, OS> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -591,7 +598,7 @@ pub struct DataSchema<Other: ExtendableThing> {
 
     pub unit: Option<String>,
 
-    pub one_of: Option<Vec<DataSchema<Other>>>,
+    pub one_of: Option<Vec<Self>>,
 
     #[serde(rename = "enum")]
     pub enumeration: Option<Vec<Value>>,
@@ -605,140 +612,33 @@ pub struct DataSchema<Other: ExtendableThing> {
     pub format: Option<String>,
 
     #[serde(flatten)]
-    pub subtype: Option<DataSchemaSubtype<Other>>,
+    pub subtype: Option<DataSchemaSubtype<DS, AS, OS>>,
 
     #[serde(flatten)]
-    pub other: Other::DataSchema,
+    pub other: DS,
 }
 
-impl<Other> fmt::Debug for DataSchema<Other>
-where
-    Other: ExtendableThing,
-    DataSchemaSubtype<Other>: fmt::Debug,
-    Other::DataSchema: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("DataSchema")
-            .field("attype", &self.attype)
-            .field("title", &self.title)
-            .field("titles", &self.titles)
-            .field("description", &self.description)
-            .field("descriptions", &self.descriptions)
-            .field("constant", &self.constant)
-            .field("unit", &self.unit)
-            .field("one_of", &self.one_of)
-            .field("enumeration", &self.enumeration)
-            .field("read_only", &self.read_only)
-            .field("write_only", &self.write_only)
-            .field("format", &self.format)
-            .field("subtype", &self.subtype)
-            .field("other", &self.other)
-            .finish()
-    }
-}
+pub(crate) type DataSchema<Other> = GenericDataSchema<
+    <Other as ExtendableThing>::DataSchema,
+    <Other as ExtendableThing>::ArraySchema,
+    <Other as ExtendableThing>::ObjectSchema,
+>;
 
-impl<Other> Default for DataSchema<Other>
-where
-    Other: ExtendableThing,
-    DataSchemaSubtype<Other>: Default,
-    Other::DataSchema: Default,
-{
-    fn default() -> Self {
-        Self {
-            attype: Default::default(),
-            title: Default::default(),
-            titles: Default::default(),
-            description: Default::default(),
-            descriptions: Default::default(),
-            constant: Default::default(),
-            unit: Default::default(),
-            one_of: Default::default(),
-            enumeration: Default::default(),
-            read_only: Default::default(),
-            write_only: Default::default(),
-            format: Default::default(),
-            subtype: Default::default(),
-            other: Default::default(),
-        }
-    }
-}
-
-impl<Other> PartialEq for DataSchema<Other>
-where
-    Other: ExtendableThing,
-    Other::DataSchema: PartialEq,
-    DataSchemaSubtype<Other>: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.attype == other.attype
-            && self.title == other.title
-            && self.titles == other.titles
-            && self.description == other.description
-            && self.descriptions == other.descriptions
-            && self.constant == other.constant
-            && self.unit == other.unit
-            && self.one_of == other.one_of
-            && self.enumeration == other.enumeration
-            && self.read_only == other.read_only
-            && self.write_only == other.write_only
-            && self.format == other.format
-            && self.subtype == other.subtype
-            && self.other == other.other
-    }
-}
-
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
-pub enum DataSchemaSubtype<Other: ExtendableThing> {
-    Array(ArraySchema<Other::DataSchema, Other::ArraySchema>),
+pub enum DataSchemaSubtype<DS, AS, OS> {
+    Array(ArraySchema<DS, AS, OS>),
     Boolean,
     Number(NumberSchema),
     Integer(IntegerSchema),
-    Object(ObjectSchema<Other::DataSchema, Other::ObjectSchema>),
+    Object(ObjectSchema<DS, AS, OS>),
     String(StringSchema),
     Null,
 }
 
-impl<Other: ExtendableThing> Default for DataSchemaSubtype<Other> {
+impl<DS, AS, OS> Default for DataSchemaSubtype<DS, AS, OS> {
     fn default() -> Self {
         Self::Null
-    }
-}
-
-impl<Other> fmt::Debug for DataSchemaSubtype<Other>
-where
-    Other: ExtendableThing,
-    ArraySchema<Other::DataSchema, Other::ArraySchema>: fmt::Debug,
-    ObjectSchema<Other::DataSchema, Other::ObjectSchema>: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Array(arg0) => f.debug_tuple("Array").field(arg0).finish(),
-            Self::Boolean => write!(f, "Boolean"),
-            Self::Number(arg0) => f.debug_tuple("Number").field(arg0).finish(),
-            Self::Integer(arg0) => f.debug_tuple("Integer").field(arg0).finish(),
-            Self::Object(arg0) => f.debug_tuple("Object").field(arg0).finish(),
-            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
-            Self::Null => write!(f, "Null"),
-        }
-    }
-}
-
-impl<Other> PartialEq for DataSchemaSubtype<Other>
-where
-    Other: ExtendableThing,
-    ArraySchema<Other::DataSchema, Other::ArraySchema>: PartialEq,
-    ObjectSchema<Other::DataSchema, Other::ObjectSchema>: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Array(l0), Self::Array(r0)) => l0 == r0,
-            (Self::Number(l0), Self::Number(r0)) => l0 == r0,
-            (Self::Integer(l0), Self::Integer(r0)) => l0 == r0,
-            (Self::Object(l0), Self::Object(r0)) => l0 == r0,
-            (Self::String(l0), Self::String(r0)) => l0 == r0,
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
-        }
     }
 }
 
@@ -746,13 +646,13 @@ where
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(bound(
-    deserialize = "DS: Deserialize<'de>, AS: Deserialize<'de>",
-    serialize = "DS: Serialize, AS: Serialize"
+    deserialize = "DS: Deserialize<'de>, AS: Deserialize<'de>, OS: Deserialize<'de>",
+    serialize = "DS: Serialize, AS: Serialize, OS: Serialize"
 ))]
-pub struct ArraySchema<DS, AS> {
+pub struct ArraySchema<DS, AS, OS> {
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub items: Option<Vec<DS>>,
+    pub items: Option<Vec<GenericDataSchema<DS, AS, OS>>>,
 
     pub min_items: Option<u32>,
 
@@ -784,8 +684,8 @@ pub struct IntegerSchema {
 
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ObjectSchema<DS, OS> {
-    pub properties: Option<HashMap<String, DS>>,
+pub struct ObjectSchema<DS, AS, OS> {
+    pub properties: Option<HashMap<String, GenericDataSchema<DS, AS, OS>>>,
 
     pub required: Option<Vec<String>>,
 
@@ -1311,7 +1211,7 @@ mod test {
                             }],
                             ..Default::default()
                         },
-                        data_schema: DataSchema {
+                        data_schema: GenericDataSchema {
                             subtype: Some(DataSchemaSubtype::String(Default::default())),
                             ..Default::default()
                         },
@@ -1351,7 +1251,7 @@ mod test {
                             }],
                             ..Default::default()
                         },
-                        data: Some(DataSchema {
+                        data: Some(GenericDataSchema {
                             subtype: Some(DataSchemaSubtype::String(StringSchema::default())),
                             ..Default::default()
                         }),
@@ -1497,7 +1397,7 @@ mod test {
                             other: IntAffExtA { b: A(1) },
                             ..Default::default()
                         },
-                        data_schema: DataSchema {
+                        data_schema: GenericDataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema {
                                 other: ArraySchemaExtA { j: A(2) },
                                 ..Default::default()
@@ -1520,7 +1420,7 @@ mod test {
                             other: IntAffExtA { b: A(5) },
                             ..Default::default()
                         },
-                        input: Some(DataSchema {
+                        input: Some(GenericDataSchema {
                             subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
                                 other: ObjectSchemaExtA { i: A(6) },
                                 ..Default::default()
@@ -1528,7 +1428,7 @@ mod test {
                             other: DataSchemaExtA { h: A(7) },
                             ..Default::default()
                         }),
-                        output: Some(DataSchema::default()),
+                        output: Some(GenericDataSchema::default()),
                         other: ActionAffExtA { c: A(8) },
                         ..Default::default()
                     },
@@ -1633,7 +1533,7 @@ mod test {
                             other: Cons::new_head(IntAffExtA { b: A(1) }),
                             ..Default::default()
                         },
-                        data_schema: DataSchema {
+                        data_schema: GenericDataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema {
                                 other: Cons::new_head(ArraySchemaExtA { j: A(2) }),
                                 ..Default::default()
@@ -1656,7 +1556,7 @@ mod test {
                             other: Cons::new_head(IntAffExtA { b: A(5) }),
                             ..Default::default()
                         },
-                        input: Some(DataSchema {
+                        input: Some(GenericDataSchema {
                             subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
                                 other: Cons::new_head(ObjectSchemaExtA { i: A(6) }),
                                 ..Default::default()
@@ -1664,7 +1564,7 @@ mod test {
                             other: Cons::new_head(DataSchemaExtA { h: A(7) }),
                             ..Default::default()
                         }),
-                        output: Some(DataSchema::default()),
+                        output: Some(GenericDataSchema::default()),
                         other: Cons::new_head(ActionAffExtA { c: A(8) }),
                         ..Default::default()
                     },
@@ -1832,7 +1732,7 @@ mod test {
                                 .add(IntAffExtB { l: A(2) }),
                             ..Default::default()
                         },
-                        data_schema: DataSchema {
+                        data_schema: GenericDataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema {
                                 other: Cons::new_head(ArraySchemaExtA { j: A(3) })
                                     .add(ArraySchemaExtB { t: A(4) }),
@@ -1858,7 +1758,7 @@ mod test {
                                 .add(IntAffExtB { l: A(10) }),
                             ..Default::default()
                         },
-                        input: Some(DataSchema {
+                        input: Some(GenericDataSchema {
                             subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
                                 other: Cons::new_head(ObjectSchemaExtA { i: A(11) })
                                     .add(ObjectSchemaExtB { s: A(12) }),
@@ -1868,7 +1768,7 @@ mod test {
                                 .add(DataSchemaExtB { r: A(14) }),
                             ..Default::default()
                         }),
-                        output: Some(DataSchema::default()),
+                        output: Some(GenericDataSchema::default()),
                         other: Cons::new_head(ActionAffExtA { c: A(15) })
                             .add(ActionAffExtB { m: A(16) }),
                         ..Default::default()
