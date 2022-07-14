@@ -19,7 +19,7 @@ use crate::{/* builder::ThingBuilder, */ extend::ExtendableThing, hlist::Nil};
 pub(crate) type MultiLanguage = HashMap<String, String>;
 pub(crate) type DataSchemaMap<Other> = HashMap<
     String,
-    GenericDataSchema<
+    DataSchema<
         <Other as ExtendableThing>::DataSchema,
         <Other as ExtendableThing>::ArraySchema,
         <Other as ExtendableThing>::ObjectSchema,
@@ -139,7 +139,7 @@ where
     ActionAffordance<Other>: fmt::Debug,
     EventAffordance<Other>: fmt::Debug,
     Form<Other>: fmt::Debug,
-    DataSchema<Other>: fmt::Debug,
+    DataSchemaFromOther<Other>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Thing")
@@ -176,7 +176,7 @@ where
     PropertyAffordance<Other>: Default,
     ActionAffordance<Other>: Default,
     EventAffordance<Other>: Default,
-    DataSchema<Other>: Default,
+    DataSchemaFromOther<Other>: Default,
 {
     fn default() -> Self {
         Self {
@@ -213,7 +213,7 @@ where
     PropertyAffordance<Other>: PartialEq,
     ActionAffordance<Other>: PartialEq,
     EventAffordance<Other>: PartialEq,
-    DataSchema<Other>: PartialEq,
+    DataSchemaFromOther<Other>: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         self.context == other.context
@@ -282,7 +282,7 @@ impl<Other> fmt::Debug for InteractionAffordance<Other>
 where
     Other: ExtendableThing,
     Form<Other>: fmt::Debug,
-    DataSchema<Other>: fmt::Debug,
+    DataSchemaFromOther<Other>: fmt::Debug,
     Other::InteractionAffordance: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -303,7 +303,7 @@ impl<Other> Default for InteractionAffordance<Other>
 where
     Other: ExtendableThing,
     Form<Other>: Default,
-    DataSchema<Other>: Default,
+    DataSchemaFromOther<Other>: Default,
     Other::InteractionAffordance: Default,
 {
     fn default() -> Self {
@@ -324,7 +324,7 @@ impl<Other> PartialEq for InteractionAffordance<Other>
 where
     Other: ExtendableThing,
     Form<Other>: PartialEq,
-    DataSchema<Other>: PartialEq,
+    DataSchemaFromOther<Other>: PartialEq,
     Other::InteractionAffordance: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -346,7 +346,7 @@ pub struct PropertyAffordance<Other: ExtendableThing> {
     pub interaction: InteractionAffordance<Other>,
 
     #[serde(flatten)]
-    pub data_schema: DataSchema<Other>,
+    pub data_schema: DataSchemaFromOther<Other>,
 
     pub observable: Option<bool>,
 
@@ -358,7 +358,7 @@ impl<Other> fmt::Debug for PropertyAffordance<Other>
 where
     Other: ExtendableThing,
     InteractionAffordance<Other>: fmt::Debug,
-    DataSchema<Other>: fmt::Debug,
+    DataSchemaFromOther<Other>: fmt::Debug,
     Other::PropertyAffordance: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -375,7 +375,7 @@ impl<Other> Default for PropertyAffordance<Other>
 where
     Other: ExtendableThing,
     InteractionAffordance<Other>: Default,
-    DataSchema<Other>: Default,
+    DataSchemaFromOther<Other>: Default,
     Other::PropertyAffordance: Default,
 {
     fn default() -> Self {
@@ -392,7 +392,7 @@ impl<Other> PartialEq for PropertyAffordance<Other>
 where
     Other: ExtendableThing,
     InteractionAffordance<Other>: PartialEq,
-    DataSchema<Other>: PartialEq,
+    DataSchemaFromOther<Other>: PartialEq,
     Other::PropertyAffordance: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -409,9 +409,9 @@ pub struct ActionAffordance<Other: ExtendableThing> {
     #[serde(flatten)]
     pub interaction: InteractionAffordance<Other>,
 
-    pub input: Option<DataSchema<Other>>,
+    pub input: Option<DataSchemaFromOther<Other>>,
 
-    pub output: Option<DataSchema<Other>>,
+    pub output: Option<DataSchemaFromOther<Other>>,
 
     #[serde(default)]
     pub safe: bool,
@@ -429,7 +429,7 @@ impl<Other> fmt::Debug for ActionAffordance<Other>
 where
     Other: ExtendableThing,
     InteractionAffordance<Other>: fmt::Debug,
-    DataSchema<Other>: fmt::Debug,
+    DataSchemaFromOther<Other>: fmt::Debug,
     Other::ActionAffordance: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -449,7 +449,7 @@ impl<Other> Default for ActionAffordance<Other>
 where
     Other: ExtendableThing,
     InteractionAffordance<Other>: Default,
-    DataSchema<Other>: Default,
+    DataSchemaFromOther<Other>: Default,
     Other::ActionAffordance: Default,
 {
     fn default() -> Self {
@@ -469,7 +469,7 @@ impl<Other> PartialEq for ActionAffordance<Other>
 where
     Other: ExtendableThing,
     InteractionAffordance<Other>: PartialEq,
-    DataSchema<Other>: PartialEq,
+    DataSchemaFromOther<Other>: PartialEq,
     Other::ActionAffordance: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -489,13 +489,13 @@ pub struct EventAffordance<Other: ExtendableThing> {
     #[serde(flatten)]
     pub interaction: InteractionAffordance<Other>,
 
-    pub subscription: Option<DataSchema<Other>>,
+    pub subscription: Option<DataSchemaFromOther<Other>>,
 
-    pub data: Option<DataSchema<Other>>,
+    pub data: Option<DataSchemaFromOther<Other>>,
 
-    pub data_response: Option<DataSchema<Other>>,
+    pub data_response: Option<DataSchemaFromOther<Other>>,
 
-    pub cancellation: Option<DataSchema<Other>>,
+    pub cancellation: Option<DataSchemaFromOther<Other>>,
 
     #[serde(flatten)]
     pub other: Other::EventAffordance,
@@ -505,7 +505,7 @@ impl<Other> fmt::Debug for EventAffordance<Other>
 where
     Other: ExtendableThing,
     InteractionAffordance<Other>: fmt::Debug,
-    DataSchema<Other>: fmt::Debug,
+    DataSchemaFromOther<Other>: fmt::Debug,
     Other::EventAffordance: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -524,7 +524,7 @@ impl<Other> Default for EventAffordance<Other>
 where
     Other: ExtendableThing,
     InteractionAffordance<Other>: Default,
-    DataSchema<Other>: Default,
+    DataSchemaFromOther<Other>: Default,
     Other::EventAffordance: Default,
 {
     fn default() -> Self {
@@ -543,7 +543,7 @@ impl<Other> PartialEq for EventAffordance<Other>
 where
     Other: ExtendableThing,
     InteractionAffordance<Other>: PartialEq,
-    DataSchema<Other>: PartialEq,
+    DataSchemaFromOther<Other>: PartialEq,
     Other::EventAffordance: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -580,7 +580,7 @@ where
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GenericDataSchema<DS, AS, OS> {
+pub struct DataSchema<DS, AS, OS> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -618,7 +618,7 @@ pub struct GenericDataSchema<DS, AS, OS> {
     pub other: DS,
 }
 
-pub(crate) type DataSchema<Other> = GenericDataSchema<
+pub(crate) type DataSchemaFromOther<Other> = DataSchema<
     <Other as ExtendableThing>::DataSchema,
     <Other as ExtendableThing>::ArraySchema,
     <Other as ExtendableThing>::ObjectSchema,
@@ -652,7 +652,7 @@ impl<DS, AS, OS> Default for DataSchemaSubtype<DS, AS, OS> {
 pub struct ArraySchema<DS, AS, OS> {
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub items: Option<Vec<GenericDataSchema<DS, AS, OS>>>,
+    pub items: Option<Vec<DataSchema<DS, AS, OS>>>,
 
     pub min_items: Option<u32>,
 
@@ -685,7 +685,7 @@ pub struct IntegerSchema {
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct ObjectSchema<DS, AS, OS> {
-    pub properties: Option<HashMap<String, GenericDataSchema<DS, AS, OS>>>,
+    pub properties: Option<HashMap<String, DataSchema<DS, AS, OS>>>,
 
     pub required: Option<Vec<String>>,
 
@@ -1211,7 +1211,7 @@ mod test {
                             }],
                             ..Default::default()
                         },
-                        data_schema: GenericDataSchema {
+                        data_schema: DataSchema {
                             subtype: Some(DataSchemaSubtype::String(Default::default())),
                             ..Default::default()
                         },
@@ -1251,7 +1251,7 @@ mod test {
                             }],
                             ..Default::default()
                         },
-                        data: Some(GenericDataSchema {
+                        data: Some(DataSchema {
                             subtype: Some(DataSchemaSubtype::String(StringSchema::default())),
                             ..Default::default()
                         }),
@@ -1397,7 +1397,7 @@ mod test {
                             other: IntAffExtA { b: A(1) },
                             ..Default::default()
                         },
-                        data_schema: GenericDataSchema {
+                        data_schema: DataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema {
                                 other: ArraySchemaExtA { j: A(2) },
                                 ..Default::default()
@@ -1420,7 +1420,7 @@ mod test {
                             other: IntAffExtA { b: A(5) },
                             ..Default::default()
                         },
-                        input: Some(GenericDataSchema {
+                        input: Some(DataSchema {
                             subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
                                 other: ObjectSchemaExtA { i: A(6) },
                                 ..Default::default()
@@ -1428,7 +1428,7 @@ mod test {
                             other: DataSchemaExtA { h: A(7) },
                             ..Default::default()
                         }),
-                        output: Some(GenericDataSchema::default()),
+                        output: Some(DataSchema::default()),
                         other: ActionAffExtA { c: A(8) },
                         ..Default::default()
                     },
@@ -1533,7 +1533,7 @@ mod test {
                             other: Cons::new_head(IntAffExtA { b: A(1) }),
                             ..Default::default()
                         },
-                        data_schema: GenericDataSchema {
+                        data_schema: DataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema {
                                 other: Cons::new_head(ArraySchemaExtA { j: A(2) }),
                                 ..Default::default()
@@ -1556,7 +1556,7 @@ mod test {
                             other: Cons::new_head(IntAffExtA { b: A(5) }),
                             ..Default::default()
                         },
-                        input: Some(GenericDataSchema {
+                        input: Some(DataSchema {
                             subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
                                 other: Cons::new_head(ObjectSchemaExtA { i: A(6) }),
                                 ..Default::default()
@@ -1564,7 +1564,7 @@ mod test {
                             other: Cons::new_head(DataSchemaExtA { h: A(7) }),
                             ..Default::default()
                         }),
-                        output: Some(GenericDataSchema::default()),
+                        output: Some(DataSchema::default()),
                         other: Cons::new_head(ActionAffExtA { c: A(8) }),
                         ..Default::default()
                     },
@@ -1732,7 +1732,7 @@ mod test {
                                 .add(IntAffExtB { l: A(2) }),
                             ..Default::default()
                         },
-                        data_schema: GenericDataSchema {
+                        data_schema: DataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema {
                                 other: Cons::new_head(ArraySchemaExtA { j: A(3) })
                                     .add(ArraySchemaExtB { t: A(4) }),
@@ -1758,7 +1758,7 @@ mod test {
                                 .add(IntAffExtB { l: A(10) }),
                             ..Default::default()
                         },
-                        input: Some(GenericDataSchema {
+                        input: Some(DataSchema {
                             subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
                                 other: Cons::new_head(ObjectSchemaExtA { i: A(11) })
                                     .add(ObjectSchemaExtB { s: A(12) }),
@@ -1768,7 +1768,7 @@ mod test {
                                 .add(DataSchemaExtB { r: A(14) }),
                             ..Default::default()
                         }),
-                        output: Some(GenericDataSchema::default()),
+                        output: Some(DataSchema::default()),
                         other: Cons::new_head(ActionAffExtA { c: A(15) })
                             .add(ActionAffExtB { m: A(16) }),
                         ..Default::default()

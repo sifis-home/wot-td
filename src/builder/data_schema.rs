@@ -1,11 +1,8 @@
-use std::{fmt, ops::Not};
+use std::ops::Not;
 
-use crate::{
-    extend::ExtendableThing,
-    thing::{
-        ArraySchema, DataSchema, DataSchemaSubtype, GenericDataSchema, IntegerSchema, NumberSchema,
-        ObjectSchema, StringSchema,
-    },
+use crate::thing::{
+    ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
+    StringSchema,
 };
 
 use super::{
@@ -19,7 +16,7 @@ use super::{
 pub struct PartialDataSchemaBuilder<DS, AS, OS> {
     constant: Option<Value>,
     unit: Option<String>,
-    one_of: Vec<GenericDataSchema<DS, AS, OS>>,
+    one_of: Vec<DataSchema<DS, AS, OS>>,
     enumeration: Vec<Value>,
     read_only: bool,
     write_only: bool,
@@ -30,7 +27,7 @@ pub struct PartialDataSchemaBuilder<DS, AS, OS> {
 pub(super) struct PartialDataSchema<DS, AS, OS> {
     pub(super) constant: Option<Value>,
     pub(super) unit: Option<String>,
-    pub(super) one_of: Option<Vec<GenericDataSchema<DS, AS, OS>>>,
+    pub(super) one_of: Option<Vec<DataSchema<DS, AS, OS>>>,
     pub(super) enumeration: Option<Vec<Value>>,
     pub(super) read_only: bool,
     pub(super) write_only: bool,
@@ -95,7 +92,7 @@ pub trait UnionDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS> {
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
         F: FnOnce(DataSchemaBuilder<DS, AS, OS>) -> T,
-        T: Into<GenericDataSchema<DS, AS, OS>>;
+        T: Into<DataSchema<DS, AS, OS>>;
 }
 
 pub trait ReadableWriteableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS> {
@@ -108,7 +105,7 @@ pub trait ReadableWriteableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, O
 
 pub struct ArrayDataSchemaBuilder<Inner, DS, AS, OS> {
     inner: Inner,
-    items: Vec<GenericDataSchema<DS, AS, OS>>,
+    items: Vec<DataSchema<DS, AS, OS>>,
     min_items: Option<u32>,
     max_items: Option<u32>,
 }
@@ -128,7 +125,7 @@ pub struct IntegerDataSchemaBuilder<Inner> {
 
 pub struct ObjectDataSchemaBuilder<Inner, DS, AS, OS> {
     inner: Inner,
-    properties: Vec<(String, GenericDataSchema<DS, AS, OS>)>,
+    properties: Vec<(String, DataSchema<DS, AS, OS>)>,
     required: Vec<String>,
 }
 
@@ -177,7 +174,7 @@ pub trait ArrayDataSchemaBuilderLike<DS, AS, OS> {
     fn append<F, T>(self, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder<DS, AS, OS>) -> T,
-        T: Into<GenericDataSchema<DS, AS, OS>>;
+        T: Into<DataSchema<DS, AS, OS>>;
 }
 
 pub trait NumberDataSchemaBuilderLike<DS, AS, OS> {
@@ -192,7 +189,7 @@ pub trait ObjectDataSchemaBuilderLike<DS, AS, OS> {
     fn property<F, T>(self, name: impl Into<String>, required: bool, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder<DS, AS, OS>) -> T,
-        T: Into<GenericDataSchema<DS, AS, OS>>;
+        T: Into<DataSchema<DS, AS, OS>>;
 }
 
 pub trait StringDataSchemaBuilderLike<DS, AS, OS> {
@@ -215,13 +212,14 @@ impl<Inner, DS, AS, OS> ArrayDataSchemaBuilderLike<DS, AS, OS>
 where
     PartialDataSchemaBuilder<DS, AS, OS>: Default,
     Inner: BuildableDataSchema<DS, AS, OS>,
+    DataSchemaBuilder<DS, AS, OS>: Default,
 {
     opt_field_builder!(min_items: u32, max_items: u32);
 
     fn append<F, T>(mut self, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder<DS, AS, OS>) -> T,
-        T: Into<GenericDataSchema<DS, AS, OS>>,
+        T: Into<DataSchema<DS, AS, OS>>,
     {
         self.items.push(f(DataSchemaBuilder::default()).into());
         self
@@ -245,11 +243,12 @@ impl<Inner, DS, AS, OS> ObjectDataSchemaBuilderLike<DS, AS, OS>
 where
     PartialDataSchemaBuilder<DS, AS, OS>: Default,
     Inner: BuildableDataSchema<DS, AS, OS>,
+    DataSchemaBuilder<DS, AS, OS>: Default,
 {
     fn property<F, T>(mut self, name: impl Into<String>, required: bool, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder<DS, AS, OS>) -> T,
-        T: Into<GenericDataSchema<DS, AS, OS>>,
+        T: Into<DataSchema<DS, AS, OS>>,
     {
         let data_schema = f(DataSchemaBuilder::default()).into();
         let name = name.into();
@@ -287,7 +286,7 @@ macro_rules! impl_inner_delegate_schema_builder_like_array {
         fn append<F, T>(mut self, f: F) -> Self
         where
             F: FnOnce(crate::builder::data_schema::DataSchemaBuilder<DS, AS, OS>) -> T,
-            T: Into<crate::thing::GenericDataSchema<DS, AS, OS>>,
+            T: Into<crate::thing::DataSchema<DS, AS, OS>>,
         {
             self.$inner = self.$inner.append(f);
             self
@@ -339,7 +338,7 @@ macro_rules! impl_inner_delegate_schema_builder_like_object {
         fn property<F, T>(mut self, name: impl Into<String>, required: bool, f: F) -> Self
         where
             F: FnOnce(crate::builder::data_schema::DataSchemaBuilder<DS, AS, OS>) -> T,
-            T: Into<crate::thing::GenericDataSchema<DS, AS, OS>>,
+            T: Into<crate::thing::DataSchema<DS, AS, OS>>,
         {
             self.$inner = self.$inner.property(name, required, f);
             self
@@ -684,7 +683,7 @@ macro_rules! impl_union_data_schema {
                 fn one_of<F, T>(mut self, f: F) -> Self::Target
                 where
                     F: FnOnce(DataSchemaBuilder<DS, AS, OS>) -> T,
-                    T: Into<GenericDataSchema<DS, AS, OS>>,
+                    T: Into<DataSchema<DS, AS, OS>>,
                 {
                     self $(. $($inner_path).+ )? .one_of.push(f(DataSchemaBuilder::default()).into());
                     OneOfDataSchemaBuilder { inner: self }
@@ -705,7 +704,7 @@ where
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
         F: FnOnce(DataSchemaBuilder<DS, AS, OS>) -> T,
-        T: Into<GenericDataSchema<DS, AS, OS>>,
+        T: Into<DataSchema<DS, AS, OS>>,
     {
         let Self { inner } = self;
         let inner = inner.one_of(f);
@@ -722,7 +721,7 @@ where
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
         F: FnOnce(DataSchemaBuilder<DS, AS, OS>) -> T,
-        T: Into<GenericDataSchema<DS, AS, OS>>,
+        T: Into<DataSchema<DS, AS, OS>>,
     {
         let Self { inner } = self;
         let inner = inner.one_of(f);
@@ -740,7 +739,7 @@ where
     fn one_of<F, T>(mut self, f: F) -> Self::Target
     where
         F: FnOnce(DataSchemaBuilder<DS, AS, OS>) -> T,
-        T: Into<GenericDataSchema<DS, AS, OS>>,
+        T: Into<DataSchema<DS, AS, OS>>,
     {
         self.inner.one_of.push(f(Default::default()).into());
         self
@@ -757,7 +756,7 @@ where
     fn one_of<F, T>(mut self, f: F) -> Self::Target
     where
         F: FnOnce(DataSchemaBuilder<DS, AS, OS>) -> T,
-        T: Into<GenericDataSchema<DS, AS, OS>>,
+        T: Into<DataSchema<DS, AS, OS>>,
     {
         self.inner.partial.one_of.push(f(Default::default()).into());
         self
@@ -864,7 +863,7 @@ impl<DS, AS, OS> From<StatelessDataSchemaType> for DataSchemaSubtype<DS, AS, OS>
     }
 }
 
-impl<T, DS, AS, OS> From<StatelessDataSchemaBuilder<T>> for GenericDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<StatelessDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
     // TODO
@@ -946,10 +945,12 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for GenericDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
 where
     // TODO
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
+    DS: Default,
+    AS: Default,
 {
     fn from(builder: ArrayDataSchemaBuilder<T, DS, AS, OS>) -> Self {
         let ArrayDataSchemaBuilder {
@@ -1012,6 +1013,7 @@ impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for PartialDataS
 where
     // TODO
     T: Into<PartialDataSchemaBuilder<DS, AS, OS>>,
+    AS: Default,
 {
     fn from(builder: ArrayDataSchemaBuilder<T, DS, AS, OS>) -> Self {
         let ArrayDataSchemaBuilder {
@@ -1052,9 +1054,10 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<NumberDataSchemaBuilder<T>> for GenericDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<NumberDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
+    DS: Default,
 {
     fn from(builder: NumberDataSchemaBuilder<T>) -> Self {
         let NumberDataSchemaBuilder {
@@ -1150,10 +1153,11 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<IntegerDataSchemaBuilder<T>> for GenericDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<IntegerDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     // TODO
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
+    DS: Default,
 {
     fn from(builder: IntegerDataSchemaBuilder<T>) -> Self {
         let IntegerDataSchemaBuilder {
@@ -1245,9 +1249,11 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS>> for GenericDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
+    DS: Default,
+    OS: Default,
 {
     fn from(builder: ObjectDataSchemaBuilder<T, DS, AS, OS>) -> Self {
         let ObjectDataSchemaBuilder {
@@ -1311,6 +1317,7 @@ where
 impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS>> for PartialDataSchema<DS, AS, OS>
 where
     T: Into<PartialDataSchemaBuilder<DS, AS, OS>>,
+    OS: Default,
 {
     fn from(builder: ObjectDataSchemaBuilder<T, DS, AS, OS>) -> Self {
         let ObjectDataSchemaBuilder {
@@ -1353,9 +1360,10 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<StringDataSchemaBuilder<T>> for GenericDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<StringDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
+    DS: Default,
 {
     fn from(builder: StringDataSchemaBuilder<T>) -> Self {
         let StringDataSchemaBuilder { inner, max_length } = builder;
@@ -1433,9 +1441,9 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ReadOnly<T>> for GenericDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<ReadOnly<T>> for DataSchema<DS, AS, OS>
 where
-    T: Into<GenericDataSchema<DS, AS, OS>>,
+    T: Into<DataSchema<DS, AS, OS>>,
 {
     fn from(builder: ReadOnly<T>) -> Self {
         let data_schema = builder.inner.into();
@@ -1446,9 +1454,9 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<WriteOnly<T>> for GenericDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<WriteOnly<T>> for DataSchema<DS, AS, OS>
 where
-    T: Into<GenericDataSchema<DS, AS, OS>>,
+    T: Into<DataSchema<DS, AS, OS>>,
 {
     fn from(builder: WriteOnly<T>) -> Self {
         let data_schema = builder.inner.into();
@@ -1485,9 +1493,10 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<EnumDataSchemaBuilder<T>> for GenericDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<EnumDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
+    DS: Default,
 {
     fn from(builder: EnumDataSchemaBuilder<T>) -> Self {
         let DataSchemaBuilder {
@@ -1561,9 +1570,10 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<OneOfDataSchemaBuilder<T>> for GenericDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<OneOfDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
+    DS: Default,
 {
     fn from(builder: OneOfDataSchemaBuilder<T>) -> Self {
         let DataSchemaBuilder {
@@ -1641,7 +1651,7 @@ pub(super) trait CheckableDataSchema {
     fn check(&self) -> Result<(), Error>;
 }
 
-impl<DS, AS, OS> CheckableDataSchema for GenericDataSchema<DS, AS, OS> {
+impl<DS, AS, OS> CheckableDataSchema for DataSchema<DS, AS, OS> {
     fn check(&self) -> Result<(), Error> {
         check_data_schema_subtype(&self.subtype)?;
         check_one_of_schema(self.one_of.as_deref())?;
@@ -1731,14 +1741,14 @@ mod tests {
 
     use crate::{
         hlist::Nil,
-        thing::{ArraySchema, ObjectSchema},
+        thing::{ArraySchema, DataSchemaFromOther, ObjectSchema},
     };
 
     use super::*;
 
     #[test]
     fn null_simple() {
-        let data_schema: DataSchema = DataSchemaBuilder::default().null().into();
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().null().into();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -1763,7 +1773,8 @@ mod tests {
 
     #[test]
     fn null_partial() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default().null().into();
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> =
+            PartialDataSchemaBuilder::default().null().into();
         assert_eq!(
             data_schema,
             PartialDataSchema {
@@ -1781,7 +1792,7 @@ mod tests {
 
     #[test]
     fn boolean_simple() {
-        let data_schema: DataSchema = DataSchemaBuilder::default().bool().into();
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().bool().into();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -1806,7 +1817,8 @@ mod tests {
 
     #[test]
     fn boolean_partial() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default().bool().into();
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> =
+            PartialDataSchemaBuilder::default().bool().into();
         assert_eq!(
             data_schema,
             PartialDataSchema {
@@ -1824,7 +1836,7 @@ mod tests {
 
     #[test]
     fn string_simple() {
-        let data_schema: DataSchema = DataSchemaBuilder::default().string().into();
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().string().into();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -1849,7 +1861,8 @@ mod tests {
 
     #[test]
     fn string_partial() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default().string().into();
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> =
+            PartialDataSchemaBuilder::default().string().into();
         assert_eq!(
             data_schema,
             PartialDataSchema {
@@ -1867,7 +1880,7 @@ mod tests {
 
     #[test]
     fn empty_simple_array() {
-        let data_schema: DataSchema = DataSchemaBuilder::default().array().into();
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().array().into();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -1897,7 +1910,8 @@ mod tests {
 
     #[test]
     fn empty_partial_array() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default().array().into();
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> =
+            PartialDataSchemaBuilder::default().array().into();
         assert_eq!(
             data_schema,
             PartialDataSchema {
@@ -1920,7 +1934,7 @@ mod tests {
 
     #[test]
     fn number_simple() {
-        let data_schema: DataSchema = DataSchemaBuilder::default().number().into();
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().number().into();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -1948,7 +1962,8 @@ mod tests {
     }
     #[test]
     fn number_partial() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default().number().into();
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> =
+            PartialDataSchemaBuilder::default().number().into();
         assert_eq!(
             data_schema,
             PartialDataSchema {
@@ -1970,7 +1985,7 @@ mod tests {
 
     #[test]
     fn integer_simple() {
-        let data_schema: DataSchema = DataSchemaBuilder::default().integer().into();
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().integer().into();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -1998,7 +2013,8 @@ mod tests {
 
     #[test]
     fn partial_simple() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default().integer().into();
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> =
+            PartialDataSchemaBuilder::default().integer().into();
         assert_eq!(
             data_schema,
             PartialDataSchema {
@@ -2019,7 +2035,7 @@ mod tests {
 
     #[test]
     fn empty_simple_object() {
-        let data_schema: DataSchema = DataSchemaBuilder::default().object().into();
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().object().into();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2049,7 +2065,8 @@ mod tests {
 
     #[test]
     fn empty_partial_object() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default().object().into();
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> =
+            PartialDataSchemaBuilder::default().object().into();
         assert_eq!(
             data_schema,
             PartialDataSchema {
@@ -2072,7 +2089,7 @@ mod tests {
 
     #[test]
     fn constant_simple() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .constant(json!({ "hello": 42 }))
             .into();
         assert_eq!(
@@ -2101,7 +2118,7 @@ mod tests {
 
     #[test]
     fn constant_partial() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default()
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
             .constant(json!({ "hello": 42 }))
             .into();
         assert_eq!(
@@ -2123,7 +2140,7 @@ mod tests {
 
     #[test]
     fn enum_simple() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .enumeration("hello")
             .enumeration("world")
             .enumeration(42)
@@ -2152,7 +2169,7 @@ mod tests {
 
     #[test]
     fn enum_partial() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default()
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
             .enumeration("hello")
             .enumeration("world")
             .enumeration(42)
@@ -2174,7 +2191,8 @@ mod tests {
 
     #[test]
     fn read_only_simple() {
-        let data_schema: DataSchema = DataSchemaBuilder::default().bool().read_only().into();
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().bool().read_only().into();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2199,7 +2217,7 @@ mod tests {
 
     #[test]
     fn read_only_partial() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default()
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
             .bool()
             .read_only()
             .into();
@@ -2220,7 +2238,7 @@ mod tests {
 
     #[test]
     fn read_only_to_builder() {
-        let data_schema_builder: DataSchemaBuilder = ReadOnly {
+        let data_schema_builder: DataSchemaBuilder<Nil, Nil, Nil> = ReadOnly {
             inner: DataSchemaBuilder::default(),
         }
         .into();
@@ -2243,7 +2261,7 @@ mod tests {
 
     #[test]
     fn read_only_to_partial_builder() {
-        let data_schema_builder: PartialDataSchemaBuilder = ReadOnly {
+        let data_schema_builder: PartialDataSchemaBuilder<Nil, Nil, Nil> = ReadOnly {
             inner: PartialDataSchemaBuilder::default(),
         }
         .into();
@@ -2263,7 +2281,8 @@ mod tests {
 
     #[test]
     fn write_only_simple() {
-        let data_schema: DataSchema = DataSchemaBuilder::default().bool().write_only().into();
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().bool().write_only().into();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2288,7 +2307,7 @@ mod tests {
 
     #[test]
     fn write_only_partial() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default()
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
             .bool()
             .write_only()
             .into();
@@ -2309,7 +2328,7 @@ mod tests {
 
     #[test]
     fn write_only_to_builder() {
-        let data_schema_builder: DataSchemaBuilder = WriteOnly {
+        let data_schema_builder: DataSchemaBuilder<Nil, Nil, Nil> = WriteOnly {
             inner: DataSchemaBuilder::default(),
         }
         .into();
@@ -2332,7 +2351,7 @@ mod tests {
 
     #[test]
     fn write_only_to_partial_builder() {
-        let data_schema_builder: PartialDataSchemaBuilder = WriteOnly {
+        let data_schema_builder: PartialDataSchemaBuilder<Nil, Nil, Nil> = WriteOnly {
             inner: PartialDataSchemaBuilder::default(),
         }
         .into();
@@ -2352,7 +2371,7 @@ mod tests {
 
     #[test]
     fn null_full() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .null()
             .attype("attype1")
             .attype("attype2")
@@ -2397,7 +2416,7 @@ mod tests {
 
     #[test]
     fn enum_full() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .enumeration("variant1")
             .enumeration("variant2")
             .enumeration(3u32)
@@ -2443,7 +2462,7 @@ mod tests {
 
     #[test]
     fn read_only_enum() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .enumeration("hello")
             .enumeration("world")
             .title("title")
@@ -2475,7 +2494,7 @@ mod tests {
 
     #[test]
     fn array_with_content() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .array()
             .min_items(0)
             .max_items(5)
@@ -2546,7 +2565,7 @@ mod tests {
 
     #[test]
     fn array_partial_with_content() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default()
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
             .array()
             .min_items(0)
             .max_items(5)
@@ -2610,7 +2629,7 @@ mod tests {
 
     #[test]
     fn object_with_content() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .object()
             .property("hello", false, |b| b.bool())
             .property("world", true, |b| b.title("title").number())
@@ -2693,7 +2712,7 @@ mod tests {
 
     #[test]
     fn object_partial_with_content() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default()
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
             .object()
             .property("hello", false, |b| b.bool())
             .property("world", true, |b| b.title("title").number())
@@ -2769,7 +2788,7 @@ mod tests {
 
     #[test]
     fn integer_with_data() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .integer()
             .minimum(10)
             .maximum(5)
@@ -2801,7 +2820,7 @@ mod tests {
 
     #[test]
     fn number_with_data() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .number()
             .minimum(10.)
             .maximum(5.)
@@ -2835,7 +2854,8 @@ mod tests {
 
     #[test]
     fn string_with_data() {
-        let data_schema: DataSchema = DataSchemaBuilder::default().string().max_length(32).into();
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().string().max_length(32).into();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2862,7 +2882,7 @@ mod tests {
 
     #[test]
     fn one_of_simple() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| b.number())
             .one_of(|b| b.integer())
             .one_of(|b| b.string())
@@ -2950,7 +2970,7 @@ mod tests {
 
     #[test]
     fn one_of_nested() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .object()
             .property("hello", true, |b| {
                 b.one_of(|b| b.string()).one_of(|b| b.integer())
@@ -3048,7 +3068,7 @@ mod tests {
 
     #[test]
     fn check_valid_data_schema() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
@@ -3068,7 +3088,7 @@ mod tests {
 
     #[test]
     fn check_invalid_data_schema() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(5)
@@ -3085,7 +3105,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
@@ -3102,7 +3122,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
@@ -3119,7 +3139,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
@@ -3136,7 +3156,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
@@ -3153,7 +3173,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::NanMinMax);
 
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
@@ -3170,7 +3190,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::NanMinMax);
 
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
@@ -3187,7 +3207,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
@@ -3205,7 +3225,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
@@ -3223,7 +3243,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)
@@ -3243,14 +3263,14 @@ mod tests {
 
     #[test]
     fn check_invalid_data_schema_multiple_of() {
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .array()
             .append(|b| b.number().multiple_of(0.))
             .into();
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMultipleOf);
 
-        let data_schema: DataSchema = DataSchemaBuilder::default()
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .array()
             .append(|b| b.number().multiple_of(-2.))
             .into();
@@ -3260,7 +3280,7 @@ mod tests {
 
     #[test]
     fn check_valid_partial_data_schema() {
-        let data_schema: PartialDataSchema = PartialDataSchemaBuilder::default()
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
             .one_of(|b| {
                 b.array()
                     .min_items(2)

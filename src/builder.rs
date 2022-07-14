@@ -11,7 +11,7 @@ use crate::{
     extend::ExtendableThing,
     hlist::Nil,
     thing::{
-        ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchema,
+        ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchemaFromOther,
         DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
         KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme, PskSecurityScheme,
         QualityOfProtection, SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype,
@@ -50,7 +50,7 @@ pub struct ThingBuilder<Other: ExtendableThing> {
     events: Vec<AffordanceBuilder<UsableEventAffordanceBuilder<Other>>>,
     links: Option<Vec<Link>>,
     forms: Option<Vec<FormBuilder<Other, String>>>,
-    uri_variables: Option<HashMap<String, DataSchema<Other>>>,
+    uri_variables: Option<HashMap<String, DataSchemaFromOther<Other>>>,
     security: Vec<String>,
     security_definitions: Vec<(String, SecurityScheme)>,
     profile: Vec<String>,
@@ -553,7 +553,8 @@ where
         F: FnOnce(
             DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
         ) -> T,
-        T: Into<DataSchema<Other>>,
+        T: Into<DataSchemaFromOther<Other>>,
+        DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>: Default,
     {
         self.uri_variables
             .get_or_insert_with(Default::default)
@@ -573,7 +574,11 @@ where
                 >,
             >,
         ) -> T,
-        T: Into<PropertyAffordanceBuilder<Other, DataSchema<Other>>>,
+        T: Into<PropertyAffordanceBuilder<Other, DataSchemaFromOther<Other>>>,
+        PropertyAffordanceBuilder<
+            Other,
+            PartialDataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+        >: Default,
     {
         let affordance = f(PropertyAffordanceBuilder::default()).into();
         let affordance_builder = AffordanceBuilder {
@@ -588,7 +593,11 @@ where
     where
         F: FnOnce(ActionAffordanceBuilder<Other, (), ()>) -> T,
         T: Into<
-            ActionAffordanceBuilder<Other, Option<DataSchema<Other>>, Option<DataSchema<Other>>>,
+            ActionAffordanceBuilder<
+                Other,
+                Option<DataSchemaFromOther<Other>>,
+                Option<DataSchemaFromOther<Other>>,
+            >,
         >,
     {
         let affordance = f(ActionAffordanceBuilder::default()).into();
@@ -606,10 +615,10 @@ where
         T: Into<
             EventAffordanceBuilder<
                 Other,
-                Option<DataSchema<Other>>,
-                Option<DataSchema<Other>>,
-                Option<DataSchema<Other>>,
-                Option<DataSchema<Other>>,
+                Option<DataSchemaFromOther<Other>>,
+                Option<DataSchemaFromOther<Other>>,
+                Option<DataSchemaFromOther<Other>>,
+                Option<DataSchemaFromOther<Other>>,
             >,
         >,
     {
@@ -1338,8 +1347,8 @@ mod tests {
             human_readable_info::BuildableHumanReadableInfo,
         },
         thing::{
-            ActionAffordance, DataSchemaSubtype, EventAffordance, InteractionAffordance,
-            PropertyAffordance,
+            ActionAffordance, DataSchema, DataSchemaSubtype, EventAffordance,
+            InteractionAffordance, PropertyAffordance,
         },
     };
 
