@@ -21,6 +21,7 @@ pub struct PartialDataSchemaBuilder<DS, AS, OS> {
     read_only: bool,
     write_only: bool,
     format: Option<String>,
+    other: DS,
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -33,6 +34,7 @@ pub(super) struct PartialDataSchema<DS, AS, OS> {
     pub(super) write_only: bool,
     pub(super) format: Option<String>,
     pub(super) subtype: Option<DataSchemaSubtype<DS, AS, OS>>,
+    pub(super) other: DS,
 }
 
 /// Basic builder for [`DataSchema`].
@@ -70,11 +72,15 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS> {
     type String: BuildableDataSchema<DS, AS, OS>;
     type Constant: BuildableDataSchema<DS, AS, OS>;
 
-    fn array(self) -> Self::Array;
+    fn array(self) -> Self::Array
+    where
+        AS: Default;
     fn bool(self) -> Self::Stateless;
     fn number(self) -> Self::Number;
     fn integer(self) -> Self::Integer;
-    fn object(self) -> Self::Object;
+    fn object(self) -> Self::Object
+    where
+        OS: Default;
     fn string(self) -> Self::String;
     fn null(self) -> Self::Stateless;
     fn constant(self, value: impl Into<Value>) -> Self::Constant;
@@ -108,6 +114,7 @@ pub struct ArrayDataSchemaBuilder<Inner, DS, AS, OS> {
     items: Vec<DataSchema<DS, AS, OS>>,
     min_items: Option<u32>,
     max_items: Option<u32>,
+    other: AS,
 }
 
 pub struct NumberDataSchemaBuilder<Inner> {
@@ -127,6 +134,7 @@ pub struct ObjectDataSchemaBuilder<Inner, DS, AS, OS> {
     inner: Inner,
     properties: Vec<(String, DataSchema<DS, AS, OS>)>,
     required: Vec<String>,
+    other: OS,
 }
 
 pub struct StringDataSchemaBuilder<Inner> {
@@ -529,12 +537,16 @@ macro_rules! impl_specializable_data_schema {
                 type String = StringDataSchemaBuilder<Self>;
                 type Constant = ReadOnly<StatelessDataSchemaBuilder<Self>>;
 
-                fn array(self) -> Self::Array {
+                fn array(self) -> Self::Array
+                where
+                    AS: Default
+                {
                     ArrayDataSchemaBuilder {
                         inner: self,
                         items: Default::default(),
                         min_items: Default::default(),
                         max_items: Default::default(),
+                        other: Default::default(),
                     }
                 }
 
@@ -562,11 +574,15 @@ macro_rules! impl_specializable_data_schema {
                     }
                 }
 
-                fn object(self) -> Self::Object {
+                fn object(self) -> Self::Object
+                where
+                    OS: Default
+                {
                     ObjectDataSchemaBuilder {
                         inner: self,
                         properties: Default::default(),
                         required: Default::default(),
+                        other: Default::default(),
                     }
                 }
 
@@ -866,8 +882,6 @@ impl<DS, AS, OS> From<StatelessDataSchemaType> for DataSchemaSubtype<DS, AS, OS>
 impl<T, DS, AS, OS> From<StatelessDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
-    // TODO
-    DS: Default,
 {
     fn from(builder: StatelessDataSchemaBuilder<T>) -> Self {
         let StatelessDataSchemaBuilder { inner, ty } = builder;
@@ -881,6 +895,7 @@ where
                     read_only,
                     write_only,
                     format,
+                    other,
                 },
             info:
                 HumanReadableInfo {
@@ -908,8 +923,7 @@ where
             write_only,
             format,
             subtype,
-            // TODO
-            other: Default::default(),
+            other,
         }
     }
 }
@@ -928,6 +942,7 @@ where
             read_only,
             write_only,
             format,
+            other,
         } = inner.into();
 
         let subtype = ty.map(Into::into);
@@ -941,16 +956,14 @@ where
             write_only,
             format,
             subtype,
+            other,
         }
     }
 }
 
 impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
 where
-    // TODO
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
-    DS: Default,
-    AS: Default,
 {
     fn from(builder: ArrayDataSchemaBuilder<T, DS, AS, OS>) -> Self {
         let ArrayDataSchemaBuilder {
@@ -958,6 +971,7 @@ where
             items,
             min_items,
             max_items,
+            other: other_array_schema,
         } = builder;
         let DataSchemaBuilder {
             partial:
@@ -969,6 +983,7 @@ where
                     read_only,
                     write_only,
                     format,
+                    other: other_data_schema,
                 },
             info:
                 HumanReadableInfo {
@@ -985,8 +1000,7 @@ where
             items,
             min_items,
             max_items,
-            // TODO
-            other: Default::default(),
+            other: other_array_schema,
         }));
 
         DataSchema {
@@ -1003,17 +1017,14 @@ where
             write_only,
             format,
             subtype,
-            // TODO
-            other: Default::default(),
+            other: other_data_schema,
         }
     }
 }
 
 impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for PartialDataSchema<DS, AS, OS>
 where
-    // TODO
     T: Into<PartialDataSchemaBuilder<DS, AS, OS>>,
-    AS: Default,
 {
     fn from(builder: ArrayDataSchemaBuilder<T, DS, AS, OS>) -> Self {
         let ArrayDataSchemaBuilder {
@@ -1021,6 +1032,7 @@ where
             items,
             min_items,
             max_items,
+            other: other_array_schema,
         } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
@@ -1030,6 +1042,7 @@ where
             read_only,
             write_only,
             format,
+            other: other_data_schema,
         } = inner.into();
 
         let items = items.is_empty().not().then(|| items);
@@ -1037,8 +1050,7 @@ where
             items,
             min_items,
             max_items,
-            // TODO
-            other: Default::default(),
+            other: other_array_schema,
         }));
 
         PartialDataSchema {
@@ -1050,6 +1062,7 @@ where
             write_only,
             format,
             subtype,
+            other: other_data_schema,
         }
     }
 }
@@ -1057,7 +1070,6 @@ where
 impl<T, DS, AS, OS> From<NumberDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
-    DS: Default,
 {
     fn from(builder: NumberDataSchemaBuilder<T>) -> Self {
         let NumberDataSchemaBuilder {
@@ -1076,6 +1088,7 @@ where
                     read_only,
                     write_only,
                     format,
+                    other,
                 },
             info:
                 HumanReadableInfo {
@@ -1107,8 +1120,7 @@ where
             write_only,
             format,
             subtype,
-            // TODO
-            other: Default::default(),
+            other,
         }
     }
 }
@@ -1132,6 +1144,7 @@ where
             read_only,
             write_only,
             format,
+            other,
         } = inner.into();
 
         let subtype = Some(DataSchemaSubtype::Number(NumberSchema {
@@ -1149,15 +1162,14 @@ where
             write_only,
             format,
             subtype,
+            other,
         }
     }
 }
 
 impl<T, DS, AS, OS> From<IntegerDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
-    // TODO
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
-    DS: Default,
 {
     fn from(builder: IntegerDataSchemaBuilder<T>) -> Self {
         let IntegerDataSchemaBuilder {
@@ -1175,6 +1187,7 @@ where
                     read_only,
                     write_only,
                     format,
+                    other,
                 },
             info:
                 HumanReadableInfo {
@@ -1205,8 +1218,7 @@ where
             write_only,
             format,
             subtype,
-            // TODO
-            other: Default::default(),
+            other,
         }
     }
 }
@@ -1229,6 +1241,7 @@ where
             read_only,
             write_only,
             format,
+            other,
         } = inner.into();
 
         let subtype = Some(DataSchemaSubtype::Integer(IntegerSchema {
@@ -1245,6 +1258,7 @@ where
             write_only,
             format,
             subtype,
+            other,
         }
     }
 }
@@ -1252,14 +1266,13 @@ where
 impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
-    DS: Default,
-    OS: Default,
 {
     fn from(builder: ObjectDataSchemaBuilder<T, DS, AS, OS>) -> Self {
         let ObjectDataSchemaBuilder {
             inner,
             properties,
             required,
+            other: other_object_schema,
         } = builder;
         let DataSchemaBuilder {
             partial:
@@ -1271,6 +1284,7 @@ where
                     read_only,
                     write_only,
                     format,
+                    other: other_data_schema,
                 },
             info:
                 HumanReadableInfo {
@@ -1290,8 +1304,7 @@ where
         let subtype = Some(DataSchemaSubtype::Object(ObjectSchema {
             properties,
             required,
-            // TODO
-            other: Default::default(),
+            other: other_object_schema,
         }));
 
         DataSchema {
@@ -1308,8 +1321,7 @@ where
             write_only,
             format,
             subtype,
-            // TODO
-            other: Default::default(),
+            other: other_data_schema,
         }
     }
 }
@@ -1317,13 +1329,13 @@ where
 impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS>> for PartialDataSchema<DS, AS, OS>
 where
     T: Into<PartialDataSchemaBuilder<DS, AS, OS>>,
-    OS: Default,
 {
     fn from(builder: ObjectDataSchemaBuilder<T, DS, AS, OS>) -> Self {
         let ObjectDataSchemaBuilder {
             inner,
             properties,
             required,
+            other: other_object_schema,
         } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
@@ -1333,6 +1345,7 @@ where
             read_only,
             write_only,
             format,
+            other: other_data_schema,
         } = inner.into();
 
         let properties = properties
@@ -1343,8 +1356,7 @@ where
         let subtype = Some(DataSchemaSubtype::Object(ObjectSchema {
             properties,
             required,
-            // TODO
-            other: Default::default(),
+            other: other_object_schema,
         }));
 
         PartialDataSchema {
@@ -1356,6 +1368,7 @@ where
             write_only,
             format,
             subtype,
+            other: other_data_schema,
         }
     }
 }
@@ -1363,7 +1376,6 @@ where
 impl<T, DS, AS, OS> From<StringDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
-    DS: Default,
 {
     fn from(builder: StringDataSchemaBuilder<T>) -> Self {
         let StringDataSchemaBuilder { inner, max_length } = builder;
@@ -1377,6 +1389,7 @@ where
                     read_only,
                     write_only,
                     format,
+                    other,
                 },
             info:
                 HumanReadableInfo {
@@ -1404,8 +1417,7 @@ where
             write_only,
             format,
             subtype,
-            // TODO
-            other: Default::default(),
+            other,
         }
     }
 }
@@ -1424,6 +1436,7 @@ where
             read_only,
             write_only,
             format,
+            other,
         } = inner.into();
 
         let subtype = Some(DataSchemaSubtype::String(StringSchema { max_length }));
@@ -1437,6 +1450,7 @@ where
             write_only,
             format,
             subtype,
+            other,
         }
     }
 }
@@ -1496,7 +1510,6 @@ where
 impl<T, DS, AS, OS> From<EnumDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
-    DS: Default,
 {
     fn from(builder: EnumDataSchemaBuilder<T>) -> Self {
         let DataSchemaBuilder {
@@ -1509,6 +1522,7 @@ where
                     read_only,
                     write_only,
                     format,
+                    other,
                 },
             info:
                 HumanReadableInfo {
@@ -1535,8 +1549,7 @@ where
             write_only,
             format,
             subtype: None,
-            // TODO
-            other: Default::default(),
+            other,
         }
     }
 }
@@ -1554,6 +1567,7 @@ where
             read_only,
             write_only,
             format,
+            other,
         } = builder.inner.into();
 
         let enumeration = Some(enumeration);
@@ -1566,6 +1580,7 @@ where
             write_only,
             format,
             subtype: None,
+            other,
         }
     }
 }
@@ -1573,7 +1588,6 @@ where
 impl<T, DS, AS, OS> From<OneOfDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS>>,
-    DS: Default,
 {
     fn from(builder: OneOfDataSchemaBuilder<T>) -> Self {
         let DataSchemaBuilder {
@@ -1586,6 +1600,7 @@ where
                     read_only,
                     write_only,
                     format,
+                    other,
                 },
             info:
                 HumanReadableInfo {
@@ -1612,8 +1627,7 @@ where
             write_only,
             format,
             subtype: None,
-            // TODO
-            other: Default::default(),
+            other,
         }
     }
 }
@@ -1631,6 +1645,7 @@ where
             read_only,
             write_only,
             format,
+            other,
         } = builder.inner.into();
 
         let one_of = Some(one_of);
@@ -1643,6 +1658,7 @@ where
             write_only,
             format,
             subtype: None,
+            other,
         }
     }
 }
@@ -1786,6 +1802,7 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Null),
+                other: Nil,
             }
         );
     }
@@ -1830,6 +1847,7 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Boolean),
+                other: Nil,
             }
         );
     }
@@ -1853,7 +1871,6 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
-                // TODO
                 other: Nil,
             }
         );
@@ -1874,6 +1891,7 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
+                other: Nil,
             }
         );
     }
@@ -1928,6 +1946,7 @@ mod tests {
                     max_items: None,
                     other: Nil,
                 })),
+                other: Nil,
             }
         );
     }
@@ -1955,7 +1974,6 @@ mod tests {
                     minimum: None,
                     multiple_of: None,
                 })),
-                // TODO
                 other: Nil,
             }
         );
@@ -1979,6 +1997,7 @@ mod tests {
                     minimum: None,
                     multiple_of: None,
                 })),
+                other: Nil,
             }
         );
     }
@@ -2005,7 +2024,6 @@ mod tests {
                     maximum: None,
                     minimum: None
                 })),
-                // TODO
                 other: Nil,
             }
         );
@@ -2029,6 +2047,7 @@ mod tests {
                     maximum: None,
                     minimum: None
                 })),
+                other: Nil,
             }
         );
     }
@@ -2080,9 +2099,9 @@ mod tests {
                 subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
                     properties: None,
                     required: None,
-                    // TODO
                     other: Nil,
                 })),
+                other: Nil,
             }
         );
     }
@@ -2134,6 +2153,7 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: None,
+                other: Nil,
             }
         );
     }
@@ -2161,7 +2181,6 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: None,
-                // TODO
                 other: Nil,
             }
         );
@@ -2185,6 +2204,7 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: None,
+                other: Nil,
             }
         );
     }
@@ -2209,7 +2229,6 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Boolean),
-                // TODO
                 other: Nil,
             }
         );
@@ -2232,6 +2251,7 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Boolean),
+                other: Nil,
             }
         );
     }
@@ -2252,7 +2272,8 @@ mod tests {
                     enumeration: vec![],
                     read_only: true,
                     write_only: false,
-                    format: None
+                    format: None,
+                    other: Nil,
                 },
                 info: Default::default(),
             }
@@ -2274,7 +2295,8 @@ mod tests {
                 enumeration: vec![],
                 read_only: true,
                 write_only: false,
-                format: None
+                format: None,
+                other: Nil,
             },
         );
     }
@@ -2299,7 +2321,6 @@ mod tests {
                 write_only: true,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Boolean),
-                // TODO
                 other: Nil,
             }
         );
@@ -2322,6 +2343,7 @@ mod tests {
                 write_only: true,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Boolean),
+                other: Nil,
             }
         );
     }
@@ -2342,7 +2364,8 @@ mod tests {
                     enumeration: vec![],
                     read_only: false,
                     write_only: true,
-                    format: None
+                    format: None,
+                    other: Nil,
                 },
                 info: Default::default(),
             }
@@ -2364,7 +2387,8 @@ mod tests {
                 enumeration: vec![],
                 read_only: false,
                 write_only: true,
-                format: None
+                format: None,
+                other: Nil,
             },
         );
     }
@@ -2598,7 +2622,6 @@ mod tests {
                             write_only: false,
                             format: None,
                             subtype: None,
-                            // TODO
                             other: Nil,
                         },
                         DataSchema {
@@ -2615,7 +2638,6 @@ mod tests {
                             write_only: false,
                             format: None,
                             subtype: Some(DataSchemaSubtype::Boolean),
-                            // TODO
                             other: Nil,
                         },
                     ]),
@@ -2623,6 +2645,7 @@ mod tests {
                     max_items: Some(5),
                     other: Nil,
                 })),
+                other: Nil,
             }
         );
     }
@@ -2746,7 +2769,6 @@ mod tests {
                                     write_only: false,
                                     format: None,
                                     subtype: Some(DataSchemaSubtype::Boolean),
-                                    // TODO
                                     other: Nil,
                                 }
                             ),
@@ -2770,7 +2792,6 @@ mod tests {
                                         minimum: None,
                                         multiple_of: None,
                                     })),
-                                    // TODO
                                     other: Nil,
                                 }
                             )
@@ -2779,9 +2800,9 @@ mod tests {
                         .collect()
                     ),
                     required: Some(vec!["world".to_string()]),
-                    // TODO
                     other: Nil,
                 })),
+                other: Nil,
             }
         );
     }

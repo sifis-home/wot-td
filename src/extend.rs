@@ -1,21 +1,21 @@
 use serde::{Deserialize, Serialize};
 
-use crate::hlist::{Cons, Nil};
+use crate::hlist::{Cons, HList, Nil};
 
-pub trait Extendable: Serialize + for<'a> Deserialize<'a> {}
+pub trait ExtendablePiece: Serialize + for<'a> Deserialize<'a> {}
 
-impl<T> Extendable for T where T: Serialize + for<'a> Deserialize<'a> {}
+impl<T> ExtendablePiece for T where T: Serialize + for<'a> Deserialize<'a> {}
 
 pub trait ExtendableThing {
-    type InteractionAffordance: Extendable;
-    type PropertyAffordance: Extendable;
-    type ActionAffordance: Extendable;
-    type EventAffordance: Extendable;
-    type Form: Extendable;
-    type ExpectedResponse: Extendable;
-    type DataSchema: Extendable;
-    type ObjectSchema: Extendable;
-    type ArraySchema: Extendable;
+    type InteractionAffordance: ExtendablePiece;
+    type PropertyAffordance: ExtendablePiece;
+    type ActionAffordance: ExtendablePiece;
+    type EventAffordance: ExtendablePiece;
+    type Form: ExtendablePiece;
+    type ExpectedResponse: ExtendablePiece;
+    type DataSchema: ExtendablePiece;
+    type ObjectSchema: ExtendablePiece;
+    type ArraySchema: ExtendablePiece;
 }
 
 impl ExtendableThing for Nil {
@@ -45,3 +45,52 @@ where
     type ObjectSchema = Cons<T::ObjectSchema, U::ObjectSchema>;
     type ArraySchema = Cons<T::ArraySchema, U::ArraySchema>;
 }
+
+pub trait Extendable: Sized {
+    type Empty: Extend<Self::EmptyInner>;
+    type EmptyInner;
+
+    fn empty() -> Self::Empty;
+}
+
+// pub trait Extend<T>: Sized {
+//     type Target: Sized;
+
+//     fn ext<F>(self, f: F) -> Self::Target
+//     where
+//         F: FnOnce() -> T;
+// }
+
+// impl Extendable for Nil {
+//     type Empty = Nil;
+//     type EmptyInner = ();
+
+//     fn empty() -> Self::Empty {
+//         Nil
+//     }
+// }
+
+// impl<T> Extend<T> for Nil {
+//     type Target = Cons<T, Nil>;
+
+//     fn ext<F>(self, f: F) -> Self::Target
+//     where
+//         F: FnOnce() -> T,
+//     {
+//         Cons::new_head(f())
+//     }
+// }
+
+// impl<T, U, V> Extend<T> for Cons<U, V>
+// where
+//     Cons<T, U>: HList,
+// {
+//     type Target = Cons<T, Self>;
+
+//     fn ext<F>(self, f: F) -> Self::Target
+//     where
+//         F: FnOnce() -> T,
+//     {
+//         self.add(f())
+//     }
+// }

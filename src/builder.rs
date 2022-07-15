@@ -2,13 +2,13 @@ pub mod affordance;
 pub mod data_schema;
 pub mod human_readable_info;
 
-use std::{borrow::Cow, collections::HashMap, fmt, ops::Not};
+use std::{borrow::Cow, collections::HashMap, fmt, marker::PhantomData, ops::Not};
 
 use serde_json::Value;
 use time::OffsetDateTime;
 
 use crate::{
-    extend::ExtendableThing,
+    extend::{Extendable, ExtendableThing},
     hlist::Nil,
     thing::{
         ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchemaFromOther,
@@ -49,11 +49,12 @@ pub struct ThingBuilder<Other: ExtendableThing> {
     actions: Vec<AffordanceBuilder<UsableActionAffordanceBuilder<Other>>>,
     events: Vec<AffordanceBuilder<UsableEventAffordanceBuilder<Other>>>,
     links: Option<Vec<Link>>,
-    forms: Option<Vec<FormBuilder<Other, String>>>,
+    forms: Option<Vec<FormBuilder<Other, String, Other::Form>>>,
     uri_variables: Option<HashMap<String, DataSchemaFromOther<Other>>>,
     security: Vec<String>,
     security_definitions: Vec<(String, SecurityScheme)>,
     profile: Vec<String>,
+    other: Other,
 }
 
 macro_rules! opt_field_builder {
@@ -137,8 +138,7 @@ impl fmt::Display for AffordanceType {
     }
 }
 
-// TODO
-impl ThingBuilder<Nil> {
+impl<Other: ExtendableThing + Default> ThingBuilder<Other> {
     /// Create a new default builder with a specified title
     pub fn new(title: impl Into<String>) -> Self {
         let title = title.into();
@@ -166,13 +166,16 @@ impl ThingBuilder<Nil> {
             security_definitions: Default::default(),
             uri_variables: Default::default(),
             profile: Default::default(),
+            other: Default::default(),
         }
     }
+}
 
+impl<Other: ExtendableThing> ThingBuilder<Other> {
     /// Consume the builder to produce the configured Thing
     ///
     /// This step will perform the final validation of the builder state.
-    pub fn build(self) -> Result<Thing<Nil>, Error> {
+    pub fn build(self) -> Result<Thing<Other>, Error> {
         use std::collections::hash_map::Entry;
 
         let Self {
@@ -197,6 +200,7 @@ impl ThingBuilder<Nil> {
             security_definitions: security_definitions_vec,
             uri_variables,
             profile,
+            other,
         } = self;
 
         let mut security_definitions = HashMap::with_capacity(security_definitions_vec.len());
@@ -292,16 +296,14 @@ impl ThingBuilder<Nil> {
             security_definitions,
             uri_variables,
             profile,
-            // TODO
-            other: Nil,
+            other,
         })
     }
 
-    // TODO
     fn build_form_from_builder(
-        form_builder: FormBuilder<Nil, String>,
+        form_builder: FormBuilder<Other, String, Other::Form>,
         security_definitions: &HashMap<String, SecurityScheme>,
-    ) -> Result<Form<Nil>, Error> {
+    ) -> Result<Form<Other>, Error> {
         use DefaultedFormOperations::*;
         use FormOperation::*;
 
@@ -314,6 +316,8 @@ impl ThingBuilder<Nil> {
             mut security,
             scopes,
             response,
+            other,
+            _marker: _,
         } = form_builder;
 
         security
@@ -357,8 +361,7 @@ impl ThingBuilder<Nil> {
             security,
             scopes,
             response,
-            // TODO
-            other: Nil,
+            other,
         })
     }
 
@@ -532,6 +535,7 @@ where
     // TODO
     Other: ExtendableThing + Default,
     Other::ExpectedResponse: Default,
+    Other::Form: Extendable,
 {
     /// Add a Thing-level form
     ///
@@ -540,14 +544,23 @@ where
     ///     - It must use an `all` operation
     pub fn form<F>(mut self, f: F) -> Self
     where
-        F: FnOnce(FormBuilder<Other, ()>) -> FormBuilder<Other, String>,
+        F: FnOnce(
+            FormBuilder<Other, (), <Other::Form as Extendable>::Empty>,
+        ) -> FormBuilder<Other, String, Other::Form>,
     {
         self.forms
             .get_or_insert_with(Default::default)
             .push(f(FormBuilder::new()));
         self
     }
+}
 
+impl<Other> ThingBuilder<Other>
+where
+    // TODO
+    Other: ExtendableThing + Default,
+    Other::ExpectedResponse: Default,
+{
     pub fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -1186,7 +1199,7 @@ impl SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
 }
 
 /// Builder for the Form
-pub struct FormBuilder<Other: ExtendableThing, Href> {
+pub struct FormBuilder<Other: ExtendableThing, Href, OtherForm> {
     op: DefaultedFormOperations,
     href: Href,
     content_type: Option<String>,
@@ -1195,13 +1208,18 @@ pub struct FormBuilder<Other: ExtendableThing, Href> {
     security: Option<Vec<String>>,
     scopes: Option<Vec<String>>,
     response: Option<ExpectedResponse<Other::ExpectedResponse>>,
+    other: OtherForm,
+    _marker: PhantomData<fn() -> Other>,
 }
 
-impl<Other: ExtendableThing> FormBuilder<Other, ()>
+impl<Other: ExtendableThing> FormBuilder<Other, (), <Other::Form as Extendable>::Empty>
 where
     ExpectedResponse<Other::ExpectedResponse>: Default,
+    Other::Form: Extendable,
 {
     fn new() -> Self {
+        let other = <Other::Form as Extendable>::empty();
+
         Self {
             op: Default::default(),
             href: (),
@@ -1211,13 +1229,15 @@ where
             security: Default::default(),
             scopes: Default::default(),
             response: Default::default(),
+            other,
+            _marker: PhantomData,
         }
     }
 }
 
-impl<Other: ExtendableThing> FormBuilder<Other, ()> {
+impl<Other: ExtendableThing, OtherForm> FormBuilder<Other, (), OtherForm> {
     /// Create a new builder with the specified Href
-    pub fn href(self, value: impl Into<String>) -> FormBuilder<Other, String> {
+    pub fn href(self, value: impl Into<String>) -> FormBuilder<Other, String, OtherForm> {
         let Self {
             op,
             href: (),
@@ -1227,6 +1247,8 @@ impl<Other: ExtendableThing> FormBuilder<Other, ()> {
             security,
             scopes,
             response,
+            other,
+            _marker,
         } = self;
 
         let href = value.into();
@@ -1239,15 +1261,15 @@ impl<Other: ExtendableThing> FormBuilder<Other, ()> {
             security,
             scopes,
             response,
+            other,
+            _marker,
         }
     }
 }
 
-impl<Other, T> FormBuilder<Other, T>
+impl<Other, T, OtherForm> FormBuilder<Other, T, OtherForm>
 where
     Other: ExtendableThing,
-    // TODO
-    Other::ExpectedResponse: Default,
 {
     opt_field_builder!(
         content_type: String,
@@ -1289,27 +1311,31 @@ where
             .push(value.into());
         self
     }
+}
 
+impl<Other, T, OtherForm> FormBuilder<Other, T, OtherForm>
+where
+    Other: ExtendableThing,
+    Other::ExpectedResponse: Default,
+{
     /// Set the expected response metadata
     ///
     /// It is optional if the input and output metadata are the same, e.g. the content_type
     /// matches.
-    pub fn response(mut self, content_type: impl Into<String>) -> Self {
+    pub fn response_default_ext(mut self, content_type: impl Into<String>) -> Self {
         self.response = Some(ExpectedResponse {
             content_type: content_type.into(),
-            // TODO
             other: Default::default(),
         });
         self
     }
 }
 
-impl<Other> From<FormBuilder<Other, String>> for Form<Other>
+impl<Other> From<FormBuilder<Other, String, Other::Form>> for Form<Other>
 where
     Other: ExtendableThing,
-    Other::Form: Default,
 {
-    fn from(builder: FormBuilder<Other, String>) -> Self {
+    fn from(builder: FormBuilder<Other, String, Other::Form>) -> Self {
         let FormBuilder {
             op,
             href,
@@ -1319,6 +1345,8 @@ where
             security,
             scopes,
             response,
+            other,
+            _marker: _,
         } = builder;
 
         Self {
@@ -1330,8 +1358,7 @@ where
             security,
             scopes,
             response,
-            // TODO
-            other: Default::default(),
+            other,
         }
     }
 }
