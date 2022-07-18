@@ -46,51 +46,57 @@ where
     type ArraySchema = Cons<T::ArraySchema, U::ArraySchema>;
 }
 
-pub trait Extendable: Sized {
-    type Empty: Extend<Self::EmptyInner>;
-    type EmptyInner;
+pub trait Extendable {
+    type Empty;
 
     fn empty() -> Self::Empty;
 }
 
-// pub trait Extend<T>: Sized {
-//     type Target: Sized;
+pub trait Extend<T>: Sized {
+    type Target;
 
-//     fn ext<F>(self, f: F) -> Self::Target
-//     where
-//         F: FnOnce() -> T;
-// }
+    fn ext<F>(self, f: F) -> Self::Target
+    where
+        F: FnOnce() -> T;
+}
 
-// impl Extendable for Nil {
-//     type Empty = Nil;
-//     type EmptyInner = ();
+impl Extendable for Nil {
+    type Empty = Nil;
 
-//     fn empty() -> Self::Empty {
-//         Nil
-//     }
-// }
+    fn empty() -> Self {
+        Nil
+    }
+}
 
-// impl<T> Extend<T> for Nil {
-//     type Target = Cons<T, Nil>;
+impl<T> Extend<T> for Nil {
+    type Target = Cons<T, Nil>;
 
-//     fn ext<F>(self, f: F) -> Self::Target
-//     where
-//         F: FnOnce() -> T,
-//     {
-//         Cons::new_head(f())
-//     }
-// }
+    fn ext<F>(self, f: F) -> Self::Target
+    where
+        F: FnOnce() -> T,
+    {
+        Cons::new_head(f())
+    }
+}
 
-// impl<T, U, V> Extend<T> for Cons<U, V>
-// where
-//     Cons<T, U>: HList,
-// {
-//     type Target = Cons<T, Self>;
+impl<T, U> Extendable for Cons<T, U>
+where
+    Cons<T, U>: HList,
+{
+    type Empty = Nil;
 
-//     fn ext<F>(self, f: F) -> Self::Target
-//     where
-//         F: FnOnce() -> T,
-//     {
-//         self.add(f())
-//     }
-// }
+    fn empty() -> Self::Empty {
+        Nil
+    }
+}
+
+impl<T, U, V> Extend<T> for Cons<U, V> {
+    type Target = Cons<T, Cons<U, V>>;
+
+    fn ext<F>(self, f: F) -> Self::Target
+    where
+        F: FnOnce() -> T,
+    {
+        self.add(f())
+    }
+}

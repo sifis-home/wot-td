@@ -604,7 +604,7 @@ where
 
     pub fn action<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(ActionAffordanceBuilder<Other, (), ()>) -> T,
+        F: FnOnce(<ActionAffordanceBuilder<Other, (), ()> as Extendable>::Empty) -> T,
         T: Into<
             ActionAffordanceBuilder<
                 Other,
@@ -2708,7 +2708,7 @@ mod tests {
 
     #[test]
     fn profile() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .profile("profile")
             .build()
             .unwrap();
@@ -2723,7 +2723,7 @@ mod tests {
             }
         );
 
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .profile("profile1")
             .profile("profile2")
             .build()
