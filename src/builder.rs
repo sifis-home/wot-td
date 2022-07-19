@@ -604,7 +604,7 @@ where
 
     pub fn action<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(<ActionAffordanceBuilder<Other, (), ()> as Extendable>::Empty) -> T,
+        F: FnOnce(ActionAffordanceBuilder<Other, (), ()>) -> T,
         T: Into<
             ActionAffordanceBuilder<
                 Other,

@@ -1876,4 +1876,255 @@ mod test {
             }),
         );
     }
+
+    #[test]
+    fn dummy_http() {
+        #[derive(Serialize, Deserialize, Default)]
+        struct HttpThing {}
+
+        #[derive(Deserialize, Serialize)]
+        #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+        enum HttpMethod {
+            Get,
+            Put,
+            Post,
+            Delete,
+            Patch,
+        }
+
+        #[derive(Deserialize, Serialize)]
+        struct HttpMessageHeader {
+            #[serde(rename = "htv:fieldName")]
+            field_name: Option<String>,
+            #[serde(rename = "htv:fieldValue")]
+            field_value: Option<String>,
+        }
+
+        #[derive(Deserialize, Serialize, Default)]
+        struct HttpResponse {
+            #[serde(rename = "htv:headers")]
+            headers: Vec<HttpMessageHeader>,
+            #[serde(rename = "htv:statusCodeValue")]
+            status_code_value: Option<usize>,
+        }
+
+        #[derive(Default, Deserialize, Serialize)]
+        struct HttpForm {
+            #[serde(rename = "htv:methodName")]
+            method_name: Option<HttpMethod>,
+        }
+
+        impl ExtendableThing for HttpThing {
+            type InteractionAffordance = ();
+            type PropertyAffordance = ();
+            type ActionAffordance = ();
+            type EventAffordance = ();
+            type Form = HttpForm;
+            type ExpectedResponse = HttpResponse;
+            type DataSchema = ();
+            type ObjectSchema = ();
+            type ArraySchema = ();
+        }
+
+        let thing = Thing::<Cons<ThingExtB, Cons<HttpThing, Cons<ThingExtA, Nil>>>> {
+            context: "test".into(),
+            properties: Some(
+                [(
+                    "prop".to_string(),
+                    PropertyAffordance {
+                        interaction: InteractionAffordance {
+                            other: Cons::new_head(IntAffExtA { b: A(1) })
+                                .add(())
+                                .add(IntAffExtB { l: A(2) }),
+                            ..Default::default()
+                        },
+                        data_schema: DataSchema {
+                            subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                                other: Cons::new_head(ArraySchemaExtA { j: A(3) })
+                                    .add(())
+                                    .add(ArraySchemaExtB { t: A(4) }),
+                                ..Default::default()
+                            })),
+                            other: Cons::new_head(DataSchemaExtA { h: A(5) })
+                                .add(())
+                                .add(DataSchemaExtB { r: A(6) }),
+                            ..Default::default()
+                        },
+                        other: Cons::new_head(PropAffExtA { d: A(7) })
+                            .add(())
+                            .add(PropAffExtB { n: A(8) }),
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            actions: Some(
+                [(
+                    "action".to_string(),
+                    ActionAffordance {
+                        interaction: InteractionAffordance {
+                            forms: vec![Form {
+                                other: Cons::new_head(FormExtA::default())
+                                    .add(HttpForm {
+                                        method_name: Some(HttpMethod::Put),
+                                    })
+                                    .add(FormExtB::default()),
+                                ..Default::default()
+                            }],
+                            other: Cons::new_head(IntAffExtA { b: A(9) })
+                                .add(())
+                                .add(IntAffExtB { l: A(10) }),
+                            ..Default::default()
+                        },
+                        input: Some(DataSchema {
+                            subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
+                                other: Cons::new_head(ObjectSchemaExtA { i: A(11) })
+                                    .add(())
+                                    .add(ObjectSchemaExtB { s: A(12) }),
+                                ..Default::default()
+                            })),
+                            other: Cons::new_head(DataSchemaExtA { h: A(13) })
+                                .add(())
+                                .add(DataSchemaExtB { r: A(14) }),
+                            ..Default::default()
+                        }),
+                        output: Some(DataSchema::default()),
+                        other: Cons::new_head(ActionAffExtA { c: A(15) })
+                            .add(())
+                            .add(ActionAffExtB { m: A(16) }),
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            events: Some(
+                [(
+                    "event".to_string(),
+                    EventAffordance {
+                        other: Cons::new_head(EventAffExtA { e: A(17) })
+                            .add(())
+                            .add(EventAffExtB { o: A(18) }),
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            forms: Some(vec![Form {
+                response: Some(ExpectedResponse {
+                    other: Cons::new_head(RespExtA { g: A(19) })
+                        .add(HttpResponse {
+                            headers: vec![HttpMessageHeader {
+                                field_name: Some("hello".to_string()),
+                                field_value: Some("world".to_string()),
+                            }],
+                            status_code_value: Some(200),
+                        })
+                        .add(RespExtB { q: A(20) }),
+                    ..Default::default()
+                }),
+                other: Cons::new_head(FormExtA { f: A(21) })
+                    .add(HttpForm {
+                        method_name: Some(HttpMethod::Get),
+                    })
+                    .add(FormExtB { p: A(22) }),
+                ..Default::default()
+            }]),
+            other: Cons::new_head(ThingExtA { a: A(23) })
+                .add(HttpThing {})
+                .add(ThingExtB { k: A(24) }),
+            ..Default::default()
+        };
+
+        let thing_json = serde_json::to_value(thing).unwrap();
+        assert_eq!(
+            thing_json,
+            json!({
+                "@context": "test",
+                "title": "",
+                "properties": {
+                    "prop": {
+                        "b": 1,
+                        "l": 2,
+                        "j": 3,
+                        "t": 4,
+                        "h": 5,
+                        "r": 6,
+                        "d": 7,
+                        "n": 8,
+                        "forms": [],
+                        "type": "array",
+                        "readOnly": false,
+                        "writeOnly": false,
+                    }
+                },
+                "actions": {
+                    "action": {
+                        "b": 9,
+                        "l": 10,
+                        "input": {
+                            "i": 11,
+                            "s": 12,
+                            "h": 13,
+                            "r": 14,
+                            "readOnly": false,
+                            "writeOnly": false,
+                            "type": "object",
+                        },
+                        "output": {
+                            "h": 42,
+                            "r": 42,
+                            "readOnly": false,
+                            "writeOnly": false,
+                        },
+                        "forms": [
+                            {
+                                "f": 42,
+                                "href": "",
+                                "htv:methodName": "PUT",
+                                "op": null,
+                                "p": 42,
+                            }
+                        ],
+                        "idempotent": false,
+                        "safe": false,
+                        "c": 15,
+                        "m": 16,
+                    }
+                },
+                "events": {
+                    "event": {
+                        "b": 42,
+                        "l": 42,
+                        "e": 17,
+                        "o": 18,
+                        "forms": [],
+                    }
+                },
+                "forms": [{
+                    "href": "",
+                    "op": null,
+                    "response": {
+                        "contentType": "",
+                        "g": 19,
+                        "q": 20,
+                        "htv:headers": [{
+                            "htv:fieldName": "hello",
+                            "htv:fieldValue": "world",
+                        }],
+                        "htv:statusCodeValue": 200,
+                    },
+                    "f": 21,
+                    "p": 22,
+                    "htv:methodName": "GET",
+                }],
+                "security": [],
+                "securityDefinitions": {},
+                "a": 23,
+                "k": 24,
+            }),
+        );
+    }
 }
