@@ -65,6 +65,16 @@ impl<'de> Deserialize<'de> for Nil {
     }
 }
 
+impl From<()> for Nil {
+    fn from(_: ()) -> Self {
+        Nil
+    }
+}
+
+impl From<Nil> for () {
+    fn from(_: Nil) -> Self {}
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::{json, Value};

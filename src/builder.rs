@@ -9,7 +9,6 @@ use time::OffsetDateTime;
 
 use crate::{
     extend::{Extendable, ExtendableThing},
-    hlist::Nil,
     thing::{
         ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchemaFromOther,
         DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
@@ -585,12 +584,23 @@ where
                     Other::ArraySchema,
                     Other::ObjectSchema,
                 >,
+                (),
+                (),
             >,
         ) -> T,
-        T: Into<PropertyAffordanceBuilder<Other, DataSchemaFromOther<Other>>>,
+        T: Into<
+            PropertyAffordanceBuilder<
+                Other,
+                DataSchemaFromOther<Other>,
+                Other::InteractionAffordance,
+                Other::PropertyAffordance,
+            >,
+        >,
         PropertyAffordanceBuilder<
             Other,
             PartialDataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+            (),
+            (),
         >: Default,
     {
         let affordance = f(PropertyAffordanceBuilder::default()).into();
@@ -604,12 +614,14 @@ where
 
     pub fn action<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(ActionAffordanceBuilder<Other, (), ()>) -> T,
+        F: FnOnce(ActionAffordanceBuilder<Other, (), (), (), ()>) -> T,
         T: Into<
             ActionAffordanceBuilder<
                 Other,
                 Option<DataSchemaFromOther<Other>>,
                 Option<DataSchemaFromOther<Other>>,
+                Other::InteractionAffordance,
+                Other::ActionAffordance,
             >,
         >,
     {
@@ -624,7 +636,7 @@ where
 
     pub fn event<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(EventAffordanceBuilder<Other, (), (), (), ()>) -> T,
+        F: FnOnce(EventAffordanceBuilder<Other, (), (), (), (), (), ()>) -> T,
         T: Into<
             EventAffordanceBuilder<
                 Other,
@@ -632,6 +644,8 @@ where
                 Option<DataSchemaFromOther<Other>>,
                 Option<DataSchemaFromOther<Other>>,
                 Option<DataSchemaFromOther<Other>>,
+                Other::InteractionAffordance,
+                Other::EventAffordance,
             >,
         >,
     {
@@ -1212,9 +1226,9 @@ pub struct FormBuilder<Other: ExtendableThing, Href, OtherForm> {
     _marker: PhantomData<fn() -> Other>,
 }
 
-impl<Other: ExtendableThing> FormBuilder<Other, (), <Other::Form as Extendable>::Empty>
+impl<Other> FormBuilder<Other, (), <Other::Form as Extendable>::Empty>
 where
-    ExpectedResponse<Other::ExpectedResponse>: Default,
+    Other: ExtendableThing,
     Other::Form: Extendable,
 {
     fn new() -> Self {
@@ -1235,7 +1249,10 @@ where
     }
 }
 
-impl<Other: ExtendableThing, OtherForm> FormBuilder<Other, (), OtherForm> {
+impl<Other, OtherForm> FormBuilder<Other, (), OtherForm>
+where
+    Other: ExtendableThing,
+{
     /// Create a new builder with the specified Href
     pub fn href(self, value: impl Into<String>) -> FormBuilder<Other, String, OtherForm> {
         let Self {
@@ -1331,6 +1348,27 @@ where
     }
 }
 
+impl<Other, T, OtherForm> FormBuilder<Other, T, OtherForm>
+where
+    Other: ExtendableThing,
+    Other::ExpectedResponse: Extendable,
+{
+    /// Set the expected response metadata building the type from ground up
+    ///
+    /// It is optional if the input and output metadata are the same, e.g. the content_type
+    /// matches.
+    pub fn response<F>(mut self, content_type: impl Into<String>, f: F) -> Self
+    where
+        F: FnOnce(<Other::ExpectedResponse as Extendable>::Empty) -> Other::ExpectedResponse,
+    {
+        self.response = Some(ExpectedResponse {
+            content_type: content_type.into(),
+            other: f(Other::ExpectedResponse::empty()),
+        });
+        self
+    }
+}
+
 impl<Other> From<FormBuilder<Other, String, Other::Form>> for Form<Other>
 where
     Other: ExtendableThing,
@@ -1373,6 +1411,7 @@ mod tests {
             affordance::BuildableInteractionAffordance, data_schema::SpecializableDataSchema,
             human_readable_info::BuildableHumanReadableInfo,
         },
+        hlist::Nil,
         thing::{
             ActionAffordance, DataSchema, DataSchemaSubtype, EventAffordance,
             InteractionAffordance, PropertyAffordance,
@@ -1386,7 +1425,7 @@ mod tests {
             $(
                 #[test]
                 pub fn $field() {
-                    let thing = ThingBuilder::new("MyLampThing").$field("test").build().unwrap();
+                    let thing = ThingBuilder::<Nil>::new("MyLampThing").$field("test").build().unwrap();
 
                     assert_eq!(
                         thing,
@@ -1404,7 +1443,7 @@ mod tests {
 
     #[test]
     fn default_context() {
-        let thing = ThingBuilder::new("MyLampThing").build().unwrap();
+        let thing = ThingBuilder::<Nil>::new("MyLampThing").build().unwrap();
         assert_eq!(
             thing,
             Thing {
@@ -1417,7 +1456,7 @@ mod tests {
 
     #[test]
     fn redundant_default_context() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .context(TD_CONTEXT_11)
             .build()
             .unwrap();
@@ -1434,7 +1473,7 @@ mod tests {
 
     #[test]
     fn simple_contexts() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .context("test")
             .context("another_test")
             .build()
@@ -1456,7 +1495,7 @@ mod tests {
 
     #[test]
     fn map_contexts() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .context_map(|b| b.context("hello", "world").context("all", "fine"))
             .context("simple")
             .build()
@@ -1483,7 +1522,7 @@ mod tests {
 
     #[test]
     fn attype() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .attype("test")
             .build()
             .unwrap();
@@ -1498,7 +1537,7 @@ mod tests {
             }
         );
 
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .attype("test1")
             .attype("test2")
             .build()
@@ -1517,7 +1556,7 @@ mod tests {
 
     #[test]
     fn titles() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .titles(|ml| ml.add("en", "My lamp").add("it", "La mia lampada"))
             .build()
             .unwrap();
@@ -1540,7 +1579,7 @@ mod tests {
 
     #[test]
     fn descriptions() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .description("My Lamp")
             .descriptions(|ml| ml.add("en", "My lamp").add("it", "La mia lampada"))
             .build()
@@ -1566,7 +1605,7 @@ mod tests {
     #[test]
     fn created() {
         const DATETIME: OffsetDateTime = datetime!(2022-05-01 12:13:14.567 +01:00);
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .created(DATETIME)
             .build()
             .unwrap();
@@ -1585,7 +1624,7 @@ mod tests {
     #[test]
     fn modified() {
         const DATETIME: OffsetDateTime = datetime!(2022-05-01 12:13:14.567 +01:00);
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .modified(DATETIME)
             .build()
             .unwrap();
@@ -1603,7 +1642,7 @@ mod tests {
 
     #[test]
     fn link_simple() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .link("href1")
             .link("href2")
             .build()
@@ -1635,7 +1674,7 @@ mod tests {
 
     #[test]
     fn link_with() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .link_with(|link| link.href("href1").ty("ty").rel("rel").anchor("anchor"))
             .link_with(|link| link.href("href2"))
             .build()
@@ -1667,7 +1706,7 @@ mod tests {
 
     #[test]
     fn nosec_security() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| {
                 b.no_sec()
                     .attype("ty1")
@@ -1712,7 +1751,7 @@ mod tests {
 
     #[test]
     fn basic_security() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| {
                 b.basic()
                     .name("name")
@@ -1764,7 +1803,7 @@ mod tests {
 
     #[test]
     fn digest_security() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| {
                 b.digest()
                     .name("name")
@@ -1818,7 +1857,7 @@ mod tests {
 
     #[test]
     fn apikey_security() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| {
                 b.apikey()
                     .name("name")
@@ -1870,7 +1909,7 @@ mod tests {
 
     #[test]
     fn bearer_security() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| {
                 b.bearer()
                     .name("name")
@@ -1928,7 +1967,7 @@ mod tests {
 
     #[test]
     fn oauth2_security() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| {
                 b.oauth2("flow")
                     .authorization("authorization")
@@ -1986,7 +2025,7 @@ mod tests {
 
     #[test]
     fn custom_security() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| {
                 b.custom("mysec")
                     .data(json! ({
@@ -2041,7 +2080,7 @@ mod tests {
 
     #[test]
     fn named_security() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| b.no_sec().with_key("test_sec1").required())
             .security(|b| b.no_sec().with_key("test_sec2").required())
             .build()
@@ -2088,7 +2127,7 @@ mod tests {
 
     #[test]
     fn mixed_security() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| b.digest().with_key("sec1"))
             .security(|b| b.basic().with_key("sec2").required())
             .build()
@@ -2132,7 +2171,7 @@ mod tests {
             }
         );
 
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| b.digest())
             .security(|b| b.basic().required())
             .build()
@@ -2179,7 +2218,7 @@ mod tests {
 
     #[test]
     fn colliding_security_names() {
-        let err = ThingBuilder::new("MyLampThing")
+        let err = ThingBuilder::<Nil>::new("MyLampThing")
             .security(|b| b.basic())
             .security(|b| b.basic().required())
             .build()
@@ -2193,7 +2232,7 @@ mod tests {
 
     #[test]
     fn simple_form() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .form(|form| form.href("href").op(FormOperation::ReadAllProperties))
             .build()
             .unwrap();
@@ -2215,7 +2254,7 @@ mod tests {
 
     #[test]
     fn simple_form_with_uri_variables() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .form(|form| form.href("href/{foo}").op(FormOperation::ReadAllProperties))
             .uri_variable("foo", |v| v.integer())
             .build()
@@ -2248,7 +2287,7 @@ mod tests {
     }
     #[test]
     fn complete_form() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .form(|form| {
                 form.href("href")
                     .op(FormOperation::ReadAllProperties)
@@ -2259,7 +2298,7 @@ mod tests {
                     .security("basic")
                     .scope("scope1")
                     .scope("scope2")
-                    .response("application/json")
+                    .response_default_ext("application/json")
             })
             .security(|b| b.digest())
             .security(|b| b.basic())
@@ -2322,7 +2361,7 @@ mod tests {
 
     #[test]
     fn form_with_multiple_ops() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .form(|form| {
                 form.href("href")
                     .op(FormOperation::ReadAllProperties)
@@ -2351,7 +2390,7 @@ mod tests {
 
     #[test]
     fn invalid_form_without_op() {
-        let err = ThingBuilder::new("MyLampThing")
+        let err = ThingBuilder::<Nil>::new("MyLampThing")
             .form(|form| form.href("href"))
             .build()
             .unwrap_err();
@@ -2361,7 +2400,7 @@ mod tests {
 
     #[test]
     fn invalid_form_with_invalid_op() {
-        let err = ThingBuilder::new("MyLampThing")
+        let err = ThingBuilder::<Nil>::new("MyLampThing")
             .form(|form| form.href("href").op(FormOperation::ReadProperty))
             .build()
             .unwrap_err();
@@ -2371,7 +2410,7 @@ mod tests {
 
     #[test]
     fn invalid_form_with_missing_security() {
-        let err = ThingBuilder::new("MyLampThing")
+        let err = ThingBuilder::<Nil>::new("MyLampThing")
             .form(|form| {
                 form.href("href")
                     .op(FormOperation::ReadAllProperties)
@@ -2385,7 +2424,7 @@ mod tests {
 
     #[test]
     fn with_property_affordance() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .property("on", |b| b.bool().observable(true).title("title"))
             .property("prop", |b| b.null())
             .build()
@@ -2475,7 +2514,7 @@ mod tests {
 
     #[test]
     fn with_action_affordance() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .action("fade", |b| b)
             .action("action", |b| {
                 b.title("title").idempotent().input(|b| b.null())
@@ -2558,7 +2597,7 @@ mod tests {
 
     #[test]
     fn with_event_affordance() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .event("overheat", |b| b)
             .event("event", |b| b.title("title").cancellation(|b| b.null()))
             .build()
@@ -2638,7 +2677,7 @@ mod tests {
 
     #[test]
     fn valid_affordance_security() {
-        let thing = ThingBuilder::new("MyLampThing")
+        let thing = ThingBuilder::<Nil>::new("MyLampThing")
             .property("on", |b| {
                 b.bool().form(|b| b.security("basic").href("href"))
             })
@@ -2695,7 +2734,7 @@ mod tests {
 
     #[test]
     fn invalid_affordance_security() {
-        let error = ThingBuilder::new("MyLampThing")
+        let error = ThingBuilder::<Nil>::new("MyLampThing")
             .property("on", |b| {
                 b.bool().form(|b| b.security("oauth2").href("href"))
             })
