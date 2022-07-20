@@ -172,11 +172,6 @@ where
 impl<Other> Default for Thing<Other>
 where
     Other: ExtendableThing + Default,
-    Form<Other>: Default,
-    PropertyAffordance<Other>: Default,
-    ActionAffordance<Other>: Default,
-    EventAffordance<Other>: Default,
-    DataSchemaFromOther<Other>: Default,
 {
     fn default() -> Self {
         Self {

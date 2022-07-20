@@ -55,9 +55,14 @@ pub trait Extendable {
 pub trait Extend<T>: Sized {
     type Target;
 
-    fn ext<F>(self, f: F) -> Self::Target
+    fn ext(self, t: T) -> Self::Target;
+
+    fn ext_with<F>(self, f: F) -> Self::Target
     where
-        F: FnOnce() -> T;
+        F: FnOnce() -> T,
+    {
+        self.ext(f())
+    }
 }
 
 impl Extendable for Nil {
@@ -71,11 +76,8 @@ impl Extendable for Nil {
 impl<T> Extend<T> for Nil {
     type Target = Cons<T, Nil>;
 
-    fn ext<F>(self, f: F) -> Self::Target
-    where
-        F: FnOnce() -> T,
-    {
-        Cons::new_head(f())
+    fn ext(self, t: T) -> Self::Target {
+        Cons::new_head(t)
     }
 }
 
@@ -93,10 +95,7 @@ where
 impl<T, U, V> Extend<T> for Cons<U, V> {
     type Target = Cons<T, Cons<U, V>>;
 
-    fn ext<F>(self, f: F) -> Self::Target
-    where
-        F: FnOnce() -> T,
-    {
-        self.add(f())
+    fn ext(self, t: T) -> Self::Target {
+        self.add(t)
     }
 }

@@ -8,7 +8,7 @@ use serde_json::Value;
 use time::OffsetDateTime;
 
 use crate::{
-    extend::{Extendable, ExtendableThing},
+    extend::{Extend, Extendable, ExtendableThing},
     thing::{
         ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchemaFromOther,
         DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
@@ -1284,7 +1284,7 @@ where
     }
 }
 
-impl<Other, T, OtherForm> FormBuilder<Other, T, OtherForm>
+impl<Other, Href, OtherForm> FormBuilder<Other, Href, OtherForm>
 where
     Other: ExtendableThing,
 {
@@ -1327,6 +1327,46 @@ where
             .get_or_insert_with(Default::default)
             .push(value.into());
         self
+    }
+
+    pub fn ext_with<F, T>(self, f: F) -> FormBuilder<Other, Href, OtherForm::Target>
+    where
+        OtherForm: Extend<T>,
+        F: FnOnce() -> T,
+    {
+        let Self {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
+            other,
+            _marker,
+        } = self;
+        let other = other.ext_with(f);
+        FormBuilder {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
+            other,
+            _marker,
+        }
+    }
+
+    #[inline]
+    pub fn ext<T>(self, t: T) -> FormBuilder<Other, Href, OtherForm::Target>
+    where
+        OtherForm: Extend<T>,
+    {
+        self.ext_with(move || t)
     }
 }
 
@@ -1403,6 +1443,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use serde::{Deserialize, Serialize};
     use serde_json::json;
     use time::macros::datetime;
 
@@ -1411,7 +1452,7 @@ mod tests {
             affordance::BuildableInteractionAffordance, data_schema::SpecializableDataSchema,
             human_readable_info::BuildableHumanReadableInfo,
         },
-        hlist::Nil,
+        hlist::{Cons, Nil},
         thing::{
             ActionAffordance, DataSchema, DataSchemaSubtype, EventAffordance,
             InteractionAffordance, PropertyAffordance,
@@ -2774,6 +2815,88 @@ mod tests {
                 context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 profile: Some(vec!["profile1".to_string(), "profile2".to_string()]),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn extend_form_builder() {
+        #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+        struct ThingA {}
+
+        #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+        struct ThingB {}
+
+        #[derive(Debug, Serialize, PartialEq, Deserialize)]
+        struct FormExtA {
+            a: String,
+        }
+
+        #[derive(Debug, Serialize, PartialEq, Deserialize)]
+        struct B(i32);
+
+        #[derive(Debug, Serialize, PartialEq, Deserialize)]
+        struct FormExtB {
+            b: B,
+        }
+
+        impl ExtendableThing for ThingA {
+            type InteractionAffordance = ();
+            type PropertyAffordance = ();
+            type ActionAffordance = ();
+            type EventAffordance = ();
+            type Form = FormExtA;
+            type ExpectedResponse = ();
+            type DataSchema = ();
+            type ObjectSchema = ();
+            type ArraySchema = ();
+        }
+
+        impl ExtendableThing for ThingB {
+            type InteractionAffordance = ();
+            type PropertyAffordance = ();
+            type ActionAffordance = ();
+            type EventAffordance = ();
+            type Form = FormExtB;
+            type ExpectedResponse = ();
+            type DataSchema = ();
+            type ObjectSchema = ();
+            type ArraySchema = ();
+        }
+
+        let thing: Thing<Cons<ThingB, Cons<ThingA, Nil>>> =
+            ThingBuilder::<Cons<ThingB, Cons<ThingA, Nil>>>::new("MyLampThing")
+                .form(|form| {
+                    form.ext_with(|| FormExtA {
+                        a: String::from("test"),
+                    })
+                    .href("href")
+                    .ext(FormExtB { b: B(42) })
+                    .op(FormOperation::ReadAllProperties)
+                })
+                .build()
+                .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT_11.into(),
+                title: "MyLampThing".to_string(),
+                forms: Some(vec![Form {
+                    op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
+                    href: "href".to_string(),
+                    other: Cons::new_head(FormExtA {
+                        a: "test".to_string()
+                    })
+                    .add(FormExtB { b: B(42) }),
+                    content_type: Default::default(),
+                    content_coding: Default::default(),
+                    subprotocol: Default::default(),
+                    security: Default::default(),
+                    scopes: Default::default(),
+                    response: Default::default(),
+                }]),
                 ..Default::default()
             }
         );
