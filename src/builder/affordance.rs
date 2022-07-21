@@ -3,7 +3,7 @@ use std::{collections::HashMap, ops::Not};
 use serde_json::Value;
 
 use crate::{
-    extend::{Extendable, ExtendableThing},
+    extend::{Extend, Extendable, ExtendableThing},
     hlist::Nil,
     thing::{
         ActionAffordance, DataSchema, DataSchemaFromOther, EventAffordance, Form,
@@ -71,10 +71,74 @@ where
     }
 }
 
+impl<Other: ExtendableThing, OtherInteractionAffordance>
+    PartialInteractionAffordanceBuilder<Other, OtherInteractionAffordance>
+{
+    pub fn ext_with<F, T>(
+        self,
+        f: F,
+    ) -> PartialInteractionAffordanceBuilder<Other, OtherInteractionAffordance::Target>
+    where
+        OtherInteractionAffordance: Extend<T>,
+        F: FnOnce() -> T,
+    {
+        let Self {
+            forms,
+            uri_variables,
+            other,
+        } = self;
+        let other = other.ext_with(f);
+        PartialInteractionAffordanceBuilder {
+            forms,
+            uri_variables,
+            other,
+        }
+    }
+
+    #[inline]
+    pub fn ext<T>(
+        self,
+        t: T,
+    ) -> PartialInteractionAffordanceBuilder<Other, OtherInteractionAffordance::Target>
+    where
+        OtherInteractionAffordance: Extend<T>,
+    {
+        self.ext_with(|| t)
+    }
+}
+
 #[derive(Default)]
 pub struct InteractionAffordanceBuilder<Other: ExtendableThing, OtherInteractionAffordance> {
     pub(super) partial: PartialInteractionAffordanceBuilder<Other, OtherInteractionAffordance>,
     pub(super) info: HumanReadableInfo,
+}
+
+impl<Other: ExtendableThing, OtherInteractionAffordance>
+    InteractionAffordanceBuilder<Other, OtherInteractionAffordance>
+{
+    pub fn ext_with<F, T>(
+        self,
+        f: F,
+    ) -> InteractionAffordanceBuilder<Other, OtherInteractionAffordance::Target>
+    where
+        OtherInteractionAffordance: Extend<T>,
+        F: FnOnce() -> T,
+    {
+        let Self { partial, info } = self;
+        let partial = partial.ext_with(f);
+        InteractionAffordanceBuilder { partial, info }
+    }
+
+    #[inline]
+    pub fn ext<T>(
+        self,
+        t: T,
+    ) -> InteractionAffordanceBuilder<Other, OtherInteractionAffordance::Target>
+    where
+        OtherInteractionAffordance: Extend<T>,
+    {
+        self.ext_with(|| t)
+    }
 }
 
 impl<Other, OtherInteractionAffordance> BuildableInteractionAffordance<Other>
@@ -292,6 +356,350 @@ impl_delegate_buildable_hr_info!(
     ActionAffordanceBuilder<Other: ExtendableThing, I, O, OtherInteractionAffordance, OtherPropertyAffordance> on interaction,
     EventAffordanceBuilder<Other: ExtendableThing, SS, DS, CS, RS, OtherInteractionAffordance, OtherPropertyAffordance> on interaction,
 );
+
+impl<Other: ExtendableThing, DS, OtherInteractionAffordance, OtherPropertyAffordance>
+    PropertyAffordanceBuilder<Other, DS, OtherInteractionAffordance, OtherPropertyAffordance>
+{
+    pub fn ext_interaction_with<F, T>(
+        self,
+        f: F,
+    ) -> PropertyAffordanceBuilder<
+        Other,
+        DS,
+        OtherInteractionAffordance::Target,
+        OtherPropertyAffordance,
+    >
+    where
+        OtherInteractionAffordance: Extend<T>,
+        F: FnOnce() -> T,
+    {
+        let Self {
+            interaction,
+            info,
+            data_schema,
+            observable,
+            other,
+        } = self;
+        let interaction = interaction.ext_with(f);
+        PropertyAffordanceBuilder {
+            interaction,
+            info,
+            data_schema,
+            observable,
+            other,
+        }
+    }
+
+    #[inline]
+    pub fn ext_interaction<T>(
+        self,
+        t: T,
+    ) -> PropertyAffordanceBuilder<
+        Other,
+        DS,
+        OtherInteractionAffordance::Target,
+        OtherPropertyAffordance,
+    >
+    where
+        OtherInteractionAffordance: Extend<T>,
+    {
+        self.ext_interaction_with(|| t)
+    }
+
+    pub fn ext_with<F, T>(
+        self,
+        f: F,
+    ) -> PropertyAffordanceBuilder<
+        Other,
+        DS,
+        OtherInteractionAffordance,
+        OtherPropertyAffordance::Target,
+    >
+    where
+        OtherPropertyAffordance: Extend<T>,
+        F: FnOnce() -> T,
+    {
+        let Self {
+            interaction,
+            info,
+            data_schema,
+            observable,
+            other,
+        } = self;
+        let other = other.ext_with(f);
+        PropertyAffordanceBuilder {
+            interaction,
+            info,
+            data_schema,
+            observable,
+            other,
+        }
+    }
+
+    #[inline]
+    pub fn ext<T>(
+        self,
+        t: T,
+    ) -> PropertyAffordanceBuilder<
+        Other,
+        DS,
+        OtherInteractionAffordance,
+        OtherPropertyAffordance::Target,
+    >
+    where
+        OtherPropertyAffordance: Extend<T>,
+    {
+        self.ext_with(|| t)
+    }
+}
+
+impl<
+        Other: ExtendableThing,
+        InputSchema,
+        OutputSchema,
+        OtherInteractionAffordance,
+        OtherActionAffordance,
+    >
+    ActionAffordanceBuilder<
+        Other,
+        InputSchema,
+        OutputSchema,
+        OtherInteractionAffordance,
+        OtherActionAffordance,
+    >
+{
+    pub fn ext_interaction_with<F, T>(
+        self,
+        f: F,
+    ) -> ActionAffordanceBuilder<
+        Other,
+        InputSchema,
+        OutputSchema,
+        OtherInteractionAffordance::Target,
+        OtherActionAffordance,
+    >
+    where
+        OtherInteractionAffordance: Extend<T>,
+        F: FnOnce() -> T,
+    {
+        let Self {
+            interaction,
+            input,
+            output,
+            safe,
+            idempotent,
+            synchronous,
+            other,
+        } = self;
+        let interaction = interaction.ext_with(f);
+        ActionAffordanceBuilder {
+            interaction,
+            input,
+            output,
+            safe,
+            idempotent,
+            synchronous,
+            other,
+        }
+    }
+
+    #[inline]
+    pub fn ext_interaction<T>(
+        self,
+        t: T,
+    ) -> ActionAffordanceBuilder<
+        Other,
+        InputSchema,
+        OutputSchema,
+        OtherInteractionAffordance::Target,
+        OtherActionAffordance,
+    >
+    where
+        OtherInteractionAffordance: Extend<T>,
+    {
+        self.ext_interaction_with(|| t)
+    }
+
+    pub fn ext_with<F, T>(
+        self,
+        f: F,
+    ) -> ActionAffordanceBuilder<
+        Other,
+        InputSchema,
+        OutputSchema,
+        OtherInteractionAffordance,
+        OtherActionAffordance::Target,
+    >
+    where
+        OtherActionAffordance: Extend<T>,
+        F: FnOnce() -> T,
+    {
+        let Self {
+            interaction,
+            input,
+            output,
+            safe,
+            idempotent,
+            synchronous,
+            other,
+        } = self;
+        let other = other.ext_with(f);
+        ActionAffordanceBuilder {
+            interaction,
+            input,
+            output,
+            safe,
+            idempotent,
+            synchronous,
+            other,
+        }
+    }
+
+    #[inline]
+    pub fn ext<T>(
+        self,
+        t: T,
+    ) -> ActionAffordanceBuilder<
+        Other,
+        InputSchema,
+        OutputSchema,
+        OtherInteractionAffordance,
+        OtherActionAffordance::Target,
+    >
+    where
+        OtherActionAffordance: Extend<T>,
+    {
+        self.ext_with(|| t)
+    }
+}
+
+impl<
+        Other: ExtendableThing,
+        SubscriptionSchema,
+        DataSchema,
+        CancellationSchema,
+        ResponseSchema,
+        OtherInteractionAffordance,
+        OtherEventAffordance,
+    >
+    EventAffordanceBuilder<
+        Other,
+        SubscriptionSchema,
+        DataSchema,
+        CancellationSchema,
+        ResponseSchema,
+        OtherInteractionAffordance,
+        OtherEventAffordance,
+    >
+{
+    pub fn ext_interaction_with<F, T>(
+        self,
+        f: F,
+    ) -> EventAffordanceBuilder<
+        Other,
+        SubscriptionSchema,
+        DataSchema,
+        CancellationSchema,
+        ResponseSchema,
+        OtherInteractionAffordance::Target,
+        OtherEventAffordance,
+    >
+    where
+        OtherInteractionAffordance: Extend<T>,
+        F: FnOnce() -> T,
+    {
+        let Self {
+            interaction,
+            subscription,
+            data,
+            cancellation,
+            data_response,
+            other,
+        } = self;
+        let interaction = interaction.ext_with(f);
+        EventAffordanceBuilder {
+            interaction,
+            subscription,
+            data,
+            cancellation,
+            data_response,
+            other,
+        }
+    }
+
+    #[inline]
+    pub fn ext_interaction<T>(
+        self,
+        t: T,
+    ) -> EventAffordanceBuilder<
+        Other,
+        SubscriptionSchema,
+        DataSchema,
+        CancellationSchema,
+        ResponseSchema,
+        OtherInteractionAffordance::Target,
+        OtherEventAffordance,
+    >
+    where
+        OtherInteractionAffordance: Extend<T>,
+    {
+        self.ext_interaction_with(|| t)
+    }
+
+    pub fn ext_with<F, T>(
+        self,
+        f: F,
+    ) -> EventAffordanceBuilder<
+        Other,
+        SubscriptionSchema,
+        DataSchema,
+        CancellationSchema,
+        ResponseSchema,
+        OtherInteractionAffordance,
+        OtherEventAffordance::Target,
+    >
+    where
+        OtherEventAffordance: Extend<T>,
+        F: FnOnce() -> T,
+    {
+        let Self {
+            interaction,
+            subscription,
+            data,
+            cancellation,
+            data_response,
+            other,
+        } = self;
+        let other = other.ext_with(f);
+        EventAffordanceBuilder {
+            interaction,
+            subscription,
+            data,
+            cancellation,
+            data_response,
+            other,
+        }
+    }
+
+    #[inline]
+    pub fn ext<T>(
+        self,
+        t: T,
+    ) -> EventAffordanceBuilder<
+        Other,
+        SubscriptionSchema,
+        DataSchema,
+        CancellationSchema,
+        ResponseSchema,
+        OtherInteractionAffordance,
+        OtherEventAffordance::Target,
+    >
+    where
+        OtherEventAffordance: Extend<T>,
+    {
+        self.ext_with(|| t)
+    }
+}
 
 impl<Other: ExtendableThing, DataSchema, OtherInteractionAffordance, OtherPropertyAffordance>
     PropertyAffordanceBuilder<
