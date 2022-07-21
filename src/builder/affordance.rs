@@ -19,7 +19,8 @@ use super::{
         impl_inner_delegate_schema_builder_like_object, ArrayDataSchemaBuilderLike,
         BuildableDataSchema, DataSchemaBuilder, EnumerableDataSchema, IntegerDataSchemaBuilderLike,
         NumberDataSchemaBuilderLike, ObjectDataSchemaBuilderLike, PartialDataSchema,
-        ReadableWriteableDataSchema, SpecializableDataSchema, UnionDataSchema,
+        PartialDataSchemaBuilder, ReadableWriteableDataSchema, SpecializableDataSchema,
+        UnionDataSchema,
     },
     human_readable_info::{
         impl_delegate_buildable_hr_info, BuildableHumanReadableInfo, HumanReadableInfo,
@@ -67,6 +68,21 @@ where
             forms: Default::default(),
             uri_variables: Default::default(),
             other: Default::default(),
+        }
+    }
+}
+
+impl<Other>
+    PartialInteractionAffordanceBuilder<Other, <Other::InteractionAffordance as Extendable>::Empty>
+where
+    Other: ExtendableThing,
+    Other::InteractionAffordance: Extendable,
+{
+    pub(crate) fn empty() -> Self {
+        Self {
+            forms: Default::default(),
+            uri_variables: Default::default(),
+            other: Other::InteractionAffordance::empty(),
         }
     }
 }
@@ -356,6 +372,34 @@ impl_delegate_buildable_hr_info!(
     ActionAffordanceBuilder<Other: ExtendableThing, I, O, OtherInteractionAffordance, OtherPropertyAffordance> on interaction,
     EventAffordanceBuilder<Other: ExtendableThing, SS, DS, CS, RS, OtherInteractionAffordance, OtherPropertyAffordance> on interaction,
 );
+
+impl<Other>
+    PropertyAffordanceBuilder<
+        Other,
+        PartialDataSchemaBuilder<
+            <Other::DataSchema as Extendable>::Empty,
+            Other::ArraySchema,
+            Other::ObjectSchema,
+        >,
+        <Other::InteractionAffordance as Extendable>::Empty,
+        <Other::PropertyAffordance as Extendable>::Empty,
+    >
+where
+    Other: ExtendableThing,
+    Other::DataSchema: Extendable,
+    Other::InteractionAffordance: Extendable,
+    Other::PropertyAffordance: Extendable,
+{
+    pub(crate) fn empty() -> Self {
+        Self {
+            interaction: PartialInteractionAffordanceBuilder::empty(),
+            info: Default::default(),
+            data_schema: PartialDataSchemaBuilder::<Other::DataSchema, _, _>::empty(),
+            observable: Default::default(),
+            other: Other::PropertyAffordance::empty(),
+        }
+    }
+}
 
 impl<Other: ExtendableThing, DS, OtherInteractionAffordance, OtherPropertyAffordance>
     PropertyAffordanceBuilder<Other, DS, OtherInteractionAffordance, OtherPropertyAffordance>

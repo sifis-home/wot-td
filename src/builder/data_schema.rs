@@ -1,8 +1,11 @@
 use std::ops::Not;
 
-use crate::thing::{
-    ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
-    StringSchema,
+use crate::{
+    extend::{Extend, Extendable},
+    thing::{
+        ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
+        StringSchema,
+    },
 };
 
 use super::{
@@ -22,6 +25,60 @@ pub struct PartialDataSchemaBuilder<DS, AS, OS> {
     write_only: bool,
     format: Option<String>,
     other: DS,
+}
+
+impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS> {
+    pub(crate) fn empty() -> PartialDataSchemaBuilder<<DS as Extendable>::Empty, AS, OS>
+    where
+        DS: Extendable,
+    {
+        PartialDataSchemaBuilder {
+            constant: Default::default(),
+            unit: Default::default(),
+            one_of: Default::default(),
+            enumeration: Default::default(),
+            read_only: Default::default(),
+            write_only: Default::default(),
+            format: Default::default(),
+            other: DS::empty(),
+        }
+    }
+
+    pub fn clear_ext_with<F, T>(self, f: F) -> PartialDataSchemaBuilder<DS::Target, AS, OS>
+    where
+        F: FnOnce() -> T,
+        DS: Extend<T>,
+    {
+        let Self {
+            constant,
+            unit,
+            one_of: _,
+            enumeration,
+            read_only,
+            write_only,
+            format,
+            other,
+        } = self;
+        let other = other.ext_with(f);
+        PartialDataSchemaBuilder {
+            constant,
+            unit,
+            one_of: Default::default(),
+            enumeration,
+            read_only,
+            write_only,
+            format,
+            other,
+        }
+    }
+
+    #[inline]
+    pub fn clear_ext<T>(self, t: T) -> PartialDataSchemaBuilder<DS::Target, AS, OS>
+    where
+        DS: Extend<T>,
+    {
+        self.clear_ext_with(|| t)
+    }
 }
 
 #[derive(Debug, Default, PartialEq)]

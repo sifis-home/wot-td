@@ -580,12 +580,12 @@ where
             PropertyAffordanceBuilder<
                 Other,
                 PartialDataSchemaBuilder<
-                    Other::DataSchema,
+                    <Other::DataSchema as Extendable>::Empty,
                     Other::ArraySchema,
                     Other::ObjectSchema,
                 >,
-                (),
-                (),
+                <Other::InteractionAffordance as Extendable>::Empty,
+                <Other::PropertyAffordance as Extendable>::Empty,
             >,
         ) -> T,
         T: Into<
@@ -596,14 +596,11 @@ where
                 Other::PropertyAffordance,
             >,
         >,
-        PropertyAffordanceBuilder<
-            Other,
-            PartialDataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
-            (),
-            (),
-        >: Default,
+        Other::DataSchema: Extendable,
+        Other::InteractionAffordance: Extendable,
+        Other::PropertyAffordance: Extendable,
     {
-        let affordance = f(PropertyAffordanceBuilder::default()).into();
+        let affordance = f(PropertyAffordanceBuilder::empty()).into();
         let affordance_builder = AffordanceBuilder {
             name: name.into(),
             affordance,
