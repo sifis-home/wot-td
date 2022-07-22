@@ -27,11 +27,14 @@ use self::{
     data_schema::{CheckableDataSchema, DataSchemaBuilder, PartialDataSchemaBuilder},
 };
 
+struct ToExtend;
+struct Extended;
+
 /// Builder for WoT Thing
 ///
 /// TODO: Write an example usage
 #[must_use]
-pub struct ThingBuilder<Other: ExtendableThing> {
+pub struct ThingBuilder<Other: ExtendableThing, Status> {
     context: Vec<Context>,
     id: Option<String>,
     attype: Option<Vec<String>>,
@@ -54,6 +57,7 @@ pub struct ThingBuilder<Other: ExtendableThing> {
     security_definitions: Vec<(String, SecurityScheme)>,
     profile: Vec<String>,
     other: Other,
+    _marker: PhantomData<Status>,
 }
 
 macro_rules! opt_field_builder {
@@ -137,9 +141,12 @@ impl fmt::Display for AffordanceType {
     }
 }
 
-impl<Other: ExtendableThing + Default> ThingBuilder<Other> {
-    /// Create a new default builder with a specified title
-    pub fn new(title: impl Into<String>) -> Self {
+impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
+    /// Create a new default builder with a specified title, using a default extension
+    pub fn new(title: impl Into<String>) -> Self
+    where
+        Other: Default,
+    {
         let title = title.into();
         let context = vec![Context::Simple(TD_CONTEXT_11.to_string())];
 
@@ -166,11 +173,102 @@ impl<Other: ExtendableThing + Default> ThingBuilder<Other> {
             uri_variables: Default::default(),
             profile: Default::default(),
             other: Default::default(),
+            _marker: PhantomData,
+        }
+    }
+
+    /// Create a new default builder with a specified title, using an empty extension
+    pub fn new_empty(title: impl Into<String>) -> ThingBuilder<Other::Empty, ToExtend>
+    where
+        Other: Extendable,
+        Other::Empty: ExtendableThing,
+    {
+        let title = title.into();
+        let context = vec![Context::Simple(TD_CONTEXT_11.to_string())];
+
+        ThingBuilder {
+            context,
+            id: Default::default(),
+            attype: Default::default(),
+            title,
+            titles: Default::default(),
+            description: Default::default(),
+            descriptions: Default::default(),
+            version: Default::default(),
+            created: Default::default(),
+            modified: Default::default(),
+            support: Default::default(),
+            base: Default::default(),
+            properties: Default::default(),
+            actions: Default::default(),
+            events: Default::default(),
+            links: Default::default(),
+            forms: Default::default(),
+            security: Default::default(),
+            security_definitions: Default::default(),
+            uri_variables: Default::default(),
+            profile: Default::default(),
+            other: Other::empty(),
+            _marker: PhantomData,
+        }
+    }
+
+    pub fn finish_extend(self) -> ThingBuilder<Other, Extended> {
+        let Self {
+            context,
+            id,
+            attype,
+            title,
+            titles,
+            description,
+            descriptions,
+            version,
+            created,
+            modified,
+            support,
+            base,
+            properties,
+            actions,
+            events,
+            links,
+            forms,
+            uri_variables,
+            security,
+            security_definitions,
+            profile,
+            other,
+            _marker: _,
+        } = self;
+
+        ThingBuilder {
+            context,
+            id,
+            attype,
+            title,
+            titles,
+            description,
+            descriptions,
+            version,
+            created,
+            modified,
+            support,
+            base,
+            properties,
+            actions,
+            events,
+            links,
+            forms,
+            uri_variables,
+            security,
+            security_definitions,
+            profile,
+            other,
+            _marker: PhantomData,
         }
     }
 }
 
-impl<Other: ExtendableThing> ThingBuilder<Other> {
+impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     /// Consume the builder to produce the configured Thing
     ///
     /// This step will perform the final validation of the builder state.
@@ -200,6 +298,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other> {
             uri_variables,
             profile,
             other,
+            _marker: _,
         } = self;
 
         let mut security_definitions = HashMap::with_capacity(security_definitions_vec.len());
@@ -527,9 +626,14 @@ impl<Other: ExtendableThing> ThingBuilder<Other> {
 
         self
     }
+
+    pub fn profile(mut self, value: impl Into<String>) -> Self {
+        self.profile.push(value.into());
+        self
+    }
 }
 
-impl<Other> ThingBuilder<Other>
+impl<Other> ThingBuilder<Other, Extended>
 where
     // TODO
     Other: ExtendableThing + Default,
@@ -554,7 +658,7 @@ where
     }
 }
 
-impl<Other> ThingBuilder<Other>
+impl<Other> ThingBuilder<Other, Extended>
 where
     // TODO
     Other: ExtendableThing + Default,
@@ -652,11 +756,6 @@ where
             affordance,
         };
         self.events.push(affordance_builder);
-        self
-    }
-
-    pub fn profile(mut self, value: impl Into<String>) -> Self {
-        self.profile.push(value.into());
         self
     }
 }
@@ -1463,7 +1562,7 @@ mod tests {
             $(
                 #[test]
                 pub fn $field() {
-                    let thing = ThingBuilder::<Nil>::new("MyLampThing").$field("test").build().unwrap();
+                    let thing = ThingBuilder::<Nil, _>::new("MyLampThing").finish_extend().$field("test").build().unwrap();
 
                     assert_eq!(
                         thing,
@@ -1481,7 +1580,10 @@ mod tests {
 
     #[test]
     fn default_context() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing").build().unwrap();
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .build()
+            .unwrap();
         assert_eq!(
             thing,
             Thing {
@@ -1494,7 +1596,7 @@ mod tests {
 
     #[test]
     fn redundant_default_context() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .context(TD_CONTEXT_11)
             .build()
             .unwrap();
@@ -1511,7 +1613,7 @@ mod tests {
 
     #[test]
     fn simple_contexts() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .context("test")
             .context("another_test")
             .build()
@@ -1533,7 +1635,7 @@ mod tests {
 
     #[test]
     fn map_contexts() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .context_map(|b| b.context("hello", "world").context("all", "fine"))
             .context("simple")
             .build()
@@ -1560,7 +1662,7 @@ mod tests {
 
     #[test]
     fn attype() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .attype("test")
             .build()
             .unwrap();
@@ -1575,7 +1677,7 @@ mod tests {
             }
         );
 
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .attype("test1")
             .attype("test2")
             .build()
@@ -1594,7 +1696,7 @@ mod tests {
 
     #[test]
     fn titles() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .titles(|ml| ml.add("en", "My lamp").add("it", "La mia lampada"))
             .build()
             .unwrap();
@@ -1617,7 +1719,7 @@ mod tests {
 
     #[test]
     fn descriptions() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .description("My Lamp")
             .descriptions(|ml| ml.add("en", "My lamp").add("it", "La mia lampada"))
             .build()
@@ -1643,7 +1745,7 @@ mod tests {
     #[test]
     fn created() {
         const DATETIME: OffsetDateTime = datetime!(2022-05-01 12:13:14.567 +01:00);
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .created(DATETIME)
             .build()
             .unwrap();
@@ -1662,7 +1764,7 @@ mod tests {
     #[test]
     fn modified() {
         const DATETIME: OffsetDateTime = datetime!(2022-05-01 12:13:14.567 +01:00);
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .modified(DATETIME)
             .build()
             .unwrap();
@@ -1680,7 +1782,7 @@ mod tests {
 
     #[test]
     fn link_simple() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .link("href1")
             .link("href2")
             .build()
@@ -1712,7 +1814,7 @@ mod tests {
 
     #[test]
     fn link_with() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .link_with(|link| link.href("href1").ty("ty").rel("rel").anchor("anchor"))
             .link_with(|link| link.href("href2"))
             .build()
@@ -1744,7 +1846,7 @@ mod tests {
 
     #[test]
     fn nosec_security() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| {
                 b.no_sec()
                     .attype("ty1")
@@ -1789,7 +1891,7 @@ mod tests {
 
     #[test]
     fn basic_security() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| {
                 b.basic()
                     .name("name")
@@ -1841,7 +1943,7 @@ mod tests {
 
     #[test]
     fn digest_security() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| {
                 b.digest()
                     .name("name")
@@ -1895,7 +1997,7 @@ mod tests {
 
     #[test]
     fn apikey_security() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| {
                 b.apikey()
                     .name("name")
@@ -1947,7 +2049,7 @@ mod tests {
 
     #[test]
     fn bearer_security() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| {
                 b.bearer()
                     .name("name")
@@ -2005,7 +2107,7 @@ mod tests {
 
     #[test]
     fn oauth2_security() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| {
                 b.oauth2("flow")
                     .authorization("authorization")
@@ -2063,7 +2165,7 @@ mod tests {
 
     #[test]
     fn custom_security() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| {
                 b.custom("mysec")
                     .data(json! ({
@@ -2118,7 +2220,7 @@ mod tests {
 
     #[test]
     fn named_security() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| b.no_sec().with_key("test_sec1").required())
             .security(|b| b.no_sec().with_key("test_sec2").required())
             .build()
@@ -2165,7 +2267,7 @@ mod tests {
 
     #[test]
     fn mixed_security() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| b.digest().with_key("sec1"))
             .security(|b| b.basic().with_key("sec2").required())
             .build()
@@ -2209,7 +2311,7 @@ mod tests {
             }
         );
 
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| b.digest())
             .security(|b| b.basic().required())
             .build()
@@ -2256,7 +2358,7 @@ mod tests {
 
     #[test]
     fn colliding_security_names() {
-        let err = ThingBuilder::<Nil>::new("MyLampThing")
+        let err = ThingBuilder::<Nil, _>::new("MyLampThing")
             .security(|b| b.basic())
             .security(|b| b.basic().required())
             .build()
@@ -2270,7 +2372,8 @@ mod tests {
 
     #[test]
     fn simple_form() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .form(|form| form.href("href").op(FormOperation::ReadAllProperties))
             .build()
             .unwrap();
@@ -2292,7 +2395,8 @@ mod tests {
 
     #[test]
     fn simple_form_with_uri_variables() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .form(|form| form.href("href/{foo}").op(FormOperation::ReadAllProperties))
             .uri_variable("foo", |v| v.integer())
             .build()
@@ -2325,7 +2429,8 @@ mod tests {
     }
     #[test]
     fn complete_form() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .form(|form| {
                 form.href("href")
                     .op(FormOperation::ReadAllProperties)
@@ -2399,7 +2504,8 @@ mod tests {
 
     #[test]
     fn form_with_multiple_ops() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .form(|form| {
                 form.href("href")
                     .op(FormOperation::ReadAllProperties)
@@ -2428,7 +2534,8 @@ mod tests {
 
     #[test]
     fn invalid_form_without_op() {
-        let err = ThingBuilder::<Nil>::new("MyLampThing")
+        let err = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .form(|form| form.href("href"))
             .build()
             .unwrap_err();
@@ -2438,7 +2545,8 @@ mod tests {
 
     #[test]
     fn invalid_form_with_invalid_op() {
-        let err = ThingBuilder::<Nil>::new("MyLampThing")
+        let err = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .form(|form| form.href("href").op(FormOperation::ReadProperty))
             .build()
             .unwrap_err();
@@ -2448,7 +2556,8 @@ mod tests {
 
     #[test]
     fn invalid_form_with_missing_security() {
-        let err = ThingBuilder::<Nil>::new("MyLampThing")
+        let err = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .form(|form| {
                 form.href("href")
                     .op(FormOperation::ReadAllProperties)
@@ -2462,7 +2571,8 @@ mod tests {
 
     #[test]
     fn with_property_affordance() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .property("on", |b| b.bool().observable(true).title("title"))
             .property("prop", |b| b.null())
             .build()
@@ -2552,7 +2662,8 @@ mod tests {
 
     #[test]
     fn with_action_affordance() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .action("fade", |b| b)
             .action("action", |b| {
                 b.title("title").idempotent().input(|b| b.null())
@@ -2635,7 +2746,8 @@ mod tests {
 
     #[test]
     fn with_event_affordance() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .event("overheat", |b| b)
             .event("event", |b| b.title("title").cancellation(|b| b.null()))
             .build()
@@ -2715,7 +2827,8 @@ mod tests {
 
     #[test]
     fn valid_affordance_security() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .property("on", |b| {
                 b.bool().form(|b| b.security("basic").href("href"))
             })
@@ -2772,7 +2885,8 @@ mod tests {
 
     #[test]
     fn invalid_affordance_security() {
-        let error = ThingBuilder::<Nil>::new("MyLampThing")
+        let error = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
             .property("on", |b| {
                 b.bool().form(|b| b.security("oauth2").href("href"))
             })
@@ -2785,7 +2899,7 @@ mod tests {
 
     #[test]
     fn profile() {
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .profile("profile")
             .build()
             .unwrap();
@@ -2800,7 +2914,7 @@ mod tests {
             }
         );
 
-        let thing = ThingBuilder::<Nil>::new("MyLampThing")
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .profile("profile1")
             .profile("profile2")
             .build()
@@ -2863,7 +2977,8 @@ mod tests {
         }
 
         let thing: Thing<Cons<ThingB, Cons<ThingA, Nil>>> =
-            ThingBuilder::<Cons<ThingB, Cons<ThingA, Nil>>>::new("MyLampThing")
+            ThingBuilder::<Cons<ThingB, Cons<ThingA, Nil>>, _>::new("MyLampThing")
+                .finish_extend()
                 .form(|form| {
                     form.ext_with(|| FormExtA {
                         a: String::from("test"),
