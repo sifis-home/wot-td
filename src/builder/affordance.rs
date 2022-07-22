@@ -760,9 +760,9 @@ impl<Other: ExtendableThing, DataSchema, OtherInteractionAffordance, OtherProper
 }
 
 macro_rules! impl_property_affordance_builder_delegator {
-    ($($name:ident $( ( $($arg:ident : $arg_ty:ty),+ ) )? $(where $($generic:ident : $bound:path),+)? => $ty:ty),+ $(,)?) => {
+    ($($name:ident $(< $($generic_def:ident),+ >)? $( ( $($arg:ident : $arg_ty:ty),+ ) )? $(where $($generic:ident : $bound:path),+)? => $ty:ty),+ $(,)?) => {
         $(
-            fn $name(self $(, $($arg: $arg_ty),+)?) -> $ty
+            fn $name $(<$($generic_def),+>)? (self $(, $($arg: $arg_ty),+)?) -> $ty
             $(
                 where
                     $($generic: $bound),+
@@ -846,10 +846,12 @@ where
 
     impl_property_affordance_builder_delegator!(
         array where AS: Default => Self::Array,
+        array_ext<F>(f: F) where F: FnOnce(AS::Empty) -> AS, AS: Extendable => Self::Array,
         bool => Self::Stateless,
         number => Self::Number,
         integer => Self::Integer,
         object where OS: Default => Self::Object,
+        object_ext<F>(f: F) where F: FnOnce(OS::Empty) -> OS, OS: Extendable => Self::Object,
         string => Self::String,
         null => Self::Stateless,
         constant(value: impl Into<Value>) => Self::Constant,

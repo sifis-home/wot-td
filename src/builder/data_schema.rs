@@ -132,12 +132,20 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS> {
     fn array(self) -> Self::Array
     where
         AS: Default;
+    fn array_ext<F>(self, f: F) -> Self::Array
+    where
+        F: FnOnce(AS::Empty) -> AS,
+        AS: Extendable;
     fn bool(self) -> Self::Stateless;
     fn number(self) -> Self::Number;
     fn integer(self) -> Self::Integer;
     fn object(self) -> Self::Object
     where
         OS: Default;
+    fn object_ext<F>(self, f: F) -> Self::Object
+    where
+        F: FnOnce(OS::Empty) -> OS,
+        OS: Extendable;
     fn string(self) -> Self::String;
     fn null(self) -> Self::Stateless;
     fn constant(self, value: impl Into<Value>) -> Self::Constant;
@@ -607,6 +615,22 @@ macro_rules! impl_specializable_data_schema {
                     }
                 }
 
+                fn array_ext<F>(self, f: F) -> Self::Array
+                where
+                    F: FnOnce(AS::Empty) -> AS,
+                    AS: Extendable,
+                {
+                    let other = f(AS::empty());
+
+                    ArrayDataSchemaBuilder {
+                        inner: self,
+                        items: Default::default(),
+                        min_items: Default::default(),
+                        max_items: Default::default(),
+                        other,
+                    }
+                }
+
                 fn bool(self) -> Self::Stateless {
                     StatelessDataSchemaBuilder {
                         inner: self,
@@ -640,6 +664,21 @@ macro_rules! impl_specializable_data_schema {
                         properties: Default::default(),
                         required: Default::default(),
                         other: Default::default(),
+                    }
+                }
+
+                fn object_ext<F>(self, f: F) -> Self::Object
+                where
+                    F: FnOnce(OS::Empty) -> OS,
+                    OS: Extendable,
+                {
+                    let other = f(OS::empty());
+
+                    ObjectDataSchemaBuilder {
+                        inner: self,
+                        properties: Default::default(),
+                        required: Default::default(),
+                        other,
                     }
                 }
 
