@@ -27,8 +27,11 @@ use self::{
     data_schema::{CheckableDataSchema, DataSchemaBuilder, PartialDataSchemaBuilder},
 };
 
-struct ToExtend;
-struct Extended;
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ToExtend;
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Extended;
 
 /// Builder for WoT Thing
 ///
@@ -660,21 +663,27 @@ where
 
 impl<Other> ThingBuilder<Other, Extended>
 where
-    // TODO
-    Other: ExtendableThing + Default,
-    Other::ExpectedResponse: Default,
+    Other: ExtendableThing,
 {
     pub fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
-            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>,
+            DataSchemaBuilder<
+                <Other::DataSchema as Extendable>::Empty,
+                Other::ArraySchema,
+                Other::ObjectSchema,
+                ToExtend,
+            >,
         ) -> T,
         T: Into<DataSchemaFromOther<Other>>,
-        DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema>: Default,
+        Other::DataSchema: Extendable,
     {
         self.uri_variables
             .get_or_insert_with(Default::default)
-            .insert(name.into(), f(DataSchemaBuilder::default()).into());
+            .insert(
+                name.into(),
+                f(DataSchemaBuilder::<Other::DataSchema, _, _, _>::empty()).into(),
+            );
         self
     }
 
@@ -687,6 +696,7 @@ where
                     <Other::DataSchema as Extendable>::Empty,
                     Other::ArraySchema,
                     Other::ObjectSchema,
+                    ToExtend,
                 >,
                 <Other::InteractionAffordance as Extendable>::Empty,
                 <Other::PropertyAffordance as Extendable>::Empty,
@@ -715,7 +725,17 @@ where
 
     pub fn action<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(ActionAffordanceBuilder<Other, (), (), (), ()>) -> T,
+        F: FnOnce(
+            ActionAffordanceBuilder<
+                Other,
+                (),
+                (),
+                <Other::InteractionAffordance as Extendable>::Empty,
+                <Other::ActionAffordance as Extendable>::Empty,
+            >,
+        ) -> T,
+        Other::InteractionAffordance: Extendable,
+        Other::ActionAffordance: Extendable,
         T: Into<
             ActionAffordanceBuilder<
                 Other,
@@ -726,7 +746,7 @@ where
             >,
         >,
     {
-        let affordance = f(ActionAffordanceBuilder::default()).into();
+        let affordance = f(ActionAffordanceBuilder::empty()).into();
         let affordance_builder = AffordanceBuilder {
             name: name.into(),
             affordance,
@@ -737,7 +757,19 @@ where
 
     pub fn event<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
-        F: FnOnce(EventAffordanceBuilder<Other, (), (), (), (), (), ()>) -> T,
+        F: FnOnce(
+            EventAffordanceBuilder<
+                Other,
+                (),
+                (),
+                (),
+                (),
+                <Other::InteractionAffordance as Extendable>::Empty,
+                <Other::EventAffordance as Extendable>::Empty,
+            >,
+        ) -> T,
+        Other::InteractionAffordance: Extendable,
+        Other::EventAffordance: Extendable,
         T: Into<
             EventAffordanceBuilder<
                 Other,
@@ -750,7 +782,7 @@ where
             >,
         >,
     {
-        let affordance = f(EventAffordanceBuilder::default()).into();
+        let affordance = f(EventAffordanceBuilder::empty()).into();
         let affordance_builder = AffordanceBuilder {
             name: name.into(),
             affordance,
@@ -2398,7 +2430,7 @@ mod tests {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .finish_extend()
             .form(|form| form.href("href/{foo}").op(FormOperation::ReadAllProperties))
-            .uri_variable("foo", |v| v.integer())
+            .uri_variable("foo", |v| v.finish_extend().integer())
             .build()
             .unwrap();
 
@@ -2666,7 +2698,9 @@ mod tests {
             .finish_extend()
             .action("fade", |b| b)
             .action("action", |b| {
-                b.title("title").idempotent().input(|b| b.null())
+                b.title("title")
+                    .idempotent()
+                    .input(|b| b.finish_extend().null())
             })
             .build()
             .unwrap();
@@ -2749,7 +2783,9 @@ mod tests {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .finish_extend()
             .event("overheat", |b| b)
-            .event("event", |b| b.title("title").cancellation(|b| b.null()))
+            .event("event", |b| {
+                b.title("title").cancellation(|b| b.finish_extend().null())
+            })
             .build()
             .unwrap();
 
