@@ -39,7 +39,6 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
         F: FnOnce(
             FormBuilder<Other, (), <Other::Form as Extendable>::Empty>,
         ) -> FormBuilder<Other, String, Other::Form>,
-        Other::ExpectedResponse: Default,
         Other::Form: Extendable;
 
     fn uri_variable<F, T>(self, name: impl Into<String>, f: F) -> Self
@@ -188,7 +187,6 @@ where
         F: FnOnce(
             FormBuilder<Other, (), <Other::Form as Extendable>::Empty>,
         ) -> FormBuilder<Other, String, Other::Form>,
-        Other::ExpectedResponse: Default,
     {
         self.forms.push(f(FormBuilder::new()));
         self
@@ -225,7 +223,6 @@ macro_rules! impl_buildable_interaction_affordance {
                 fn form<F>(mut self, f: F) -> Self
                 where
                     F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty>) -> FormBuilder<Other, String, Other::Form>,
-                    Other::ExpectedResponse: Default,
                     Other::Form: Extendable,
                 {
                     self.$($interaction_path).* = self.$($interaction_path).*.form(f);
@@ -1054,8 +1051,14 @@ where
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
         F: FnOnce(
-            DataSchemaBuilder<Other::DataSchema, Other::ArraySchema, Other::ObjectSchema, Extended>,
+            DataSchemaBuilder<
+                <DS as Extendable>::Empty,
+                Other::ArraySchema,
+                Other::ObjectSchema,
+                ToExtend,
+            >,
         ) -> T,
+        DS: Extendable,
         T: Into<DataSchemaFromOther<Other>>,
     {
         let Self {
@@ -2266,8 +2269,8 @@ mod test {
             (),
         >::default()
         .title("property")
-        .one_of(|b| b.number())
-        .one_of(|b| b.integer())
+        .one_of(|b| b.finish_extend().number())
+        .one_of(|b| b.finish_extend().integer())
         .observable(true)
         .form(|b| b.href("href"))
         .unit("cm")

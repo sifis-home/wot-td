@@ -266,7 +266,8 @@ pub trait UnionDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, Extended>
 
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
-        F: FnOnce(DataSchemaBuilder<DS, AS, OS, Extended>) -> T,
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
         T: Into<DataSchema<DS, AS, OS>>;
 }
 
@@ -902,17 +903,16 @@ macro_rules! impl_union_data_schema {
     ($($ty:ty $( : $($inner_path:ident).+ )? ),+ $(,)?) => {
         $(
             impl<DS, AS, OS> UnionDataSchema<DS, AS, OS> for $ty
-            where
-                DataSchemaBuilder<DS, AS, OS, Extended>: Default,
             {
                 type Target = OneOfDataSchemaBuilder<Self>;
 
                 fn one_of<F, T>(mut self, f: F) -> Self::Target
                 where
-                    F: FnOnce(DataSchemaBuilder<DS, AS, OS, Extended>) -> T,
+                    F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+                    DS: Extendable,
                     T: Into<DataSchema<DS, AS, OS>>,
                 {
-                    self $(. $($inner_path).+ )? .one_of.push(f(DataSchemaBuilder::default()).into());
+                    self $(. $($inner_path).+ )? .one_of.push(f(DataSchemaBuilder::<DS, _, _, _>::empty()).into());
                     OneOfDataSchemaBuilder { inner: self }
                 }
             }
@@ -930,7 +930,8 @@ where
 
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
-        F: FnOnce(DataSchemaBuilder<DS, AS, OS, Extended>) -> T,
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
         T: Into<DataSchema<DS, AS, OS>>,
     {
         let Self { inner } = self;
@@ -947,7 +948,8 @@ where
 
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
-        F: FnOnce(DataSchemaBuilder<DS, AS, OS, Extended>) -> T,
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
         T: Into<DataSchema<DS, AS, OS>>,
     {
         let Self { inner } = self;
@@ -958,34 +960,37 @@ where
 
 impl<DS, AS, OS> UnionDataSchema<DS, AS, OS>
     for OneOfDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>>
-where
-    DataSchemaBuilder<DS, AS, OS, Extended>: Default,
 {
     type Target = Self;
 
     fn one_of<F, T>(mut self, f: F) -> Self::Target
     where
-        F: FnOnce(DataSchemaBuilder<DS, AS, OS, Extended>) -> T,
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
         T: Into<DataSchema<DS, AS, OS>>,
     {
-        self.inner.one_of.push(f(Default::default()).into());
+        self.inner
+            .one_of
+            .push(f(DataSchemaBuilder::<DS, _, _, _>::empty()).into());
         self
     }
 }
 
 impl<DS, AS, OS> UnionDataSchema<DS, AS, OS>
     for OneOfDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>>
-where
-    DataSchemaBuilder<DS, AS, OS, Extended>: Default,
 {
     type Target = Self;
 
     fn one_of<F, T>(mut self, f: F) -> Self::Target
     where
-        F: FnOnce(DataSchemaBuilder<DS, AS, OS, Extended>) -> T,
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
         T: Into<DataSchema<DS, AS, OS>>,
     {
-        self.inner.partial.one_of.push(f(Default::default()).into());
+        self.inner
+            .partial
+            .one_of
+            .push(f(DataSchemaBuilder::<DS, _, _, _>::empty()).into());
         self
     }
 }
@@ -3141,9 +3146,9 @@ mod tests {
     #[test]
     fn one_of_simple() {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
-            .one_of(|b| b.number())
-            .one_of(|b| b.integer())
-            .one_of(|b| b.string())
+            .one_of(|b| b.finish_extend().number())
+            .one_of(|b| b.finish_extend().integer())
+            .one_of(|b| b.finish_extend().string())
             .into();
         assert_eq!(
             data_schema,
@@ -3232,8 +3237,8 @@ mod tests {
             .object()
             .property("hello", true, |b| {
                 b.finish_extend()
-                    .one_of(|b| b.string())
-                    .one_of(|b| b.integer())
+                    .one_of(|b| b.finish_extend().string())
+                    .one_of(|b| b.finish_extend().integer())
             })
             .into();
         assert_eq!(
@@ -3330,7 +3335,8 @@ mod tests {
     fn check_valid_data_schema() {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| {
@@ -3342,9 +3348,15 @@ mod tests {
                     })
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.).multiple_of(7.))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend()
+                    .number()
+                    .minimum(20.)
+                    .maximum(42.)
+                    .multiple_of(7.)
+            })
+            .one_of(|b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })
@@ -3357,15 +3369,16 @@ mod tests {
     fn check_invalid_data_schema() {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(5)
                     .max_items(2)
                     .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.))
+            .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })
@@ -3375,15 +3388,16 @@ mod tests {
 
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| b.finish_extend().number().minimum(5.).maximum(0.))
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.))
+            .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })
@@ -3393,15 +3407,16 @@ mod tests {
 
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
                     .append(|b| b.finish_extend().integer().minimum(10).maximum(5))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.))
+            .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })
@@ -3411,15 +3426,16 @@ mod tests {
 
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(42.).maximum(20.))
+            .one_of(|b| b.finish_extend().number().minimum(42.).maximum(20.))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })
@@ -3429,15 +3445,16 @@ mod tests {
 
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(f64::NAN))
+            .one_of(|b| b.finish_extend().number().minimum(20.).maximum(f64::NAN))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })
@@ -3447,15 +3464,16 @@ mod tests {
 
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(f64::NAN).maximum(42.))
+            .one_of(|b| b.finish_extend().number().minimum(f64::NAN).maximum(42.))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })
@@ -3465,15 +3483,16 @@ mod tests {
 
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.))
+            .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(20).maximum(10)
                 })
             })
@@ -3483,15 +3502,17 @@ mod tests {
 
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.))
+            .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object()
+                b.finish_extend()
+                    .object()
                     .property("a", false, |b| {
                         b.finish_extend().integer().minimum(10).maximum(20)
                     })
@@ -3505,37 +3526,42 @@ mod tests {
 
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.))
+            .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })
-            .one_of(|b| b.one_of(|b| b.number().minimum(20.).maximum(10.)))
+            .one_of(|b| {
+                b.finish_extend()
+                    .one_of(|b| b.finish_extend().number().minimum(20.).maximum(10.))
+            })
             .into();
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| {
                         b.finish_extend()
-                            .one_of(|b| b.number().minimum(5.).maximum(0.))
+                            .one_of(|b| b.finish_extend().number().minimum(5.).maximum(0.))
                     })
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.))
+            .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })
@@ -3565,7 +3591,8 @@ mod tests {
     fn check_valid_partial_data_schema() {
         let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
             .one_of(|b| {
-                b.array()
+                b.finish_extend()
+                    .array()
                     .min_items(2)
                     .max_items(5)
                     .append(|b| {
@@ -3577,9 +3604,15 @@ mod tests {
                     })
                     .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
-            .one_of(|b| b.number().minimum(20.).maximum(42.).multiple_of(3.))
             .one_of(|b| {
-                b.object().property("a", false, |b| {
+                b.finish_extend()
+                    .number()
+                    .minimum(20.)
+                    .maximum(42.)
+                    .multiple_of(3.)
+            })
+            .one_of(|b| {
+                b.finish_extend().object().property("a", false, |b| {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })

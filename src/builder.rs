@@ -638,9 +638,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
 
 impl<Other> ThingBuilder<Other, Extended>
 where
-    // TODO
-    Other: ExtendableThing + Default,
-    Other::ExpectedResponse: Default,
+    Other: ExtendableThing,
     Other::Form: Extendable,
 {
     /// Add a Thing-level form
