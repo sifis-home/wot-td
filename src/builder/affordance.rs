@@ -836,6 +836,42 @@ impl<
     }
 }
 
+impl<Other, DS, AS, OS, OtherInteractionAffordance, OtherPropertyAffordance>
+    PropertyAffordanceBuilder<
+        Other,
+        PartialDataSchemaBuilder<DS, AS, OS, ToExtend>,
+        OtherInteractionAffordance,
+        OtherPropertyAffordance,
+    >
+where
+    Other: ExtendableThing,
+{
+    pub fn finish_extend(
+        self,
+    ) -> PropertyAffordanceBuilder<
+        Other,
+        PartialDataSchemaBuilder<DS, AS, OS, Extended>,
+        OtherInteractionAffordance,
+        OtherPropertyAffordance,
+    > {
+        let Self {
+            interaction,
+            info,
+            data_schema,
+            observable,
+            other,
+        } = self;
+        let data_schema = data_schema.finish_extend();
+        PropertyAffordanceBuilder {
+            interaction,
+            info,
+            data_schema,
+            observable,
+            other,
+        }
+    }
+}
+
 impl<Other: ExtendableThing, DataSchema, OtherInteractionAffordance, OtherPropertyAffordance>
     PropertyAffordanceBuilder<
         Other,
@@ -898,9 +934,15 @@ where
         OtherInteractionAffordance,
         OtherPropertyAffordance,
     >;
-    type Array = PropertyAffordanceBuilder<
+    type ExtendableArray = PropertyAffordanceBuilder<
         Other,
-        DataSchema::Array,
+        DataSchema::ExtendableArray,
+        OtherInteractionAffordance,
+        OtherPropertyAffordance,
+    >;
+    type ExtendedArray = PropertyAffordanceBuilder<
+        Other,
+        DataSchema::ExtendedArray,
         OtherInteractionAffordance,
         OtherPropertyAffordance,
     >;
@@ -916,9 +958,15 @@ where
         OtherInteractionAffordance,
         OtherPropertyAffordance,
     >;
-    type Object = PropertyAffordanceBuilder<
+    type ExtendableObject = PropertyAffordanceBuilder<
         Other,
-        DataSchema::Object,
+        DataSchema::ExtendableObject,
+        OtherInteractionAffordance,
+        OtherPropertyAffordance,
+    >;
+    type ExtendedObject = PropertyAffordanceBuilder<
+        Other,
+        DataSchema::ExtendedObject,
         OtherInteractionAffordance,
         OtherPropertyAffordance,
     >;
@@ -936,13 +984,13 @@ where
     >;
 
     impl_property_affordance_builder_delegator!(
-        array where AS: Default => Self::Array,
-        array_ext<F>(f: F) where F: FnOnce(AS::Empty) -> AS, AS: Extendable => Self::Array,
+        array where AS: Default => Self::ExtendedArray,
+        array_ext<F>(f: F) where F: FnOnce(AS::Empty) -> AS, AS: Extendable => Self::ExtendableArray,
         bool => Self::Stateless,
         number => Self::Number,
         integer => Self::Integer,
-        object where OS: Default => Self::Object,
-        object_ext<F>(f: F) where F: FnOnce(OS::Empty) -> OS, OS: Extendable => Self::Object,
+        object where OS: Default => Self::ExtendedObject,
+        object_ext<F>(f: F) where F: FnOnce(OS::Empty) -> OS, OS: Extendable => Self::ExtendableObject,
         string => Self::String,
         null => Self::Stateless,
         constant(value: impl Into<Value>) => Self::Constant,

@@ -2605,8 +2605,10 @@ mod tests {
     fn with_property_affordance() {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .finish_extend()
-            .property("on", |b| b.bool().observable(true).title("title"))
-            .property("prop", |b| b.null())
+            .property("on", |b| {
+                b.finish_extend().bool().observable(true).title("title")
+            })
+            .property("prop", |b| b.finish_extend().null())
             .build()
             .unwrap();
 
@@ -2866,7 +2868,9 @@ mod tests {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .finish_extend()
             .property("on", |b| {
-                b.bool().form(|b| b.security("basic").href("href"))
+                b.finish_extend()
+                    .bool()
+                    .form(|b| b.security("basic").href("href"))
             })
             .security(|b| b.basic())
             .build()
@@ -2924,7 +2928,9 @@ mod tests {
         let error = ThingBuilder::<Nil, _>::new("MyLampThing")
             .finish_extend()
             .property("on", |b| {
-                b.bool().form(|b| b.security("oauth2").href("href"))
+                b.finish_extend()
+                    .bool()
+                    .form(|b| b.security("oauth2").href("href"))
             })
             .security(|b| b.basic())
             .build()

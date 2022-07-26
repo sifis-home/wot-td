@@ -222,27 +222,29 @@ pub trait BuildableDataSchema<DS, AS, OS, Status>: Sized {
 
 pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, Extended> {
     type Stateless: BuildableDataSchema<DS, AS, OS, Extended>;
-    type Array: BuildableDataSchema<DS, AS, OS, Extended>;
+    type ExtendableArray: BuildableDataSchema<DS, AS, OS, ToExtend>;
+    type ExtendedArray: BuildableDataSchema<DS, AS, OS, Extended>;
     type Number: BuildableDataSchema<DS, AS, OS, Extended>;
     type Integer: BuildableDataSchema<DS, AS, OS, Extended>;
-    type Object: BuildableDataSchema<DS, AS, OS, Extended>;
+    type ExtendableObject: BuildableDataSchema<DS, AS, OS, ToExtend>;
+    type ExtendedObject: BuildableDataSchema<DS, AS, OS, Extended>;
     type String: BuildableDataSchema<DS, AS, OS, Extended>;
     type Constant: BuildableDataSchema<DS, AS, OS, Extended>;
 
-    fn array(self) -> Self::Array
+    fn array(self) -> Self::ExtendedArray
     where
         AS: Default;
-    fn array_ext<F>(self, f: F) -> Self::Array
+    fn array_ext<F>(self, f: F) -> Self::ExtendableArray
     where
         F: FnOnce(AS::Empty) -> AS,
         AS: Extendable;
     fn bool(self) -> Self::Stateless;
     fn number(self) -> Self::Number;
     fn integer(self) -> Self::Integer;
-    fn object(self) -> Self::Object
+    fn object(self) -> Self::ExtendedObject
     where
         OS: Default;
-    fn object_ext<F>(self, f: F) -> Self::Object
+    fn object_ext<F>(self, f: F) -> Self::ExtendableObject
     where
         F: FnOnce(OS::Empty) -> OS,
         OS: Extendable;
@@ -278,12 +280,13 @@ pub trait ReadableWriteableDataSchema<DS, AS, OS, Extended>:
     fn write_only(self) -> Self::WriteOnly;
 }
 
-pub struct ArrayDataSchemaBuilder<Inner, DS, AS, OS> {
+pub struct ArrayDataSchemaBuilder<Inner, DS, AS, OS, Status> {
     inner: Inner,
     items: Vec<DataSchema<DS, AS, OS>>,
     min_items: Option<u32>,
     max_items: Option<u32>,
     other: AS,
+    _marker: PhantomData<Status>,
 }
 
 pub struct NumberDataSchemaBuilder<Inner> {
@@ -299,11 +302,12 @@ pub struct IntegerDataSchemaBuilder<Inner> {
     minimum: Option<usize>,
 }
 
-pub struct ObjectDataSchemaBuilder<Inner, DS, AS, OS> {
+pub struct ObjectDataSchemaBuilder<Inner, DS, AS, OS, Status> {
     inner: Inner,
     properties: Vec<(String, DataSchema<DS, AS, OS>)>,
     required: Vec<String>,
     other: OS,
+    _marker: PhantomData<Status>,
 }
 
 pub struct StringDataSchemaBuilder<Inner> {
@@ -350,7 +354,8 @@ pub trait ArrayDataSchemaBuilderLike<DS, AS, OS> {
 
     fn append<F, T>(self, f: F) -> Self
     where
-        F: FnOnce(DataSchemaBuilder<DS, AS, OS, Extended>) -> T,
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
         T: Into<DataSchema<DS, AS, OS>>;
 }
 
@@ -365,7 +370,8 @@ pub trait IntegerDataSchemaBuilderLike<DS, AS, OS> {
 pub trait ObjectDataSchemaBuilderLike<DS, AS, OS> {
     fn property<F, T>(self, name: impl Into<String>, required: bool, f: F) -> Self
     where
-        F: FnOnce(DataSchemaBuilder<DS, AS, OS, Extended>) -> T,
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
         T: Into<DataSchema<DS, AS, OS>>;
 }
 
@@ -385,20 +391,20 @@ macro_rules! opt_field_builder {
 }
 
 impl<Inner, DS, AS, OS> ArrayDataSchemaBuilderLike<DS, AS, OS>
-    for ArrayDataSchemaBuilder<Inner, DS, AS, OS>
+    for ArrayDataSchemaBuilder<Inner, DS, AS, OS, Extended>
 where
-    PartialDataSchemaBuilder<DS, AS, OS, Extended>: Default,
     Inner: BuildableDataSchema<DS, AS, OS, Extended>,
-    DataSchemaBuilder<DS, AS, OS, Extended>: Default,
 {
     opt_field_builder!(min_items: u32, max_items: u32);
 
     fn append<F, T>(mut self, f: F) -> Self
     where
-        F: FnOnce(DataSchemaBuilder<DS, AS, OS, Extended>) -> T,
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
         T: Into<DataSchema<DS, AS, OS>>,
     {
-        self.items.push(f(DataSchemaBuilder::default()).into());
+        self.items
+            .push(f(DataSchemaBuilder::<DS, _, _, _>::empty()).into());
         self
     }
 }
@@ -416,18 +422,17 @@ impl<Inner: BuildableDataSchema<DS, AS, OS, Extended>, DS, AS, OS>
 }
 
 impl<Inner, DS, AS, OS> ObjectDataSchemaBuilderLike<DS, AS, OS>
-    for ObjectDataSchemaBuilder<Inner, DS, AS, OS>
+    for ObjectDataSchemaBuilder<Inner, DS, AS, OS, Extended>
 where
-    PartialDataSchemaBuilder<DS, AS, OS, Extended>: Default,
     Inner: BuildableDataSchema<DS, AS, OS, Extended>,
-    DataSchemaBuilder<DS, AS, OS, Extended>: Default,
 {
     fn property<F, T>(mut self, name: impl Into<String>, required: bool, f: F) -> Self
     where
-        F: FnOnce(DataSchemaBuilder<DS, AS, OS, Extended>) -> T,
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
         T: Into<DataSchema<DS, AS, OS>>,
     {
-        let data_schema = f(DataSchemaBuilder::default()).into();
+        let data_schema = f(DataSchemaBuilder::<DS, _, _, _>::empty()).into();
         let name = name.into();
 
         if required {
@@ -462,7 +467,15 @@ macro_rules! impl_inner_delegate_schema_builder_like_array {
         #[inline]
         fn append<F, T>(mut self, f: F) -> Self
         where
-            F: FnOnce(crate::builder::data_schema::DataSchemaBuilder<DS, AS, OS, crate::builder::Extended>) -> T,
+            F: FnOnce(
+                crate::builder::data_schema::DataSchemaBuilder<
+                    <DS as Extendable>::Empty,
+                    AS,
+                    OS,
+                    crate::builder::ToExtend,
+                >,
+            ) -> T,
+            DS: Extendable,
             T: Into<crate::thing::DataSchema<DS, AS, OS>>,
         {
             self.$inner = self.$inner.append(f);
@@ -514,7 +527,15 @@ macro_rules! impl_inner_delegate_schema_builder_like_object {
         #[inline]
         fn property<F, T>(mut self, name: impl Into<String>, required: bool, f: F) -> Self
         where
-            F: FnOnce(crate::builder::data_schema::DataSchemaBuilder<DS, AS, OS, crate::builder::Extended>) -> T,
+            F: FnOnce(
+                crate::builder::data_schema::DataSchemaBuilder<
+                    <DS as Extendable>::Empty,
+                    AS,
+                    OS,
+                    crate::builder::ToExtend,
+                >,
+            ) -> T,
+            DS: Extendable,
             T: Into<crate::thing::DataSchema<DS, AS, OS>>,
         {
             self.$inner = self.$inner.property(name, required, f);
@@ -524,26 +545,6 @@ macro_rules! impl_inner_delegate_schema_builder_like_object {
 }
 
 macro_rules! impl_delegate_schema_builder_like {
-    // ($( $ty:ident <$( $generic:ident ),+ ,DS, AS, OS> on $inner:ident ),+ $(,)?) => {
-    //     $(
-    //         impl<DS, AS, OS, $($generic: crate::builder::data_schema::ArrayDataSchemaBuilderLike<DS, AS, OS>),+ > crate::builder::data_schema::ArrayDataSchemaBuilderLike<DS, AS, OS> for $ty< Other, $($generic),+ > {
-    //             crate::builder::data_schema::impl_inner_delegate_schema_builder_like_array!($inner);
-    //         }
-
-    //         impl<DS, AS, OS, $($generic: crate::builder::data_schema::NumberDataSchemaBuilderLike<DS, AS, OS>),+ > crate::builder::data_schema::NumberDataSchemaBuilderLike<DS, AS, OS> for $ty< Other, $($generic),+ > {
-    //             crate::builder::data_schema::impl_inner_delegate_schema_builder_like_number!($inner);
-    //         }
-
-    //         impl<DS, AS, OS, $($generic: crate::builder::data_schema::IntegerDataSchemaBuilderLike<DS, AS, OS>),+ > crate::builder::data_schema::IntegerDataSchemaBuilderLike<DS, AS, OS> for $ty< Other, $($generic),+ > {
-    //             crate::builder::data_schema::impl_inner_delegate_schema_builder_like_integer!($inner);
-    //         }
-
-    //         impl<DS, AS, OS, $($generic: crate::builder::data_schema::ObjectDataSchemaBuilderLike<DS, AS, OS>),+ > crate::builder::data_schema::ObjectDataSchemaBuilderLike<DS, AS, OS> for $ty< Other, $($generic),+ > {
-    //             crate::builder::data_schema::impl_inner_delegate_schema_builder_like_object!($inner);
-    //         }
-    //     )+
-    // };
-
     ($( $ty:ident <$( $generic:ident ),+> on $inner:ident ),+ $(,)?) => {
         $(
             impl<DS, AS, OS, $($generic: crate::builder::data_schema::ArrayDataSchemaBuilderLike<DS, AS, OS>),+ > crate::builder::data_schema::ArrayDataSchemaBuilderLike<DS, AS, OS> for $ty< $($generic),+ > {
@@ -582,8 +583,8 @@ macro_rules! buildable_data_schema_delegate {
 macro_rules! impl_delegate_buildable_data_schema {
     () => {};
 
-    ($kind:ident <DS, AS, OS $(, $($ty:ident),+)?> : $inner:ident $(, $($rest:tt)*)?) => {
-        impl <DS, AS, OS $(, $($ty),+)? > crate::builder::data_schema::BuildableDataSchema<DS, AS, OS, crate::builder::Extended> for $kind <$($($ty),+ ,)? DS, AS, OS>
+    ($kind:ident <DS, AS, OS, Status $(, $($ty:ident),+)?> : $inner:ident $(, $($rest:tt)*)?) => {
+        impl <DS, AS, OS, Status $(, $($ty),+)? > crate::builder::data_schema::BuildableDataSchema<DS, AS, OS, Status> for $kind <$($($ty),+ ,)? DS, AS, OS, Status>
         $(
             where
                 $($ty: crate::builder::data_schema::BuildableDataSchema<DS, AS, OS, crate::builder::Extended>),+
@@ -634,10 +635,10 @@ macro_rules! impl_delegate_buildable_data_schema {
 }
 
 impl_delegate_buildable_data_schema!(
-    ArrayDataSchemaBuilder<DS, AS, OS, Inner>,
+    ArrayDataSchemaBuilder<DS, AS, OS, Status, Inner>,
     NumberDataSchemaBuilder<Inner>,
     IntegerDataSchemaBuilder<Inner>,
-    ObjectDataSchemaBuilder<DS, AS, OS, Inner>,
+    ObjectDataSchemaBuilder<DS, AS, OS, Status, Inner>,
     StringDataSchemaBuilder<Inner>,
     StatelessDataSchemaBuilder<Inner>,
     ReadOnly<Inner>,
@@ -686,10 +687,10 @@ impl<DS, AS, OS, Status> BuildableDataSchema<DS, AS, OS, Status>
 }
 
 impl_delegate_buildable_hr_info!(
-    ArrayDataSchemaBuilder<Inner: BuildableHumanReadableInfo, DS, AS, OS> on inner,
+    ArrayDataSchemaBuilder<Inner: BuildableHumanReadableInfo, DS, AS, OS, Status> on inner,
     NumberDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     IntegerDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
-    ObjectDataSchemaBuilder<Inner: BuildableHumanReadableInfo, DS, AS, OS> on inner,
+    ObjectDataSchemaBuilder<Inner: BuildableHumanReadableInfo, DS, AS, OS, Status> on inner,
     StringDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     EnumDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     OneOfDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
@@ -703,14 +704,16 @@ macro_rules! impl_specializable_data_schema {
         $(
             impl<DS, AS, OS> SpecializableDataSchema<DS, AS, OS> for $ty {
                 type Stateless = StatelessDataSchemaBuilder<Self>;
-                type Array = ArrayDataSchemaBuilder<Self, DS, AS, OS>;
+                type ExtendableArray = ArrayDataSchemaBuilder<Self, DS, AS, OS, ToExtend>;
+                type ExtendedArray = ArrayDataSchemaBuilder<Self, DS, AS, OS, Extended>;
                 type Number = NumberDataSchemaBuilder<Self>;
                 type Integer = IntegerDataSchemaBuilder<Self>;
-                type Object = ObjectDataSchemaBuilder<Self, DS, AS, OS>;
+                type ExtendableObject = ObjectDataSchemaBuilder<Self, DS, AS, OS, ToExtend>;
+                type ExtendedObject = ObjectDataSchemaBuilder<Self, DS, AS, OS, Extended>;
                 type String = StringDataSchemaBuilder<Self>;
                 type Constant = ReadOnly<StatelessDataSchemaBuilder<Self>>;
 
-                fn array(self) -> Self::Array
+                fn array(self) -> Self::ExtendedArray
                 where
                     AS: Default
                 {
@@ -720,10 +723,11 @@ macro_rules! impl_specializable_data_schema {
                         min_items: Default::default(),
                         max_items: Default::default(),
                         other: Default::default(),
+                        _marker: PhantomData,
                     }
                 }
 
-                fn array_ext<F>(self, f: F) -> Self::Array
+                fn array_ext<F>(self, f: F) -> Self::ExtendableArray
                 where
                     F: FnOnce(AS::Empty) -> AS,
                     AS: Extendable,
@@ -736,6 +740,7 @@ macro_rules! impl_specializable_data_schema {
                         min_items: Default::default(),
                         max_items: Default::default(),
                         other,
+                        _marker: PhantomData,
                     }
                 }
 
@@ -763,7 +768,7 @@ macro_rules! impl_specializable_data_schema {
                     }
                 }
 
-                fn object(self) -> Self::Object
+                fn object(self) -> Self::ExtendedObject
                 where
                     OS: Default
                 {
@@ -772,10 +777,11 @@ macro_rules! impl_specializable_data_schema {
                         properties: Default::default(),
                         required: Default::default(),
                         other: Default::default(),
+                        _marker: PhantomData,
                     }
                 }
 
-                fn object_ext<F>(self, f: F) -> Self::Object
+                fn object_ext<F>(self, f: F) -> Self::ExtendableObject
                 where
                     F: FnOnce(OS::Empty) -> OS,
                     OS: Extendable,
@@ -787,6 +793,7 @@ macro_rules! impl_specializable_data_schema {
                         properties: Default::default(),
                         required: Default::default(),
                         other,
+                        _marker: PhantomData,
                     }
                 }
 
@@ -1014,14 +1021,14 @@ macro_rules! impl_rw_data_schema {
 impl_rw_data_schema!(
     StatelessDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>>; inner.partial,
     StatelessDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>>; inner,
-    ArrayDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS>; inner.partial,
-    ArrayDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS>; inner,
+    ArrayDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS, Extended>; inner.partial,
+    ArrayDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS, Extended>; inner,
     NumberDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>>; inner.partial,
     NumberDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>>; inner,
     IntegerDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>>; inner.partial,
     IntegerDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>>; inner,
-    ObjectDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS>; inner.partial,
-    ObjectDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS>; inner,
+    ObjectDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS, Extended>; inner.partial,
+    ObjectDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS, Extended>; inner,
     StringDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>>; inner.partial,
     StringDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>>; inner,
     EnumDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>>; inner.partial,
@@ -1167,17 +1174,18 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS, Extended>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
-    fn from(builder: ArrayDataSchemaBuilder<T, DS, AS, OS>) -> Self {
+    fn from(builder: ArrayDataSchemaBuilder<T, DS, AS, OS, Extended>) -> Self {
         let ArrayDataSchemaBuilder {
             inner,
             items,
             min_items,
             max_items,
             other: other_array_schema,
+            _marker: _,
         } = builder;
         let DataSchemaBuilder {
             partial:
@@ -1229,17 +1237,19 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for PartialDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS, Extended>>
+    for PartialDataSchema<DS, AS, OS>
 where
     T: Into<PartialDataSchemaBuilder<DS, AS, OS, Extended>>,
 {
-    fn from(builder: ArrayDataSchemaBuilder<T, DS, AS, OS>) -> Self {
+    fn from(builder: ArrayDataSchemaBuilder<T, DS, AS, OS, Extended>) -> Self {
         let ArrayDataSchemaBuilder {
             inner,
             items,
             min_items,
             max_items,
             other: other_array_schema,
+            _marker: _,
         } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
@@ -1475,16 +1485,18 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS, Extended>>
+    for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
-    fn from(builder: ObjectDataSchemaBuilder<T, DS, AS, OS>) -> Self {
+    fn from(builder: ObjectDataSchemaBuilder<T, DS, AS, OS, Extended>) -> Self {
         let ObjectDataSchemaBuilder {
             inner,
             properties,
             required,
             other: other_object_schema,
+            _marker: _,
         } = builder;
         let DataSchemaBuilder {
             partial:
@@ -1539,16 +1551,18 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS>> for PartialDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS, Extended>>
+    for PartialDataSchema<DS, AS, OS>
 where
     T: Into<PartialDataSchemaBuilder<DS, AS, OS, Extended>>,
 {
-    fn from(builder: ObjectDataSchemaBuilder<T, DS, AS, OS>) -> Self {
+    fn from(builder: ObjectDataSchemaBuilder<T, DS, AS, OS, Extended>) -> Self {
         let ObjectDataSchemaBuilder {
             inner,
             properties,
             required,
             other: other_object_schema,
+            _marker: _,
         } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
@@ -2745,8 +2759,8 @@ mod tests {
             .array()
             .min_items(0)
             .max_items(5)
-            .append(|b| b.constant("hello"))
-            .append(|b| b.bool())
+            .append(|b| b.finish_extend().constant("hello"))
+            .append(|b| b.finish_extend().bool())
             .into();
         assert_eq!(
             data_schema,
@@ -2816,8 +2830,8 @@ mod tests {
             .array()
             .min_items(0)
             .max_items(5)
-            .append(|b| b.constant("hello"))
-            .append(|b| b.bool())
+            .append(|b| b.finish_extend().constant("hello"))
+            .append(|b| b.finish_extend().bool())
             .into();
         assert_eq!(
             data_schema,
@@ -2877,8 +2891,8 @@ mod tests {
     fn object_with_content() {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .object()
-            .property("hello", false, |b| b.bool())
-            .property("world", true, |b| b.title("title").number())
+            .property("hello", false, |b| b.finish_extend().bool())
+            .property("world", true, |b| b.title("title").finish_extend().number())
             .into();
         assert_eq!(
             data_schema,
@@ -2960,8 +2974,8 @@ mod tests {
     fn object_partial_with_content() {
         let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
             .object()
-            .property("hello", false, |b| b.bool())
-            .property("world", true, |b| b.title("title").number())
+            .property("hello", false, |b| b.finish_extend().bool())
+            .property("world", true, |b| b.finish_extend().title("title").number())
             .into();
         assert_eq!(
             data_schema,
@@ -3217,7 +3231,9 @@ mod tests {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .object()
             .property("hello", true, |b| {
-                b.one_of(|b| b.string()).one_of(|b| b.integer())
+                b.finish_extend()
+                    .one_of(|b| b.string())
+                    .one_of(|b| b.integer())
             })
             .into();
         assert_eq!(
@@ -3317,13 +3333,20 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.).multiple_of(2.))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| {
+                        b.finish_extend()
+                            .number()
+                            .minimum(0.)
+                            .maximum(5.)
+                            .multiple_of(2.)
+                    })
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(20.).maximum(42.).multiple_of(7.))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(10).maximum(20)
+                })
             })
             .into();
 
@@ -3337,13 +3360,14 @@ mod tests {
                 b.array()
                     .min_items(5)
                     .max_items(2)
-                    .append(|b| b.number().minimum(0.).maximum(5.))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(10).maximum(20)
+                })
             })
             .into();
 
@@ -3354,13 +3378,14 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(5.).maximum(0.))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| b.finish_extend().number().minimum(5.).maximum(0.))
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(10).maximum(20)
+                })
             })
             .into();
 
@@ -3371,13 +3396,14 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.))
-                    .append(|b| b.integer().minimum(10).maximum(5))
+                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                    .append(|b| b.finish_extend().integer().minimum(10).maximum(5))
             })
             .one_of(|b| b.number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(10).maximum(20)
+                })
             })
             .into();
 
@@ -3388,13 +3414,14 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(42.).maximum(20.))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(10).maximum(20)
+                })
             })
             .into();
 
@@ -3405,13 +3432,14 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(20.).maximum(f64::NAN))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(10).maximum(20)
+                })
             })
             .into();
 
@@ -3422,13 +3450,14 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(f64::NAN).maximum(42.))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(10).maximum(20)
+                })
             })
             .into();
 
@@ -3439,13 +3468,14 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(20).maximum(10))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(20).maximum(10)
+                })
             })
             .into();
 
@@ -3456,14 +3486,18 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(20.).maximum(42.))
             .one_of(|b| {
                 b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
-                    .property("b", false, |b| b.integer().minimum(20).maximum(10))
+                    .property("a", false, |b| {
+                        b.finish_extend().integer().minimum(10).maximum(20)
+                    })
+                    .property("b", false, |b| {
+                        b.finish_extend().integer().minimum(20).maximum(10)
+                    })
             })
             .into();
 
@@ -3474,13 +3508,14 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(10).maximum(20)
+                })
             })
             .one_of(|b| b.one_of(|b| b.number().minimum(20.).maximum(10.)))
             .into();
@@ -3492,13 +3527,17 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.one_of(|b| b.number().minimum(5.).maximum(0.)))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| {
+                        b.finish_extend()
+                            .one_of(|b| b.number().minimum(5.).maximum(0.))
+                    })
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(20.).maximum(42.))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(10).maximum(20)
+                })
             })
             .into();
 
@@ -3509,14 +3548,14 @@ mod tests {
     fn check_invalid_data_schema_multiple_of() {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .array()
-            .append(|b| b.number().multiple_of(0.))
+            .append(|b| b.finish_extend().number().multiple_of(0.))
             .into();
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMultipleOf);
 
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .array()
-            .append(|b| b.number().multiple_of(-2.))
+            .append(|b| b.finish_extend().number().multiple_of(-2.))
             .into();
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMultipleOf);
@@ -3529,13 +3568,20 @@ mod tests {
                 b.array()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.number().minimum(0.).maximum(5.).multiple_of(2.))
-                    .append(|b| b.integer().minimum(5).maximum(10))
+                    .append(|b| {
+                        b.finish_extend()
+                            .number()
+                            .minimum(0.)
+                            .maximum(5.)
+                            .multiple_of(2.)
+                    })
+                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.number().minimum(20.).maximum(42.).multiple_of(3.))
             .one_of(|b| {
-                b.object()
-                    .property("a", false, |b| b.integer().minimum(10).maximum(20))
+                b.object().property("a", false, |b| {
+                    b.finish_extend().integer().minimum(10).maximum(20)
+                })
             })
             .into();
 
