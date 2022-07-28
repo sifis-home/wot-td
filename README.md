@@ -1,4 +1,4 @@
-# wot-td
+# [![logo](https://github.com/sifis-home/wot/raw/master/assets/wot-rust-icon.svg)](https://docs.rs/wot-td) wot-td
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Build Status](https://github.com/sifis-home/wot-td/workflows/wot-td/badge.svg)](https://github.com/sifis-home/wot-td/actions)
