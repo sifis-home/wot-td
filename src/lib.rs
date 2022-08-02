@@ -12,4 +12,5 @@
 pub mod builder;
 pub mod extend;
 pub mod hlist;
+pub mod protocol;
 pub mod thing;
