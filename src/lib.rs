@@ -76,6 +76,7 @@
 pub mod builder;
 pub mod extend;
 pub mod hlist;
+pub mod protocol;
 pub mod thing;
 
 pub use crate::thing::Thing;
