@@ -7,17 +7,28 @@
 //!
 //! [Interaction Affordance]: https://www.w3.org/TR/wot-thing-description/#interactionaffordance
 
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, fmt};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use serde_with::{serde_as, skip_serializing_none, DeserializeAs, OneOrMany, Same};
 use time::OffsetDateTime;
 
-use crate::builder::ThingBuilder;
+use crate::{
+    builder::{ThingBuilder, ToExtend},
+    extend::ExtendableThing,
+    hlist::Nil,
+};
 
 pub(crate) type MultiLanguage = HashMap<String, String>;
-pub(crate) type DataSchemaMap = HashMap<String, DataSchema>;
+pub(crate) type DataSchemaMap<Other> = HashMap<
+    String,
+    DataSchema<
+        <Other as ExtendableThing>::DataSchema,
+        <Other as ExtendableThing>::ArraySchema,
+        <Other as ExtendableThing>::ObjectSchema,
+    >,
+>;
 
 pub const TD_CONTEXT_10: &str = "https://www.w3.org/2019/wot/td/v1";
 pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
@@ -27,14 +38,14 @@ pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
 /// It contains metadata and a description of its interfaces.
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Thing {
+pub struct Thing<Other: ExtendableThing = Nil> {
     // The context can be arbitrarily complex
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
     /// A [JSON-LD @context](https://www.w3.org/TR/json-ld11/#the-context)
-    #[serde(rename = "@context", default = "Thing::default_context")]
+    #[serde(rename = "@context", default = "default_context")]
     pub context: Value,
 
     /// A unique identifier
@@ -85,13 +96,13 @@ pub struct Thing {
     pub base: Option<String>,
 
     /// Property-based [Interaction Affordances]
-    pub properties: Option<HashMap<String, PropertyAffordance>>,
+    pub properties: Option<HashMap<String, PropertyAffordance<Other>>>,
 
     /// Action-based [Interaction Affordances]
-    pub actions: Option<HashMap<String, ActionAffordance>>,
+    pub actions: Option<HashMap<String, ActionAffordance<Other>>>,
 
     /// Event-based [Interaction Affordances]
-    pub events: Option<HashMap<String, EventAffordance>>,
+    pub events: Option<HashMap<String, EventAffordance<Other>>>,
 
     /// Arbitrary resources that relate to the current Thing
     ///
@@ -99,7 +110,7 @@ pub struct Thing {
     pub links: Option<Vec<Link>>,
 
     /// Bulk-operations over the Thing properties
-    pub forms: Option<Vec<Form>>,
+    pub forms: Option<Vec<Form<Other>>>,
 
     /// Thing-wide Security constraints
     ///
@@ -115,30 +126,137 @@ pub struct Thing {
     /// resources.
     pub security_definitions: HashMap<String, SecurityScheme>,
 
-    pub uri_variables: Option<DataSchemaMap>,
+    pub uri_variables: Option<DataSchemaMap<Other>>,
 
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub profile: Option<Vec<String>>,
+
+    #[serde(flatten)]
+    pub other: Other,
 }
 
-impl Thing {
+impl<Other> fmt::Debug for Thing<Other>
+where
+    Other: ExtendableThing + fmt::Debug,
+    PropertyAffordance<Other>: fmt::Debug,
+    ActionAffordance<Other>: fmt::Debug,
+    EventAffordance<Other>: fmt::Debug,
+    Form<Other>: fmt::Debug,
+    DataSchemaFromOther<Other>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Thing")
+            .field("context", &self.context)
+            .field("id", &self.id)
+            .field("attype", &self.attype)
+            .field("title", &self.title)
+            .field("titles", &self.titles)
+            .field("description", &self.description)
+            .field("descriptions", &self.descriptions)
+            .field("version", &self.version)
+            .field("created", &self.created)
+            .field("modified", &self.modified)
+            .field("support", &self.support)
+            .field("base", &self.base)
+            .field("properties", &self.properties)
+            .field("actions", &self.actions)
+            .field("events", &self.events)
+            .field("links", &self.links)
+            .field("forms", &self.forms)
+            .field("security", &self.security)
+            .field("security_definitions", &self.security_definitions)
+            .field("uri_variables", &self.uri_variables)
+            .field("profile", &self.profile)
+            .field("other", &self.other)
+            .finish()
+    }
+}
+
+impl<Other> Default for Thing<Other>
+where
+    Other: ExtendableThing + Default,
+{
+    fn default() -> Self {
+        Self {
+            context: Default::default(),
+            id: Default::default(),
+            attype: Default::default(),
+            title: Default::default(),
+            titles: Default::default(),
+            description: Default::default(),
+            descriptions: Default::default(),
+            version: Default::default(),
+            created: Default::default(),
+            modified: Default::default(),
+            support: Default::default(),
+            base: Default::default(),
+            properties: Default::default(),
+            actions: Default::default(),
+            events: Default::default(),
+            links: Default::default(),
+            forms: Default::default(),
+            security: Default::default(),
+            security_definitions: Default::default(),
+            uri_variables: Default::default(),
+            profile: Default::default(),
+            other: Default::default(),
+        }
+    }
+}
+
+impl<Other> PartialEq for Thing<Other>
+where
+    Other: ExtendableThing + PartialEq,
+    Form<Other>: PartialEq,
+    PropertyAffordance<Other>: PartialEq,
+    ActionAffordance<Other>: PartialEq,
+    EventAffordance<Other>: PartialEq,
+    DataSchemaFromOther<Other>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.context == other.context
+            && self.id == other.id
+            && self.attype == other.attype
+            && self.title == other.title
+            && self.titles == other.titles
+            && self.description == other.description
+            && self.descriptions == other.descriptions
+            && self.version == other.version
+            && self.created == other.created
+            && self.modified == other.modified
+            && self.support == other.support
+            && self.base == other.base
+            && self.properties == other.properties
+            && self.actions == other.actions
+            && self.events == other.events
+            && self.links == other.links
+            && self.forms == other.forms
+            && self.security == other.security
+            && self.security_definitions == other.security_definitions
+            && self.uri_variables == other.uri_variables
+            && self.profile == other.profile
+            && self.other == other.other
+    }
+}
+
+fn default_context() -> Value {
+    TD_CONTEXT_11.into()
+}
+
+impl Thing<Nil> {
     /// Shorthand for [ThingBuilder::new].
     #[inline]
-    pub fn build(title: impl Into<String>) -> ThingBuilder {
+    pub fn build(title: impl Into<String>) -> ThingBuilder<Nil, ToExtend> {
         ThingBuilder::new(title)
-    }
-
-    fn default_context() -> Value {
-        TD_CONTEXT_11.into()
     }
 }
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InteractionAffordance {
+pub struct InteractionAffordance<Other: ExtendableThing> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -151,32 +269,148 @@ pub struct InteractionAffordance {
 
     pub descriptions: Option<MultiLanguage>,
 
-    pub forms: Vec<Form>,
+    pub forms: Vec<Form<Other>>,
 
-    pub uri_variables: Option<DataSchemaMap>,
+    pub uri_variables: Option<DataSchemaMap<Other>>,
+
+    #[serde(flatten)]
+    pub other: Other::InteractionAffordance,
+}
+
+impl<Other> fmt::Debug for InteractionAffordance<Other>
+where
+    Other: ExtendableThing,
+    Form<Other>: fmt::Debug,
+    DataSchemaFromOther<Other>: fmt::Debug,
+    Other::InteractionAffordance: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("InteractionAffordance")
+            .field("attype", &self.attype)
+            .field("title", &self.title)
+            .field("titles", &self.titles)
+            .field("description", &self.description)
+            .field("descriptions", &self.descriptions)
+            .field("forms", &self.forms)
+            .field("uri_variables", &self.uri_variables)
+            .field("other", &self.other)
+            .finish()
+    }
+}
+
+impl<Other> Default for InteractionAffordance<Other>
+where
+    Other: ExtendableThing,
+    Form<Other>: Default,
+    DataSchemaFromOther<Other>: Default,
+    Other::InteractionAffordance: Default,
+{
+    fn default() -> Self {
+        Self {
+            attype: Default::default(),
+            title: Default::default(),
+            titles: Default::default(),
+            description: Default::default(),
+            descriptions: Default::default(),
+            forms: Default::default(),
+            uri_variables: Default::default(),
+            other: Default::default(),
+        }
+    }
+}
+
+impl<Other> PartialEq for InteractionAffordance<Other>
+where
+    Other: ExtendableThing,
+    Form<Other>: PartialEq,
+    DataSchemaFromOther<Other>: PartialEq,
+    Other::InteractionAffordance: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.attype == other.attype
+            && self.title == other.title
+            && self.titles == other.titles
+            && self.description == other.description
+            && self.descriptions == other.descriptions
+            && self.forms == other.forms
+            && self.uri_variables == other.uri_variables
+            && self.other == other.other
+    }
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct PropertyAffordance {
+#[derive(Deserialize, Serialize)]
+pub struct PropertyAffordance<Other: ExtendableThing> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<Other>,
 
     #[serde(flatten)]
-    pub data_schema: DataSchema,
+    pub data_schema: DataSchemaFromOther<Other>,
 
     pub observable: Option<bool>,
+
+    #[serde(flatten)]
+    pub other: Other::PropertyAffordance,
+}
+
+impl<Other> fmt::Debug for PropertyAffordance<Other>
+where
+    Other: ExtendableThing,
+    InteractionAffordance<Other>: fmt::Debug,
+    DataSchemaFromOther<Other>: fmt::Debug,
+    Other::PropertyAffordance: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PropertyAffordance")
+            .field("interaction", &self.interaction)
+            .field("data_schema", &self.data_schema)
+            .field("observable", &self.observable)
+            .field("other", &self.other)
+            .finish()
+    }
+}
+
+impl<Other> Default for PropertyAffordance<Other>
+where
+    Other: ExtendableThing,
+    InteractionAffordance<Other>: Default,
+    DataSchemaFromOther<Other>: Default,
+    Other::PropertyAffordance: Default,
+{
+    fn default() -> Self {
+        Self {
+            interaction: Default::default(),
+            data_schema: Default::default(),
+            observable: Default::default(),
+            other: Default::default(),
+        }
+    }
+}
+
+impl<Other> PartialEq for PropertyAffordance<Other>
+where
+    Other: ExtendableThing,
+    InteractionAffordance<Other>: PartialEq,
+    DataSchemaFromOther<Other>: PartialEq,
+    Other::PropertyAffordance: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.interaction == other.interaction
+            && self.data_schema == other.data_schema
+            && self.observable == other.observable
+            && self.other == other.other
+    }
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ActionAffordance {
+#[derive(Deserialize, Serialize)]
+pub struct ActionAffordance<Other: ExtendableThing> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<Other>,
 
-    pub input: Option<DataSchema>,
+    pub input: Option<DataSchemaFromOther<Other>>,
 
-    pub output: Option<DataSchema>,
+    pub output: Option<DataSchemaFromOther<Other>>,
 
     #[serde(default)]
     pub safe: bool,
@@ -185,21 +419,140 @@ pub struct ActionAffordance {
     pub idempotent: bool,
 
     pub synchronous: Option<bool>,
+
+    #[serde(flatten)]
+    pub other: Other::ActionAffordance,
+}
+
+impl<Other> fmt::Debug for ActionAffordance<Other>
+where
+    Other: ExtendableThing,
+    InteractionAffordance<Other>: fmt::Debug,
+    DataSchemaFromOther<Other>: fmt::Debug,
+    Other::ActionAffordance: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ActionAffordance")
+            .field("interaction", &self.interaction)
+            .field("input", &self.input)
+            .field("output", &self.output)
+            .field("safe", &self.safe)
+            .field("idempotent", &self.idempotent)
+            .field("synchronous", &self.synchronous)
+            .field("other", &self.other)
+            .finish()
+    }
+}
+
+impl<Other> Default for ActionAffordance<Other>
+where
+    Other: ExtendableThing,
+    InteractionAffordance<Other>: Default,
+    DataSchemaFromOther<Other>: Default,
+    Other::ActionAffordance: Default,
+{
+    fn default() -> Self {
+        Self {
+            interaction: Default::default(),
+            input: Default::default(),
+            output: Default::default(),
+            safe: Default::default(),
+            idempotent: Default::default(),
+            synchronous: Default::default(),
+            other: Default::default(),
+        }
+    }
+}
+
+impl<Other> PartialEq for ActionAffordance<Other>
+where
+    Other: ExtendableThing,
+    InteractionAffordance<Other>: PartialEq,
+    DataSchemaFromOther<Other>: PartialEq,
+    Other::ActionAffordance: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.interaction == other.interaction
+            && self.input == other.input
+            && self.output == other.output
+            && self.safe == other.safe
+            && self.idempotent == other.idempotent
+            && self.synchronous == other.synchronous
+            && self.other == other.other
+    }
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct EventAffordance {
+#[derive(Deserialize, Serialize)]
+pub struct EventAffordance<Other: ExtendableThing> {
     #[serde(flatten)]
-    pub interaction: InteractionAffordance,
+    pub interaction: InteractionAffordance<Other>,
 
-    pub subscription: Option<DataSchema>,
+    pub subscription: Option<DataSchemaFromOther<Other>>,
 
-    pub data: Option<DataSchema>,
+    pub data: Option<DataSchemaFromOther<Other>>,
 
-    pub data_response: Option<DataSchema>,
+    pub data_response: Option<DataSchemaFromOther<Other>>,
 
-    pub cancellation: Option<DataSchema>,
+    pub cancellation: Option<DataSchemaFromOther<Other>>,
+
+    #[serde(flatten)]
+    pub other: Other::EventAffordance,
+}
+
+impl<Other> fmt::Debug for EventAffordance<Other>
+where
+    Other: ExtendableThing,
+    InteractionAffordance<Other>: fmt::Debug,
+    DataSchemaFromOther<Other>: fmt::Debug,
+    Other::EventAffordance: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EventAffordance")
+            .field("interaction", &self.interaction)
+            .field("subscription", &self.subscription)
+            .field("data", &self.data)
+            .field("data_response", &self.data_response)
+            .field("cancellation", &self.cancellation)
+            .field("other", &self.other)
+            .finish()
+    }
+}
+
+impl<Other> Default for EventAffordance<Other>
+where
+    Other: ExtendableThing,
+    InteractionAffordance<Other>: Default,
+    DataSchemaFromOther<Other>: Default,
+    Other::EventAffordance: Default,
+{
+    fn default() -> Self {
+        Self {
+            interaction: Default::default(),
+            subscription: Default::default(),
+            data: Default::default(),
+            data_response: Default::default(),
+            cancellation: Default::default(),
+            other: Default::default(),
+        }
+    }
+}
+
+impl<Other> PartialEq for EventAffordance<Other>
+where
+    Other: ExtendableThing,
+    InteractionAffordance<Other>: PartialEq,
+    DataSchemaFromOther<Other>: PartialEq,
+    Other::EventAffordance: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.interaction == other.interaction
+            && self.subscription == other.subscription
+            && self.data == other.data
+            && self.data_response == other.data_response
+            && self.cancellation == other.cancellation
+            && self.other == other.other
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -226,7 +579,7 @@ where
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DataSchema {
+pub struct DataSchema<DS, AS, OS> {
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
@@ -244,7 +597,7 @@ pub struct DataSchema {
 
     pub unit: Option<String>,
 
-    pub one_of: Option<Vec<DataSchema>>,
+    pub one_of: Option<Vec<Self>>,
 
     #[serde(rename = "enum")]
     pub enumeration: Option<Vec<Value>>,
@@ -258,33 +611,68 @@ pub struct DataSchema {
     pub format: Option<String>,
 
     #[serde(flatten)]
-    pub subtype: Option<DataSchemaSubtype>,
+    pub subtype: Option<DataSchemaSubtype<DS, AS, OS>>,
+
+    #[serde(flatten)]
+    pub other: DS,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub(crate) type DataSchemaFromOther<Other> = DataSchema<
+    <Other as ExtendableThing>::DataSchema,
+    <Other as ExtendableThing>::ArraySchema,
+    <Other as ExtendableThing>::ObjectSchema,
+>;
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
-pub enum DataSchemaSubtype {
-    Array(ArraySchema),
+pub enum DataSchemaSubtype<DS, AS, OS> {
+    Array(ArraySchema<DS, AS, OS>),
     Boolean,
     Number(NumberSchema),
     Integer(IntegerSchema),
-    Object(ObjectSchema),
+    Object(ObjectSchema<DS, AS, OS>),
     String(StringSchema),
-    #[default]
     Null,
+}
+
+impl<DS, AS, OS> Default for DataSchemaSubtype<DS, AS, OS> {
+    fn default() -> Self {
+        Self::Null
+    }
 }
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ArraySchema {
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+#[serde(bound(
+    deserialize = "DS: Deserialize<'de>, AS: Deserialize<'de>, OS: Deserialize<'de>",
+    serialize = "DS: Serialize, AS: Serialize, OS: Serialize"
+))]
+pub struct ArraySchema<DS, AS, OS> {
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub items: Option<Vec<DataSchema>>,
+    pub items: Option<Vec<DataSchema<DS, AS, OS>>>,
 
     pub min_items: Option<u32>,
 
     pub max_items: Option<u32>,
+
+    #[serde(flatten)]
+    pub other: AS,
+}
+
+impl<DS, AS, OS> Default for ArraySchema<DS, AS, OS>
+where
+    AS: Default,
+{
+    fn default() -> Self {
+        Self {
+            items: Default::default(),
+            min_items: Default::default(),
+            max_items: Default::default(),
+            other: Default::default(),
+        }
+    }
 }
 
 #[skip_serializing_none]
@@ -308,11 +696,27 @@ pub struct IntegerSchema {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-pub struct ObjectSchema {
-    pub properties: Option<DataSchemaMap>,
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct ObjectSchema<DS, AS, OS> {
+    pub properties: Option<HashMap<String, DataSchema<DS, AS, OS>>>,
 
     pub required: Option<Vec<String>>,
+
+    #[serde(flatten)]
+    pub other: OS,
+}
+
+impl<DS, AS, OS> Default for ObjectSchema<DS, AS, OS>
+where
+    OS: Default,
+{
+    fn default() -> Self {
+        Self {
+            properties: Default::default(),
+            required: Default::default(),
+            other: Default::default(),
+        }
+    }
 }
 
 #[skip_serializing_none]
@@ -552,9 +956,9 @@ pub struct Link {
 
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Form {
+pub struct Form<Other: ExtendableThing> {
     #[serde(default)]
     pub op: DefaultedFormOperations,
 
@@ -578,7 +982,31 @@ pub struct Form {
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub scopes: Option<Vec<String>>,
 
-    pub response: Option<ExpectedResponse>,
+    pub response: Option<ExpectedResponse<Other::ExpectedResponse>>,
+
+    #[serde(flatten)]
+    pub other: Other::Form,
+}
+
+impl<Other> Clone for Form<Other>
+where
+    Other: ExtendableThing,
+    Other::ExpectedResponse: Clone,
+    Other::Form: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            op: self.op.clone(),
+            href: self.href.clone(),
+            content_type: self.content_type.clone(),
+            content_coding: self.content_coding.clone(),
+            subprotocol: self.subprotocol.clone(),
+            security: self.security.clone(),
+            scopes: self.scopes.clone(),
+            response: self.response.clone(),
+            other: self.other.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -632,11 +1060,11 @@ where
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ExpectedResponse {
+pub struct ExpectedResponse<Other> {
     pub content_type: String,
 
     #[serde(flatten)]
-    pub other: Value,
+    pub other: Other,
 }
 
 #[cfg(test)]
