@@ -1828,11 +1828,13 @@ pub(super) fn check_form_builders<Other: ExtendableThing>(
 
 #[cfg(test)]
 mod test {
+    use serde::{Deserialize, Serialize};
+
     use crate::{
         builder::data_schema::{
             BuildableDataSchema, NumberDataSchemaBuilderLike, PartialDataSchemaBuilder,
         },
-        hlist::Nil,
+        hlist::{Cons, Nil},
         thing::{DataSchemaSubtype, DefaultedFormOperations, FormOperation, NumberSchema},
     };
 
@@ -2277,6 +2279,498 @@ mod test {
                     ..Default::default()
                 }),
                 other: Nil,
+            },
+        );
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct A(i32);
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct B(String);
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ThingExtA {}
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct InteractionAffordanceExtA {
+        a: A,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct PropertyAffordanceExtA {
+        b: A,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ActionAffordanceExtA {
+        b: A,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct EventAffordanceExtA {
+        c: A,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct FormExtA {
+        d: A,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ExpectedResponseExtA {
+        e: A,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct DataSchemaExtA {
+        f: A,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ThingExtB {}
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct InteractionAffordanceExtB {
+        g: B,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct PropertyAffordanceExtB {
+        h: B,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ActionAffordanceExtB {
+        i: B,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct EventAffordanceExtB {
+        j: B,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct FormExtB {
+        k: B,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ExpectedResponseExtB {
+        l: B,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct DataSchemaExtB {
+        m: B,
+    }
+
+    impl ExtendableThing for ThingExtA {
+        type InteractionAffordance = InteractionAffordanceExtA;
+        type PropertyAffordance = PropertyAffordanceExtA;
+        type ActionAffordance = ActionAffordanceExtA;
+        type EventAffordance = EventAffordanceExtA;
+        type Form = FormExtA;
+        type ExpectedResponse = ExpectedResponseExtA;
+        type DataSchema = DataSchemaExtA;
+        type ObjectSchema = ();
+        type ArraySchema = ();
+    }
+
+    impl ExtendableThing for ThingExtB {
+        type InteractionAffordance = InteractionAffordanceExtB;
+        type PropertyAffordance = PropertyAffordanceExtB;
+        type ActionAffordance = ActionAffordanceExtB;
+        type EventAffordance = EventAffordanceExtB;
+        type Form = FormExtB;
+        type ExpectedResponse = ExpectedResponseExtB;
+        type DataSchema = DataSchemaExtB;
+        type ObjectSchema = ();
+        type ArraySchema = ();
+    }
+
+    #[test]
+    fn extend_interaction() {
+        let affordance: InteractionAffordance<Cons<ThingExtB, Cons<ThingExtA, Nil>>> =
+            InteractionAffordanceBuilder::<Cons<ThingExtB, Cons<ThingExtA, Nil>>, _>::empty()
+                .title("title")
+                .ext(InteractionAffordanceExtA { a: A(1) })
+                .uri_variable("x", |b| {
+                    b.ext(DataSchemaExtA { f: A(2) })
+                        .ext_with(|| DataSchemaExtB {
+                            m: B("a".to_string()),
+                        })
+                        .finish_extend()
+                        .null()
+                })
+                .ext_with(|| InteractionAffordanceExtB {
+                    g: B("b".to_string()),
+                })
+                .form(|b| {
+                    b.ext(FormExtA { d: A(3) })
+                        .ext(FormExtB {
+                            k: B("c".to_string()),
+                        })
+                        .href("href")
+                })
+                .into();
+
+        assert_eq!(
+            affordance,
+            InteractionAffordance {
+                title: Some("title".to_string()),
+                uri_variables: Some(
+                    [(
+                        "x".to_string(),
+                        DataSchema {
+                            subtype: Some(DataSchemaSubtype::Null),
+                            other: Cons::new_head(DataSchemaExtA { f: A(2) }).add(DataSchemaExtB {
+                                m: B("a".to_string())
+                            }),
+                            attype: Default::default(),
+                            title: Default::default(),
+                            titles: Default::default(),
+                            description: Default::default(),
+                            descriptions: Default::default(),
+                            constant: Default::default(),
+                            unit: Default::default(),
+                            one_of: Default::default(),
+                            enumeration: Default::default(),
+                            read_only: Default::default(),
+                            write_only: Default::default(),
+                            format: Default::default(),
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
+                forms: vec![Form {
+                    href: "href".to_string(),
+                    other: Cons::new_head(FormExtA { d: A(3) }).add(FormExtB {
+                        k: B("c".to_string())
+                    }),
+                    op: Default::default(),
+                    content_type: Default::default(),
+                    content_coding: Default::default(),
+                    subprotocol: Default::default(),
+                    security: Default::default(),
+                    scopes: Default::default(),
+                    response: Default::default(),
+                }],
+                other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).add(
+                    InteractionAffordanceExtB {
+                        g: B("b".to_string())
+                    }
+                ),
+                attype: Default::default(),
+                titles: Default::default(),
+                description: Default::default(),
+                descriptions: Default::default(),
+            },
+        );
+    }
+
+    #[test]
+    fn extend_property() {
+        let builder: UsablePropertyAffordanceBuilder<Cons<ThingExtB, Cons<ThingExtA, Nil>>> =
+            PropertyAffordanceBuilder::<Cons<ThingExtB, Cons<ThingExtA, Nil>>, _, _, _>::empty()
+                .ext(PropertyAffordanceExtA { b: A(1) })
+                .title("title")
+                .ext_interaction(InteractionAffordanceExtA { a: A(2) })
+                .ext_data_schema(DataSchemaExtA { f: A(4) })
+                .uri_variable("x", |b| {
+                    b.ext(DataSchemaExtA { f: A(3) })
+                        .ext_with(|| DataSchemaExtB {
+                            m: B("a".to_string()),
+                        })
+                        .finish_extend()
+                        .null()
+                })
+                .ext_data_schema_with(|| DataSchemaExtB {
+                    m: B("d".to_string()),
+                })
+                .ext_interaction_with(|| InteractionAffordanceExtB {
+                    g: B("b".to_string()),
+                })
+                .finish_extend_data_schema()
+                .ext_with(|| PropertyAffordanceExtB {
+                    h: B("c".to_string()),
+                })
+                .null()
+                .into();
+        let affordance: PropertyAffordance<Cons<ThingExtB, Cons<ThingExtA, Nil>>> = builder.into();
+
+        assert_eq!(
+            affordance,
+            PropertyAffordance {
+                interaction: InteractionAffordance {
+                    other: Cons::new_head(InteractionAffordanceExtA { a: A(2) }).add(
+                        InteractionAffordanceExtB {
+                            g: B("b".to_string())
+                        }
+                    ),
+                    uri_variables: Some(
+                        [(
+                            "x".to_string(),
+                            DataSchema {
+                                subtype: Some(DataSchemaSubtype::Null),
+                                other: Cons::new_head(DataSchemaExtA { f: A(3) }).add(
+                                    DataSchemaExtB {
+                                        m: B("a".to_string())
+                                    }
+                                ),
+                                attype: Default::default(),
+                                title: Default::default(),
+                                titles: Default::default(),
+                                description: Default::default(),
+                                descriptions: Default::default(),
+                                constant: Default::default(),
+                                unit: Default::default(),
+                                one_of: Default::default(),
+                                enumeration: Default::default(),
+                                read_only: Default::default(),
+                                write_only: Default::default(),
+                                format: Default::default(),
+                            }
+                        )]
+                        .into_iter()
+                        .collect()
+                    ),
+                    attype: Default::default(),
+                    title: Some("title".to_string()),
+                    titles: Default::default(),
+                    description: Default::default(),
+                    descriptions: Default::default(),
+                    forms: Default::default(),
+                },
+                data_schema: DataSchema {
+                    title: Some("title".to_string()),
+                    subtype: Some(DataSchemaSubtype::Null),
+                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).add(DataSchemaExtB {
+                        m: B("d".to_string())
+                    }),
+                    attype: Default::default(),
+                    titles: Default::default(),
+                    description: Default::default(),
+                    descriptions: Default::default(),
+                    constant: Default::default(),
+                    unit: Default::default(),
+                    one_of: Default::default(),
+                    enumeration: Default::default(),
+                    read_only: Default::default(),
+                    write_only: Default::default(),
+                    format: Default::default(),
+                },
+                other: Cons::new_head(PropertyAffordanceExtA { b: A(1) }).add(
+                    PropertyAffordanceExtB {
+                        h: B("c".to_string())
+                    }
+                ),
+                observable: Default::default(),
+            }
+        );
+    }
+
+    #[test]
+    fn extend_event() {
+        let builder: UsableEventAffordanceBuilder<Cons<ThingExtB, Cons<ThingExtA, Nil>>> =
+            EventAffordanceBuilder::<Cons<ThingExtB, Cons<ThingExtA, Nil>>, _, _>::empty()
+                .title("title")
+                .ext_interaction(InteractionAffordanceExtA { a: A(1) })
+                .uri_variable("x", |b| {
+                    b.ext(DataSchemaExtA { f: A(2) })
+                        .ext_with(|| DataSchemaExtB {
+                            m: B("a".to_string()),
+                        })
+                        .finish_extend()
+                        .null()
+                })
+                .ext_interaction_with(|| InteractionAffordanceExtB {
+                    g: B("b".to_string()),
+                })
+                .ext(EventAffordanceExtA { c: A(3) })
+                .ext_with(|| EventAffordanceExtB {
+                    j: B("c".to_string()),
+                })
+                .subscription(|b| {
+                    b.ext(DataSchemaExtA { f: A(4) })
+                        .ext_with(|| DataSchemaExtB {
+                            m: B("d".to_string()),
+                        })
+                        .finish_extend()
+                        .null()
+                });
+        let affordance: EventAffordance<Cons<ThingExtB, Cons<ThingExtA, Nil>>> = builder.into();
+
+        assert_eq!(
+            affordance,
+            EventAffordance {
+                interaction: InteractionAffordance {
+                    title: Some("title".to_string()),
+                    uri_variables: Some(
+                        [(
+                            "x".to_string(),
+                            DataSchema {
+                                subtype: Some(DataSchemaSubtype::Null),
+                                other: Cons::new_head(DataSchemaExtA { f: A(2) }).add(
+                                    DataSchemaExtB {
+                                        m: B("a".to_string())
+                                    }
+                                ),
+                                attype: Default::default(),
+                                title: Default::default(),
+                                titles: Default::default(),
+                                description: Default::default(),
+                                descriptions: Default::default(),
+                                constant: Default::default(),
+                                unit: Default::default(),
+                                one_of: Default::default(),
+                                enumeration: Default::default(),
+                                read_only: Default::default(),
+                                write_only: Default::default(),
+                                format: Default::default(),
+                            }
+                        )]
+                        .into_iter()
+                        .collect()
+                    ),
+                    other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).add(
+                        InteractionAffordanceExtB {
+                            g: B("b".to_string())
+                        }
+                    ),
+                    attype: Default::default(),
+                    titles: Default::default(),
+                    description: Default::default(),
+                    descriptions: Default::default(),
+                    forms: Default::default(),
+                },
+                subscription: Some(DataSchema {
+                    subtype: Some(DataSchemaSubtype::Null),
+                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).add(DataSchemaExtB {
+                        m: B("d".to_string())
+                    }),
+                    attype: Default::default(),
+                    title: Default::default(),
+                    titles: Default::default(),
+                    description: Default::default(),
+                    descriptions: Default::default(),
+                    constant: Default::default(),
+                    unit: Default::default(),
+                    one_of: Default::default(),
+                    enumeration: Default::default(),
+                    read_only: Default::default(),
+                    write_only: Default::default(),
+                    format: Default::default(),
+                }),
+                other: Cons::new_head(EventAffordanceExtA { c: A(3) }).add(EventAffordanceExtB {
+                    j: B("c".to_string())
+                }),
+                data: Default::default(),
+                data_response: Default::default(),
+                cancellation: Default::default(),
+            },
+        );
+    }
+
+    #[test]
+    fn extend_action() {
+        let builder: UsableActionAffordanceBuilder<Cons<ThingExtB, Cons<ThingExtA, Nil>>> =
+            ActionAffordanceBuilder::<Cons<ThingExtB, Cons<ThingExtA, Nil>>, _, _>::empty()
+                .title("title")
+                .ext_interaction(InteractionAffordanceExtA { a: A(1) })
+                .uri_variable("x", |b| {
+                    b.ext(DataSchemaExtA { f: A(2) })
+                        .ext_with(|| DataSchemaExtB {
+                            m: B("a".to_string()),
+                        })
+                        .finish_extend()
+                        .null()
+                })
+                .ext_interaction_with(|| InteractionAffordanceExtB {
+                    g: B("b".to_string()),
+                })
+                .ext(ActionAffordanceExtA { b: A(3) })
+                .ext_with(|| ActionAffordanceExtB {
+                    i: B("c".to_string()),
+                })
+                .input(|b| {
+                    b.ext(DataSchemaExtA { f: A(4) })
+                        .ext_with(|| DataSchemaExtB {
+                            m: B("d".to_string()),
+                        })
+                        .finish_extend()
+                        .null()
+                });
+        let affordance: ActionAffordance<Cons<ThingExtB, Cons<ThingExtA, Nil>>> = builder.into();
+
+        assert_eq!(
+            affordance,
+            ActionAffordance {
+                interaction: InteractionAffordance {
+                    title: Some("title".to_string()),
+                    uri_variables: Some(
+                        [(
+                            "x".to_string(),
+                            DataSchema {
+                                subtype: Some(DataSchemaSubtype::Null),
+                                other: Cons::new_head(DataSchemaExtA { f: A(2) }).add(
+                                    DataSchemaExtB {
+                                        m: B("a".to_string())
+                                    }
+                                ),
+                                attype: Default::default(),
+                                title: Default::default(),
+                                titles: Default::default(),
+                                description: Default::default(),
+                                descriptions: Default::default(),
+                                constant: Default::default(),
+                                unit: Default::default(),
+                                one_of: Default::default(),
+                                enumeration: Default::default(),
+                                read_only: Default::default(),
+                                write_only: Default::default(),
+                                format: Default::default(),
+                            }
+                        )]
+                        .into_iter()
+                        .collect()
+                    ),
+                    other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).add(
+                        InteractionAffordanceExtB {
+                            g: B("b".to_string())
+                        }
+                    ),
+                    attype: Default::default(),
+                    titles: Default::default(),
+                    description: Default::default(),
+                    descriptions: Default::default(),
+                    forms: Default::default(),
+                },
+                input: Some(DataSchema {
+                    subtype: Some(DataSchemaSubtype::Null),
+                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).add(DataSchemaExtB {
+                        m: B("d".to_string())
+                    }),
+                    attype: Default::default(),
+                    title: Default::default(),
+                    titles: Default::default(),
+                    description: Default::default(),
+                    descriptions: Default::default(),
+                    constant: Default::default(),
+                    unit: Default::default(),
+                    one_of: Default::default(),
+                    enumeration: Default::default(),
+                    read_only: Default::default(),
+                    write_only: Default::default(),
+                    format: Default::default(),
+                }),
+                other: Cons::new_head(ActionAffordanceExtA { b: A(3) }).add(ActionAffordanceExtB {
+                    i: B("c".to_string())
+                }),
+                output: Default::default(),
+                safe: Default::default(),
+                idempotent: Default::default(),
+                synchronous: Default::default(),
             },
         );
     }
