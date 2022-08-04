@@ -316,7 +316,7 @@ pub struct ObjectSchema {
 }
 
 #[skip_serializing_none]
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StringSchema {
     pub max_length: Option<u32>,
