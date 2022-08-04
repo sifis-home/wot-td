@@ -1619,18 +1619,20 @@ where
 
 #[cfg(test)]
 mod tests {
+    use serde::{Deserialize, Serialize};
     use serde_json::json;
     use time::macros::datetime;
 
     use crate::{
         builder::{
-            affordance::BuildableInteractionAffordance, data_schema::SpecializableDataSchema,
+            affordance::BuildableInteractionAffordance,
+            data_schema::{NumberDataSchemaBuilderLike, SpecializableDataSchema},
             human_readable_info::BuildableHumanReadableInfo,
         },
-        hlist::Nil,
+        hlist::{Cons, Nil},
         thing::{
-            ActionAffordance, DataSchema, DataSchemaSubtype, EventAffordance,
-            InteractionAffordance, PropertyAffordance,
+            ActionAffordance, ArraySchema, DataSchema, DataSchemaSubtype, EventAffordance,
+            InteractionAffordance, NumberSchema, ObjectSchema, PropertyAffordance,
         },
     };
 
@@ -3017,6 +3019,679 @@ mod tests {
                 profile: Some(vec!["profile1".to_string(), "profile2".to_string()]),
                 ..Default::default()
             }
+        );
+    }
+
+    #[test]
+    fn extend_thing_with_form_builder() {
+        #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+        struct ThingA {}
+
+        #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+        struct ThingB {}
+
+        #[derive(Debug, Serialize, PartialEq, Deserialize)]
+        struct FormExtA {
+            a: String,
+        }
+
+        #[derive(Debug, Serialize, PartialEq, Deserialize)]
+        struct B(i32);
+
+        #[derive(Debug, Serialize, PartialEq, Deserialize)]
+        struct FormExtB {
+            b: B,
+        }
+
+        impl ExtendableThing for ThingA {
+            type InteractionAffordance = ();
+            type PropertyAffordance = ();
+            type ActionAffordance = ();
+            type EventAffordance = ();
+            type Form = FormExtA;
+            type ExpectedResponse = ();
+            type DataSchema = ();
+            type ObjectSchema = ();
+            type ArraySchema = ();
+        }
+
+        impl ExtendableThing for ThingB {
+            type InteractionAffordance = ();
+            type PropertyAffordance = ();
+            type ActionAffordance = ();
+            type EventAffordance = ();
+            type Form = FormExtB;
+            type ExpectedResponse = ();
+            type DataSchema = ();
+            type ObjectSchema = ();
+            type ArraySchema = ();
+        }
+
+        let thing: Thing<Cons<ThingB, Cons<ThingA, Nil>>> =
+            ThingBuilder::<Cons<ThingB, Cons<ThingA, Nil>>, _>::new("MyLampThing")
+                .finish_extend()
+                .form(|form| {
+                    form.ext_with(|| FormExtA {
+                        a: String::from("test"),
+                    })
+                    .href("href")
+                    .ext(FormExtB { b: B(42) })
+                    .op(FormOperation::ReadAllProperties)
+                })
+                .build()
+                .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT_11.into(),
+                title: "MyLampThing".to_string(),
+                forms: Some(vec![Form {
+                    op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
+                    href: "href".to_string(),
+                    other: Cons::new_head(FormExtA {
+                        a: "test".to_string()
+                    })
+                    .add(FormExtB { b: B(42) }),
+                    content_type: Default::default(),
+                    content_coding: Default::default(),
+                    subprotocol: Default::default(),
+                    security: Default::default(),
+                    scopes: Default::default(),
+                    response: Default::default(),
+                }]),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn extend_form_builder() {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ThingA {}
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ThingB {}
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct A(String);
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct FormExtA {
+            a: A,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ExpectedResponseExtA {
+            b: A,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct B(i32);
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct FormExtB {
+            c: B,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ExpectedResponseExtB {
+            d: B,
+        }
+
+        impl ExtendableThing for ThingA {
+            type InteractionAffordance = ();
+            type PropertyAffordance = ();
+            type ActionAffordance = ();
+            type EventAffordance = ();
+            type Form = FormExtA;
+            type ExpectedResponse = ExpectedResponseExtA;
+            type DataSchema = ();
+            type ObjectSchema = ();
+            type ArraySchema = ();
+        }
+
+        impl ExtendableThing for ThingB {
+            type InteractionAffordance = ();
+            type PropertyAffordance = ();
+            type ActionAffordance = ();
+            type EventAffordance = ();
+            type Form = FormExtB;
+            type ExpectedResponse = ExpectedResponseExtB;
+            type DataSchema = ();
+            type ObjectSchema = ();
+            type ArraySchema = ();
+        }
+
+        let builder = FormBuilder::<Cons<ThingB, Cons<ThingA, Nil>>, _, _>::new()
+            .href("href")
+            .ext(FormExtA {
+                a: A("a".to_string()),
+            })
+            .op(FormOperation::ReadProperty)
+            .ext_with(|| FormExtB { c: B(1) })
+            .response("application/json", |b| {
+                b.ext(ExpectedResponseExtA {
+                    b: A("b".to_string()),
+                })
+                .ext_with(|| ExpectedResponseExtB { d: B(2) })
+            });
+
+        let form: Form<Cons<ThingB, Cons<ThingA, Nil>>> = builder.into();
+        assert_eq!(
+            form,
+            Form {
+                op: DefaultedFormOperations::Custom(vec![FormOperation::ReadProperty]),
+                href: "href".to_string(),
+                other: Cons::new_head(FormExtA {
+                    a: A("a".to_string())
+                })
+                .add(FormExtB { c: B(1) }),
+                response: Some(ExpectedResponse {
+                    content_type: "application/json".to_string(),
+                    other: Cons::new_head(ExpectedResponseExtA {
+                        b: A("b".to_string())
+                    })
+                    .add(ExpectedResponseExtB { d: B(2) })
+                }),
+                content_type: Default::default(),
+                content_coding: Default::default(),
+                subprotocol: Default::default(),
+                security: Default::default(),
+                scopes: Default::default(),
+            },
+        );
+    }
+
+    #[test]
+    fn complete_extension() {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ThingA {
+            a: u8,
+            b: i32,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ThingB {}
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ThingC {
+            c: u16,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct InteractionAffordanceExtA {
+            d: i16,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ActionAffordanceExtA {
+            e: u64,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct EventAffordanceExtA {
+            f: u32,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ExpectedResponseExtA {
+            g: i64,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct DataSchemaExtA {
+            h: isize,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ObjectSchemaExtA {
+            i: usize,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct InteractionAffordanceExtB {
+            j: f32,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct PropertyAffordanceExtB {
+            k: f64,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct EventAffordanceExtB {
+            l: i8,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct FormExtB {
+            m: u8,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ExpectedResponseExtB {
+            n: i16,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ObjectSchemaExtB {
+            o: u16,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct InteractionAffordanceExtC {
+            p: u64,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct PropertyAffordanceExtC {
+            q: i8,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ActionAffordanceExtC {
+            r: i32,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ExpectedResponseExtC {
+            s: u8,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct DataSchemaExtC {
+            t: u32,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct ObjectSchemaExtC {
+            u: i32,
+        }
+
+        impl ExtendableThing for ThingA {
+            type InteractionAffordance = InteractionAffordanceExtA;
+            type PropertyAffordance = ();
+            type ActionAffordance = ActionAffordanceExtA;
+            type EventAffordance = EventAffordanceExtA;
+            type Form = ();
+            type ExpectedResponse = ExpectedResponseExtA;
+            type DataSchema = DataSchemaExtA;
+            type ObjectSchema = ObjectSchemaExtA;
+            type ArraySchema = ();
+        }
+
+        impl ExtendableThing for ThingB {
+            type InteractionAffordance = InteractionAffordanceExtB;
+            type PropertyAffordance = PropertyAffordanceExtB;
+            type ActionAffordance = ();
+            type EventAffordance = EventAffordanceExtB;
+            type Form = FormExtB;
+            type ExpectedResponse = ExpectedResponseExtB;
+            type DataSchema = ();
+            type ObjectSchema = ObjectSchemaExtB;
+            type ArraySchema = ();
+        }
+
+        impl ExtendableThing for ThingC {
+            type InteractionAffordance = InteractionAffordanceExtC;
+            type PropertyAffordance = PropertyAffordanceExtC;
+            type ActionAffordance = ActionAffordanceExtC;
+            type EventAffordance = ();
+            type Form = ();
+            type ExpectedResponse = ExpectedResponseExtC;
+            type DataSchema = DataSchemaExtC;
+            type ObjectSchema = ObjectSchemaExtC;
+            type ArraySchema = ();
+        }
+
+        let thing = Thing::build("thing title")
+            .ext(ThingA { a: 1, b: 2 })
+            .id("id")
+            .ext(ThingB {})
+            .ext_with(|| ThingC { c: 3 })
+            .finish_extend()
+            .description("description")
+            .uri_variable("uri_variable", |b| {
+                b.ext(DataSchemaExtA { h: 4 })
+                    .ext(())
+                    .ext(DataSchemaExtC { t: 5 })
+                    .finish_extend()
+                    .array()
+            })
+            .property("property", |b| {
+                b.ext_interaction(InteractionAffordanceExtA { d: 6 })
+                    .ext(())
+                    .ext_data_schema(DataSchemaExtA { h: 7 })
+                    .ext_data_schema(())
+                    .ext_data_schema(DataSchemaExtC { t: 8 })
+                    .finish_extend_data_schema()
+                    .ext_interaction(InteractionAffordanceExtB { j: 9. })
+                    .ext_interaction(InteractionAffordanceExtC { p: 10 })
+                    .object_ext(|b| {
+                        b.ext(ObjectSchemaExtA { i: 11 })
+                            .ext(ObjectSchemaExtB { o: 12 })
+                            .ext(ObjectSchemaExtC { u: 13 })
+                    })
+                    .ext(PropertyAffordanceExtB { k: 14. })
+                    .ext(PropertyAffordanceExtC { q: 15 })
+                    .form(|b| {
+                        b.response("application/json", |b| {
+                            b.ext(ExpectedResponseExtA { g: 16 })
+                                .ext(ExpectedResponseExtB { n: 17 })
+                                .ext(ExpectedResponseExtC { s: 18 })
+                        })
+                        .ext(())
+                        .ext(FormExtB { m: 19 })
+                        .ext(())
+                        .href("href1")
+                    })
+            })
+            .action("action", |b| {
+                b.ext(ActionAffordanceExtA { e: 20 })
+                    .ext(())
+                    .ext(ActionAffordanceExtC { r: 21 })
+                    .ext_interaction(InteractionAffordanceExtA { d: 22 })
+                    .ext_interaction(InteractionAffordanceExtB { j: 23. })
+                    .ext_interaction(InteractionAffordanceExtC { p: 24 })
+                    .input(|b| {
+                        b.ext(DataSchemaExtA { h: 25 })
+                            .ext(())
+                            .ext(DataSchemaExtC { t: 26 })
+                            .finish_extend()
+                            .number()
+                            .minimum(0.)
+                            .maximum(5.)
+                            .title("input")
+                    })
+                    .uri_variable("y", |b| {
+                        b.ext(DataSchemaExtA { h: 27 })
+                            .ext(())
+                            .ext(DataSchemaExtC { t: 28 })
+                            .finish_extend()
+                            .array_ext(|b| b.ext(()).ext(()).ext(()))
+                    })
+                    .title("action")
+            })
+            .event("event", |b| {
+                b.ext(EventAffordanceExtA { f: 29 })
+                    .ext(EventAffordanceExtB { l: 30 })
+                    .ext(())
+                    .ext_interaction(InteractionAffordanceExtA { d: 31 })
+                    .ext_interaction(InteractionAffordanceExtB { j: 32. })
+                    .ext_interaction(InteractionAffordanceExtC { p: 33 })
+                    .data(|b| {
+                        b.ext(DataSchemaExtA { h: 34 })
+                            .ext(())
+                            .ext(DataSchemaExtC { t: 35 })
+                            .finish_extend()
+                            .bool()
+                    })
+            })
+            .form(|b| {
+                b.ext(())
+                    .ext(FormExtB { m: 36 })
+                    .ext(())
+                    .href("href2")
+                    .response("test", |b| {
+                        b.ext(ExpectedResponseExtA { g: 37 })
+                            .ext(ExpectedResponseExtB { n: 38 })
+                            .ext(ExpectedResponseExtC { s: 39 })
+                    })
+                    .op(FormOperation::ReadAllProperties)
+            })
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT_11.into(),
+                title: "thing title".to_string(),
+                other: Cons::new_head(ThingA { a: 1, b: 2 })
+                    .add(ThingB {})
+                    .add(ThingC { c: 3 }),
+                id: Some("id".to_string()),
+                description: Some("description".to_string()),
+                uri_variables: Some(
+                    [(
+                        "uri_variable".to_string(),
+                        DataSchema {
+                            subtype: Some(DataSchemaSubtype::Array(ArraySchema::default())),
+                            other: Cons::new_head(DataSchemaExtA { h: 4 })
+                                .add(())
+                                .add(DataSchemaExtC { t: 5 }),
+                            attype: Default::default(),
+                            title: Default::default(),
+                            titles: Default::default(),
+                            description: Default::default(),
+                            descriptions: Default::default(),
+                            constant: Default::default(),
+                            unit: Default::default(),
+                            one_of: Default::default(),
+                            enumeration: Default::default(),
+                            read_only: Default::default(),
+                            write_only: Default::default(),
+                            format: Default::default(),
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
+                properties: Some(
+                    [(
+                        "property".to_string(),
+                        PropertyAffordance {
+                            interaction: InteractionAffordance {
+                                other: Cons::new_head(InteractionAffordanceExtA { d: 6 })
+                                    .add(InteractionAffordanceExtB { j: 9. })
+                                    .add(InteractionAffordanceExtC { p: 10 }),
+                                attype: Default::default(),
+                                title: Default::default(),
+                                titles: Default::default(),
+                                description: Default::default(),
+                                descriptions: Default::default(),
+                                forms: vec![Form {
+                                    href: "href1".to_string(),
+                                    response: Some(ExpectedResponse {
+                                        content_type: "application/json".to_string(),
+                                        other: Cons::new_head(ExpectedResponseExtA { g: 16 })
+                                            .add(ExpectedResponseExtB { n: 17 })
+                                            .add(ExpectedResponseExtC { s: 18 })
+                                    }),
+                                    other: Cons::new_head(()).add(FormExtB { m: 19 }).add(()),
+                                    op: Default::default(),
+                                    content_type: Default::default(),
+                                    content_coding: Default::default(),
+                                    subprotocol: Default::default(),
+                                    security: Default::default(),
+                                    scopes: Default::default(),
+                                }],
+                                uri_variables: Default::default(),
+                            },
+                            data_schema: DataSchema {
+                                subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
+                                    other: Cons::new_head(ObjectSchemaExtA { i: 11 })
+                                        .add(ObjectSchemaExtB { o: 12 })
+                                        .add(ObjectSchemaExtC { u: 13 }),
+                                    properties: Default::default(),
+                                    required: Default::default(),
+                                })),
+                                other: Cons::new_head(DataSchemaExtA { h: 7 })
+                                    .add(())
+                                    .add(DataSchemaExtC { t: 8 }),
+                                attype: Default::default(),
+                                title: Default::default(),
+                                titles: Default::default(),
+                                description: Default::default(),
+                                descriptions: Default::default(),
+                                constant: Default::default(),
+                                unit: Default::default(),
+                                one_of: Default::default(),
+                                enumeration: Default::default(),
+                                read_only: Default::default(),
+                                write_only: Default::default(),
+                                format: Default::default(),
+                            },
+                            other: Cons::new_head(())
+                                .add(PropertyAffordanceExtB { k: 14. })
+                                .add(PropertyAffordanceExtC { q: 15 }),
+                            observable: Default::default(),
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
+                actions: Some(
+                    [(
+                        "action".to_string(),
+                        ActionAffordance {
+                            interaction: InteractionAffordance {
+                                title: Some("action".to_string()),
+                                uri_variables: Some(
+                                    [(
+                                        "y".to_string(),
+                                        DataSchema {
+                                            subtype: Some(DataSchemaSubtype::Array(
+                                                ArraySchema::default()
+                                            )),
+                                            other: Cons::new_head(DataSchemaExtA { h: 27 })
+                                                .add(())
+                                                .add(DataSchemaExtC { t: 28 }),
+                                            attype: Default::default(),
+                                            title: Default::default(),
+                                            titles: Default::default(),
+                                            description: Default::default(),
+                                            descriptions: Default::default(),
+                                            constant: Default::default(),
+                                            unit: Default::default(),
+                                            one_of: Default::default(),
+                                            enumeration: Default::default(),
+                                            read_only: Default::default(),
+                                            write_only: Default::default(),
+                                            format: Default::default(),
+                                        }
+                                    )]
+                                    .into_iter()
+                                    .collect()
+                                ),
+                                other: Cons::new_head(InteractionAffordanceExtA { d: 22 })
+                                    .add(InteractionAffordanceExtB { j: 23. })
+                                    .add(InteractionAffordanceExtC { p: 24 }),
+                                attype: Default::default(),
+                                titles: Default::default(),
+                                description: Default::default(),
+                                descriptions: Default::default(),
+                                forms: Default::default(),
+                            },
+                            input: Some(DataSchema {
+                                title: Some("input".to_string()),
+                                subtype: Some(DataSchemaSubtype::Number(NumberSchema {
+                                    minimum: Some(0.),
+                                    maximum: Some(5.),
+                                    ..Default::default()
+                                })),
+                                other: Cons::new_head(DataSchemaExtA { h: 25 })
+                                    .add(())
+                                    .add(DataSchemaExtC { t: 26 }),
+                                attype: Default::default(),
+                                titles: Default::default(),
+                                description: Default::default(),
+                                descriptions: Default::default(),
+                                constant: Default::default(),
+                                unit: Default::default(),
+                                one_of: Default::default(),
+                                enumeration: Default::default(),
+                                read_only: Default::default(),
+                                write_only: Default::default(),
+                                format: Default::default(),
+                            }),
+                            other: Cons::new_head(ActionAffordanceExtA { e: 20 })
+                                .add(())
+                                .add(ActionAffordanceExtC { r: 21 }),
+                            output: Default::default(),
+                            safe: Default::default(),
+                            idempotent: Default::default(),
+                            synchronous: Default::default(),
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
+                events: Some(
+                    [(
+                        "event".to_string(),
+                        EventAffordance {
+                            interaction: InteractionAffordance {
+                                other: Cons::new_head(InteractionAffordanceExtA { d: 31 })
+                                    .add(InteractionAffordanceExtB { j: 32. })
+                                    .add(InteractionAffordanceExtC { p: 33 }),
+                                attype: Default::default(),
+                                title: Default::default(),
+                                titles: Default::default(),
+                                description: Default::default(),
+                                descriptions: Default::default(),
+                                forms: Default::default(),
+                                uri_variables: Default::default(),
+                            },
+                            data: Some(DataSchema {
+                                subtype: Some(DataSchemaSubtype::Boolean),
+                                other: Cons::new_head(DataSchemaExtA { h: 34 })
+                                    .add(())
+                                    .add(DataSchemaExtC { t: 35 }),
+                                attype: Default::default(),
+                                title: Default::default(),
+                                titles: Default::default(),
+                                description: Default::default(),
+                                descriptions: Default::default(),
+                                constant: Default::default(),
+                                unit: Default::default(),
+                                one_of: Default::default(),
+                                enumeration: Default::default(),
+                                read_only: Default::default(),
+                                write_only: Default::default(),
+                                format: Default::default(),
+                            }),
+                            other: Cons::new_head(EventAffordanceExtA { f: 29 })
+                                .add(EventAffordanceExtB { l: 30 })
+                                .add(()),
+                            subscription: Default::default(),
+                            data_response: Default::default(),
+                            cancellation: Default::default(),
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
+                forms: Some(vec![Form {
+                    href: "href2".to_string(),
+                    response: Some(ExpectedResponse {
+                        content_type: "test".to_string(),
+                        other: Cons::new_head(ExpectedResponseExtA { g: 37 })
+                            .add(ExpectedResponseExtB { n: 38 })
+                            .add(ExpectedResponseExtC { s: 39 })
+                    }),
+                    other: Cons::new_head(()).add(FormExtB { m: 36 }).add(()),
+                    op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
+                    content_type: Default::default(),
+                    content_coding: Default::default(),
+                    subprotocol: Default::default(),
+                    security: Default::default(),
+                    scopes: Default::default(),
+                }]),
+                attype: Default::default(),
+                titles: Default::default(),
+                descriptions: Default::default(),
+                version: Default::default(),
+                created: Default::default(),
+                modified: Default::default(),
+                support: Default::default(),
+                base: Default::default(),
+                links: Default::default(),
+                security: Default::default(),
+                security_definitions: Default::default(),
+                profile: Default::default(),
+            },
         );
     }
 }
