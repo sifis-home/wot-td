@@ -270,6 +270,75 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
             _marker: PhantomData,
         }
     }
+
+    pub fn ext_with<F, T>(self, f: F) -> ThingBuilder<Other::Target, ToExtend>
+    where
+        F: FnOnce() -> T,
+        Other: Extend<T>,
+        Other::Target: ExtendableThing,
+    {
+        let Self {
+            context,
+            id,
+            attype,
+            title,
+            titles,
+            description,
+            descriptions,
+            version,
+            created,
+            modified,
+            support,
+            base,
+            properties: _,
+            actions: _,
+            events: _,
+            links,
+            forms: _,
+            uri_variables: _,
+            security,
+            security_definitions,
+            profile,
+            other,
+            _marker,
+        } = self;
+
+        let other = other.ext_with(f);
+        ThingBuilder {
+            context,
+            id,
+            attype,
+            title,
+            titles,
+            description,
+            descriptions,
+            version,
+            created,
+            modified,
+            support,
+            base,
+            properties: Default::default(),
+            actions: Default::default(),
+            events: Default::default(),
+            links,
+            forms: Default::default(),
+            uri_variables: Default::default(),
+            security,
+            security_definitions,
+            profile,
+            other,
+            _marker,
+        }
+    }
+
+    #[inline]
+    pub fn ext<T>(self, t: T) -> ThingBuilder<Other::Target, ToExtend>
+    where
+        Other: Extend<T>,
+        Other::Target: ExtendableThing,
+    {
+        self.ext_with(|| t)
+    }
 }
 
 impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
@@ -1490,6 +1559,27 @@ where
         self.response = Some(ExpectedResponse {
             content_type: content_type.into(),
             other: Default::default(),
+        });
+        self
+    }
+}
+
+impl<Other, T, OtherForm> FormBuilder<Other, T, OtherForm>
+where
+    Other: ExtendableThing,
+    Other::ExpectedResponse: Extendable,
+{
+    /// Set the expected response metadata building the type from ground up
+    ///
+    /// It is optional if the input and output metadata are the same, e.g. the content_type
+    /// matches.
+    pub fn response<F>(mut self, content_type: impl Into<String>, f: F) -> Self
+    where
+        F: FnOnce(<Other::ExpectedResponse as Extendable>::Empty) -> Other::ExpectedResponse,
+    {
+        self.response = Some(ExpectedResponse {
+            content_type: content_type.into(),
+            other: f(Other::ExpectedResponse::empty()),
         });
         self
     }
