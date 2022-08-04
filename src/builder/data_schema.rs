@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, ops::Not};
 
 use crate::{
-    extend::Extendable,
+    extend::{Extend, Extendable},
     thing::{
         ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
         StringSchema,
@@ -48,6 +48,44 @@ impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
 }
 
 impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
+    pub fn ext_with<F, T>(self, f: F) -> PartialDataSchemaBuilder<DS::Target, AS, OS, ToExtend>
+    where
+        F: FnOnce() -> T,
+        DS: Extend<T>,
+    {
+        let Self {
+            constant,
+            unit,
+            one_of: _,
+            enumeration,
+            read_only,
+            write_only,
+            format,
+            other,
+            _marker,
+        } = self;
+        let other = other.ext_with(f);
+        PartialDataSchemaBuilder {
+            constant,
+            unit,
+            one_of: Default::default(),
+            enumeration,
+            read_only,
+            write_only,
+            format,
+            other,
+            _marker,
+        }
+    }
+
+    #[inline]
+    pub fn ext<T>(self, t: T) -> PartialDataSchemaBuilder<DS::Target, AS, OS, ToExtend>
+    where
+        DS: Extend<T>,
+    {
+        self.ext_with(|| t)
+    }
+
     pub fn finish_extend(self) -> PartialDataSchemaBuilder<DS, AS, OS, Extended> {
         let Self {
             constant,
@@ -124,6 +162,24 @@ pub struct DataSchemaBuilder<DS, AS, OS, Status> {
 }
 
 impl<DS, AS, OS> DataSchemaBuilder<DS, AS, OS, ToExtend> {
+    pub fn ext_with<F, T>(self, f: F) -> DataSchemaBuilder<DS::Target, AS, OS, ToExtend>
+    where
+        F: FnOnce() -> T,
+        DS: Extend<T>,
+    {
+        let Self { partial, info } = self;
+        let partial = partial.ext_with(f);
+        DataSchemaBuilder { partial, info }
+    }
+
+    #[inline]
+    pub fn ext<T>(self, t: T) -> DataSchemaBuilder<DS::Target, AS, OS, ToExtend>
+    where
+        DS: Extend<T>,
+    {
+        self.ext_with(|| t)
+    }
+
     pub fn finish_extend(self) -> DataSchemaBuilder<DS, AS, OS, Extended> {
         let Self { partial, info } = self;
         let partial = partial.finish_extend();
