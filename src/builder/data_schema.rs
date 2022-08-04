@@ -1979,10 +1979,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use serde::{Deserialize, Serialize};
     use serde_json::json;
 
     use crate::{
-        hlist::Nil,
+        extend::ExtendableThing,
+        hlist::{Cons, Nil},
         thing::{ArraySchema, DataSchemaFromOther, ObjectSchema},
     };
 
@@ -3579,5 +3581,246 @@ mod tests {
             .into();
 
         assert!(data_schema.check().is_ok());
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct A(i32);
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct B(String);
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ThingExtA {}
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct DataSchemaExtA {
+        a: A,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ArraySchemaExtA {
+        b: A,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ObjectSchemaExtA {
+        c: A,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ThingExtB {}
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct DataSchemaExtB {
+        d: B,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ArraySchemaExtB {
+        e: B,
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct ObjectSchemaExtB {
+        f: B,
+    }
+
+    impl ExtendableThing for ThingExtA {
+        type InteractionAffordance = ();
+        type PropertyAffordance = ();
+        type ActionAffordance = ();
+        type EventAffordance = ();
+        type Form = ();
+        type ExpectedResponse = ();
+        type DataSchema = DataSchemaExtA;
+        type ObjectSchema = ObjectSchemaExtA;
+        type ArraySchema = ArraySchemaExtA;
+    }
+
+    impl ExtendableThing for ThingExtB {
+        type InteractionAffordance = ();
+        type PropertyAffordance = ();
+        type ActionAffordance = ();
+        type EventAffordance = ();
+        type Form = ();
+        type ExpectedResponse = ();
+        type DataSchema = DataSchemaExtB;
+        type ObjectSchema = ObjectSchemaExtB;
+        type ArraySchema = ArraySchemaExtB;
+    }
+
+    #[test]
+    fn extend_data_schema() {
+        let data_schema: DataSchemaFromOther<Cons<ThingExtB, Cons<ThingExtA, Nil>>> =
+            DataSchemaBuilder::<Cons<ThingExtB, Cons<ThingExtA, Nil>>, _, _, _>::empty()
+                .ext(DataSchemaExtA { a: A(1) })
+                .ext_with(|| DataSchemaExtB {
+                    d: B("hello".to_string()),
+                })
+                .finish_extend()
+                .title("title")
+                .null()
+                .into();
+
+        assert_eq!(
+            data_schema,
+            DataSchema {
+                title: Some("title".to_string()),
+                other: Cons::new_head(DataSchemaExtA { a: A(1) }).add(DataSchemaExtB {
+                    d: B("hello".to_string())
+                }),
+                attype: Default::default(),
+                titles: Default::default(),
+                description: Default::default(),
+                descriptions: Default::default(),
+                constant: Default::default(),
+                unit: Default::default(),
+                one_of: Default::default(),
+                enumeration: Default::default(),
+                read_only: Default::default(),
+                write_only: Default::default(),
+                format: Default::default(),
+                subtype: Some(DataSchemaSubtype::Null),
+            }
+        );
+    }
+
+    #[test]
+    fn extend_data_schema_with_array() {
+        let data_schema: DataSchemaFromOther<Cons<ThingExtB, Cons<ThingExtA, Nil>>> =
+            DataSchemaBuilder::<
+                Cons<ThingExtB, Cons<ThingExtA, Nil>>,
+                Cons<ArraySchemaExtB, Cons<ArraySchemaExtA, Nil>>,
+                _,
+                _,
+            >::empty()
+            .ext(DataSchemaExtA { a: A(1) })
+            .ext_with(|| DataSchemaExtB {
+                d: B("hello".to_string()),
+            })
+            .finish_extend()
+            .title("title")
+            .array_ext(|b| {
+                b.ext(ArraySchemaExtA { b: A(2) })
+                    .ext_with(|| ArraySchemaExtB {
+                        e: B("world".to_string()),
+                    })
+            })
+            .max_items(10)
+            .into();
+
+        assert_eq!(
+            data_schema,
+            DataSchema {
+                title: Some("title".to_string()),
+                other: Cons::new_head(DataSchemaExtA { a: A(1) }).add(DataSchemaExtB {
+                    d: B("hello".to_string())
+                }),
+                attype: Default::default(),
+                titles: Default::default(),
+                description: Default::default(),
+                descriptions: Default::default(),
+                constant: Default::default(),
+                unit: Default::default(),
+                one_of: Default::default(),
+                enumeration: Default::default(),
+                read_only: Default::default(),
+                write_only: Default::default(),
+                format: Default::default(),
+                subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                    other: Cons::new_head(ArraySchemaExtA { b: A(2) }).add(ArraySchemaExtB {
+                        e: B("world".to_string())
+                    }),
+                    max_items: Some(10),
+                    items: Default::default(),
+                    min_items: Default::default(),
+                })),
+            }
+        );
+    }
+
+    #[test]
+    fn extend_data_schema_with_object() {
+        let data_schema: DataSchemaFromOther<Cons<ThingExtB, Cons<ThingExtA, Nil>>> =
+            DataSchemaBuilder::<
+                Cons<ThingExtB, Cons<ThingExtA, Nil>>,
+                _,
+                Cons<ObjectSchemaExtB, Cons<ObjectSchemaExtA, Nil>>,
+                _,
+            >::empty()
+            .ext(DataSchemaExtA { a: A(1) })
+            .ext_with(|| DataSchemaExtB {
+                d: B("hello".to_string()),
+            })
+            .finish_extend()
+            .title("title")
+            .object_ext(|b| {
+                b.ext(ObjectSchemaExtA { c: A(2) })
+                    .ext_with(|| ObjectSchemaExtB {
+                        f: B("world".to_string()),
+                    })
+            })
+            .property("x", false, |b| {
+                b.ext(DataSchemaExtA { a: A(3) })
+                    .ext(DataSchemaExtB {
+                        d: B("other".to_string()),
+                    })
+                    .finish_extend()
+                    .null()
+            })
+            .into();
+
+        assert_eq!(
+            data_schema,
+            DataSchema {
+                title: Some("title".to_string()),
+                other: Cons::new_head(DataSchemaExtA { a: A(1) }).add(DataSchemaExtB {
+                    d: B("hello".to_string())
+                }),
+                subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
+                    other: Cons::new_head(ObjectSchemaExtA { c: A(2) }).add(ObjectSchemaExtB {
+                        f: B("world".to_string())
+                    }),
+                    properties: Some(
+                        [(
+                            "x".to_string(),
+                            DataSchema {
+                                other: Cons::new_head(DataSchemaExtA { a: A(3) }).add(
+                                    DataSchemaExtB {
+                                        d: B("other".to_string())
+                                    }
+                                ),
+                                subtype: Some(DataSchemaSubtype::Null),
+                                attype: Default::default(),
+                                title: Default::default(),
+                                titles: Default::default(),
+                                description: Default::default(),
+                                descriptions: Default::default(),
+                                constant: Default::default(),
+                                unit: Default::default(),
+                                one_of: Default::default(),
+                                enumeration: Default::default(),
+                                read_only: Default::default(),
+                                write_only: Default::default(),
+                                format: Default::default(),
+                            }
+                        )]
+                        .into_iter()
+                        .collect()
+                    ),
+                    required: None,
+                })),
+                attype: Default::default(),
+                titles: Default::default(),
+                description: Default::default(),
+                descriptions: Default::default(),
+                constant: Default::default(),
+                unit: Default::default(),
+                one_of: Default::default(),
+                enumeration: Default::default(),
+                read_only: Default::default(),
+                write_only: Default::default(),
+                format: Default::default(),
+            }
+        );
     }
 }
