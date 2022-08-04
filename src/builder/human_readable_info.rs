@@ -8,7 +8,7 @@ use crate::thing::MultiLanguage;
 use super::MultiLanguageBuilder;
 
 /// Human readable informations and semantic tagging
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct HumanReadableInfo {
     /// JSON-LD @type
     /// The meaning of each @type is given by the current JSON-LD @context.
