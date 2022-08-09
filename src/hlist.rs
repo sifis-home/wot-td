@@ -18,6 +18,60 @@ impl<T> Cons<T, Nil> {
     }
 }
 
+trait ToRef<'a> {
+    type Ref: 'a;
+    type Mut: 'a;
+    /// Return a heterogenous list of references
+    fn to_ref(&'a self) -> Self::Ref;
+    /// Return a heterogenous list of mutable references
+    fn to_mut(&'a mut self) -> Self::Mut;
+}
+
+impl<'a> ToRef<'a> for Nil {
+    type Ref = &'a Nil;
+    type Mut = &'a mut Nil;
+    /// Return a heterogenous list of references
+    fn to_ref(&'a self) -> Self::Ref {
+        self
+    }
+    /// Return a heterogenous list of mutable references
+    fn to_mut(&'a mut self) -> Self::Mut {
+        self
+    }
+}
+
+impl<'a, T, U> ToRef<'a> for Cons<T, U>
+where
+    T: 'a,
+    U: ToRef<'a>,
+{
+    type Ref = Cons<&'a T, U::Ref>;
+    type Mut = Cons<&'a mut T, U::Mut>;
+
+    /// Return a heterogenous list of references
+    fn to_ref(&'a self) -> Self::Ref {
+        let Cons { ref head, ref tail } = self;
+
+        Cons {
+            head,
+            tail: tail.to_ref(),
+        }
+    }
+
+    /// Return a heterogenous list of mutable references
+    fn to_mut(&'a mut self) -> Self::Mut {
+        let Cons {
+            ref mut head,
+            ref mut tail,
+        } = self;
+
+        Cons {
+            head,
+            tail: tail.to_mut(),
+        }
+    }
+}
+
 impl<T, U> Cons<T, U> {
     #[inline]
     pub(crate) fn add<V>(self, value: V) -> Cons<V, Self> {
@@ -25,6 +79,13 @@ impl<T, U> Cons<T, U> {
             head: value,
             tail: self,
         }
+    }
+
+    /// Split the head element of the heterogenous list
+    pub fn split_head(self) -> (T, U) {
+        let Cons { head, tail } = self;
+
+        (head, tail)
     }
 }
 
@@ -65,6 +126,20 @@ mod tests {
     use serde_json::{json, Value};
 
     use super::*;
+
+    #[test]
+    fn split_head() {
+        let list = Cons::new_head("A").add(2).add("C".to_string());
+
+        let ref_list = list.to_ref();
+
+        let (head, tail) = ref_list.split_head();
+        assert_eq!(head, &"C".to_string());
+        let (head, tail) = tail.split_head();
+        assert_eq!(head, &2);
+        let (head, _tail) = tail.split_head();
+        assert_eq!(head, &"A");
+    }
 
     #[test]
     fn chain() {

@@ -11,5 +11,5 @@
 
 pub mod builder;
 pub mod extend;
-mod hlist;
+pub mod hlist;
 pub mod thing;
