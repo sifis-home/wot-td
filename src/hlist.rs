@@ -11,21 +11,6 @@ pub struct Cons<T, U = Nil> {
     pub(crate) tail: U,
 }
 
-pub(crate) trait HList: Sized {
-    const SIZE: usize;
-}
-
-impl HList for Nil {
-    const SIZE: usize = 0;
-}
-
-impl<T, U> HList for Cons<T, U>
-where
-    U: HList,
-{
-    const SIZE: usize = U::SIZE + 1;
-}
-
 impl<T> Cons<T, Nil> {
     #[inline]
     pub(crate) fn new_head(head: T) -> Self {
