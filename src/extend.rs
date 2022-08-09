@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::hlist::{Cons, HList, Nil};
+use crate::hlist::{Cons, Nil};
 
 pub trait ExtendablePiece: Serialize + for<'a> Deserialize<'a> {}
 
@@ -81,10 +81,7 @@ impl<T> Extend<T> for Nil {
     }
 }
 
-impl<T, U> Extendable for Cons<T, U>
-where
-    Cons<T, U>: HList,
-{
+impl<T, U> Extendable for Cons<T, U> {
     type Empty = Nil;
 
     fn empty() -> Self::Empty {
