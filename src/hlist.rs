@@ -18,60 +18,6 @@ impl<T> Cons<T, Nil> {
     }
 }
 
-trait ToRef<'a> {
-    type Ref: 'a;
-    type Mut: 'a;
-    /// Return a heterogenous list of references
-    fn to_ref(&'a self) -> Self::Ref;
-    /// Return a heterogenous list of mutable references
-    fn to_mut(&'a mut self) -> Self::Mut;
-}
-
-impl<'a> ToRef<'a> for Nil {
-    type Ref = &'a Nil;
-    type Mut = &'a mut Nil;
-    /// Return a heterogenous list of references
-    fn to_ref(&'a self) -> Self::Ref {
-        self
-    }
-    /// Return a heterogenous list of mutable references
-    fn to_mut(&'a mut self) -> Self::Mut {
-        self
-    }
-}
-
-impl<'a, T, U> ToRef<'a> for Cons<T, U>
-where
-    T: 'a,
-    U: ToRef<'a>,
-{
-    type Ref = Cons<&'a T, U::Ref>;
-    type Mut = Cons<&'a mut T, U::Mut>;
-
-    /// Return a heterogenous list of references
-    fn to_ref(&'a self) -> Self::Ref {
-        let Cons { ref head, ref tail } = self;
-
-        Cons {
-            head,
-            tail: tail.to_ref(),
-        }
-    }
-
-    /// Return a heterogenous list of mutable references
-    fn to_mut(&'a mut self) -> Self::Mut {
-        let Cons {
-            ref mut head,
-            ref mut tail,
-        } = self;
-
-        Cons {
-            head,
-            tail: tail.to_mut(),
-        }
-    }
-}
-
 impl<T, U> Cons<T, U> {
     #[inline]
     pub(crate) fn add<V>(self, value: V) -> Cons<V, Self> {
@@ -86,6 +32,81 @@ impl<T, U> Cons<T, U> {
         let Cons { head, tail } = self;
 
         (head, tail)
+    }
+}
+
+pub trait HListRef {
+    type Target;
+
+    fn to_ref(self) -> Self::Target;
+}
+
+impl<'a, T, U> HListRef for &'a Cons<T, U>
+where
+    &'a U: HListRef,
+{
+    type Target = Cons<&'a T, <&'a U as HListRef>::Target>;
+
+    #[inline]
+    fn to_ref(self) -> Self::Target {
+        let Cons { head, tail } = self;
+        Cons {
+            head,
+            tail: tail.to_ref(),
+        }
+    }
+}
+
+impl<'a> HListRef for &'a Nil {
+    type Target = Nil;
+
+    #[inline]
+    fn to_ref(self) -> Self::Target {
+        Nil
+    }
+}
+
+pub trait HListMut {
+    type Target;
+
+    // This is ignored because `HListMut` must be implemented for mutable references only,
+    // therefore `to_mut` must take `self`. The reason behind this design is because we don't have
+    // GATs on stable in order to write something like this:
+    // ```
+    // trait HList {
+    //     type ToRef<'a> where Self: 'a;
+    //     type ToMut<'a> where Self: 'a;
+    //
+    //     fn to_ref(&self) -> Self::ToRef<'_>;
+    //     fn to_mut(&mut self) -> Self::ToMut<'_>;
+    // }
+    // ```
+    #[allow(clippy::wrong_self_convention)]
+    fn to_mut(self) -> Self::Target;
+}
+
+impl<'a, T, U> HListMut for &'a mut Cons<T, U>
+where
+    &'a mut U: HListMut,
+{
+    type Target = Cons<&'a mut T, <&'a mut U as HListMut>::Target>;
+
+    #[inline]
+    fn to_mut(self) -> Self::Target {
+        let Cons { head, tail } = self;
+        Cons {
+            head,
+            tail: tail.to_mut(),
+        }
+    }
+}
+
+impl<'a> HListMut for &'a mut Nil {
+    type Target = Nil;
+
+    #[inline]
+    fn to_mut(self) -> Self::Target {
+        Nil
     }
 }
 
@@ -233,5 +254,51 @@ mod tests {
         assert_eq!(a.a, 42);
         assert_eq!(a.b.head.head.foo, 42);
         assert_eq!(a.b.head.tail.bar, String::from("42"));
+    }
+
+    #[test]
+    fn to_ref() {
+        #[derive(Debug, PartialEq)]
+        struct A(i32);
+
+        #[derive(Debug, PartialEq)]
+        struct B(f32);
+
+        #[derive(Debug, PartialEq)]
+        struct C(String);
+
+        let list = Cons::new_head(A(42))
+            .add(B(1.234))
+            .add(C("hello".to_string()));
+
+        assert_eq!(
+            list.to_ref(),
+            Cons::new_head(&A(42))
+                .add(&B(1.234))
+                .add(&C("hello".to_string())),
+        )
+    }
+
+    #[test]
+    fn to_mut() {
+        #[derive(Debug, PartialEq)]
+        struct A(i32);
+
+        #[derive(Debug, PartialEq)]
+        struct B(f32);
+
+        #[derive(Debug, PartialEq)]
+        struct C(String);
+
+        let mut list = Cons::new_head(A(42))
+            .add(B(1.234))
+            .add(C("hello".to_string()));
+
+        assert_eq!(
+            list.to_mut(),
+            Cons::new_head(&mut A(42))
+                .add(&mut B(1.234))
+                .add(&mut C("hello".to_string())),
+        )
     }
 }
