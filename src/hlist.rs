@@ -129,16 +129,21 @@ mod tests {
 
     #[test]
     fn split_head() {
-        let list = Cons::new_head("A").add(2).add("C".to_string());
+        #[derive(Debug, PartialEq)]
+        struct A(i32);
 
-        let ref_list = list.to_ref();
+        #[derive(Debug, PartialEq)]
+        struct B(f32);
 
-        let (head, tail) = ref_list.split_head();
-        assert_eq!(head, &"C".to_string());
-        let (head, tail) = tail.split_head();
-        assert_eq!(head, &2);
-        let (head, _tail) = tail.split_head();
-        assert_eq!(head, &"A");
+        #[derive(Debug, PartialEq)]
+        struct C(String);
+
+        let list = Cons::new_head(A(42)).add(B(1.234)).add(C("C".to_string()));
+
+        assert_eq!(
+            list.split_head(),
+            (C("C".to_string()), Cons::new_head(A(42)).add(B(1.234))),
+        )
     }
 
     #[test]
