@@ -60,6 +60,7 @@ pub struct ThingBuilder<Other: ExtendableThing, Status> {
     security: Vec<String>,
     security_definitions: Vec<(String, SecurityScheme)>,
     profile: Vec<String>,
+    schema_definitions: HashMap<String, DataSchemaFromOther<Other>>,
     other: Other,
     _marker: PhantomData<Status>,
 }
@@ -176,6 +177,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
             security_definitions: Default::default(),
             uri_variables: Default::default(),
             profile: Default::default(),
+            schema_definitions: Default::default(),
             other: Default::default(),
             _marker: PhantomData,
         }
@@ -212,6 +214,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
             security_definitions: Default::default(),
             uri_variables: Default::default(),
             profile: Default::default(),
+            schema_definitions: Default::default(),
             other: Other::empty(),
             _marker: PhantomData,
         }
@@ -240,6 +243,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
             security,
             security_definitions,
             profile,
+            schema_definitions,
             other,
             _marker: _,
         } = self;
@@ -266,6 +270,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
             security,
             security_definitions,
             profile,
+            schema_definitions,
             other,
             _marker: PhantomData,
         }
@@ -299,6 +304,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
             security,
             security_definitions,
             profile,
+            schema_definitions: _,
             other,
             _marker,
         } = self;
@@ -326,6 +332,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
             security,
             security_definitions,
             profile,
+            schema_definitions: Default::default(),
             other,
             _marker,
         }
@@ -370,6 +377,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             security_definitions: security_definitions_vec,
             uri_variables,
             profile,
+            schema_definitions,
             other,
             _marker: _,
         } = self;
@@ -387,6 +395,10 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         }
 
         let profile = profile.is_empty().not().then(|| profile);
+        let schema_definitions = schema_definitions
+            .is_empty()
+            .not()
+            .then(|| schema_definitions);
 
         let forms = forms
             .map(|forms| {
@@ -467,6 +479,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             security_definitions,
             uri_variables,
             profile,
+            schema_definitions,
             other,
         })
     }
@@ -836,6 +849,26 @@ where
             affordance,
         };
         self.events.push(affordance_builder);
+        self
+    }
+
+    pub fn schema_definition<F, T>(mut self, name: impl Into<String>, f: F) -> Self
+    where
+        F: FnOnce(
+            DataSchemaBuilder<
+                <Other::DataSchema as Extendable>::Empty,
+                Other::ArraySchema,
+                Other::ObjectSchema,
+                ToExtend,
+            >,
+        ) -> T,
+        T: Into<DataSchemaFromOther<Other>>,
+        Other::DataSchema: Extendable,
+    {
+        self.schema_definitions.insert(
+            name.into(),
+            f(DataSchemaBuilder::<Other::DataSchema, _, _, _>::empty()).into(),
+        );
         self
     }
 }
@@ -2526,6 +2559,8 @@ mod tests {
             })
             .security(|b| b.digest())
             .security(|b| b.basic())
+            .schema_definition("schema1", |b| b.finish_extend().bool())
+            .schema_definition("schema2", |b| b.finish_extend().null())
             .build()
             .unwrap();
 
@@ -2548,6 +2583,26 @@ mod tests {
                     }),
                     other: Nil,
                 }]),
+                schema_definitions: Some(
+                    [
+                        (
+                            "schema1".to_string(),
+                            DataSchema {
+                                subtype: Some(DataSchemaSubtype::Boolean),
+                                ..Default::default()
+                            }
+                        ),
+                        (
+                            "schema2".to_string(),
+                            DataSchema {
+                                subtype: Some(DataSchemaSubtype::Null),
+                                ..Default::default()
+                            }
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                ),
                 security_definitions: [
                     (
                         "digest".to_string(),
@@ -3023,6 +3078,48 @@ mod tests {
     }
 
     #[test]
+    fn schema_definitions() {
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .schema_definition("schema1", |b| b.finish_extend().null())
+            .schema_definition("schema2", |b| b.finish_extend().number().minimum(5.))
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT_11.into(),
+                title: "MyLampThing".to_string(),
+                schema_definitions: Some(
+                    [
+                        (
+                            "schema1".to_string(),
+                            DataSchema {
+                                subtype: Some(DataSchemaSubtype::Null),
+                                ..Default::default()
+                            },
+                        ),
+                        (
+                            "schema2".to_string(),
+                            DataSchema {
+                                subtype: Some(DataSchemaSubtype::Number(NumberSchema {
+                                    minimum: Some(5.),
+                                    ..Default::default()
+                                })),
+                                ..Default::default()
+                            },
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                ),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
     fn extend_thing_with_form_builder() {
         #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
         struct ThingA {}
@@ -3440,6 +3537,13 @@ mod tests {
                     })
                     .op(FormOperation::ReadAllProperties)
             })
+            .schema_definition("schema", |b| {
+                b.ext(DataSchemaExtA { h: 40 })
+                    .ext(())
+                    .ext(DataSchemaExtC { t: 41 })
+                    .finish_extend()
+                    .null()
+            })
             .build()
             .unwrap();
 
@@ -3679,6 +3783,31 @@ mod tests {
                     security: Default::default(),
                     scopes: Default::default(),
                 }]),
+                schema_definitions: Some(
+                    [(
+                        "schema".to_string(),
+                        DataSchema {
+                            subtype: Some(DataSchemaSubtype::Null),
+                            other: Cons::new_head(DataSchemaExtA { h: 40 })
+                                .add(())
+                                .add(DataSchemaExtC { t: 41 }),
+                            attype: Default::default(),
+                            title: Default::default(),
+                            titles: Default::default(),
+                            description: Default::default(),
+                            descriptions: Default::default(),
+                            constant: Default::default(),
+                            unit: Default::default(),
+                            one_of: Default::default(),
+                            enumeration: Default::default(),
+                            read_only: Default::default(),
+                            write_only: Default::default(),
+                            format: Default::default(),
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
                 attype: Default::default(),
                 titles: Default::default(),
                 descriptions: Default::default(),

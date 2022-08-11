@@ -132,6 +132,8 @@ pub struct Thing<Other: ExtendableThing = Nil> {
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub profile: Option<Vec<String>>,
 
+    pub schema_definitions: Option<DataSchemaMap<Other>>,
+
     #[serde(flatten)]
     pub other: Other,
 }
@@ -168,6 +170,7 @@ where
             .field("security_definitions", &self.security_definitions)
             .field("uri_variables", &self.uri_variables)
             .field("profile", &self.profile)
+            .field("schema_definitions", &self.schema_definitions)
             .field("other", &self.other)
             .finish()
     }
@@ -200,6 +203,7 @@ where
             security_definitions: Default::default(),
             uri_variables: Default::default(),
             profile: Default::default(),
+            schema_definitions: Default::default(),
             other: Default::default(),
         }
     }
@@ -236,6 +240,7 @@ where
             && self.security_definitions == other.security_definitions
             && self.uri_variables == other.uri_variables
             && self.profile == other.profile
+            && self.schema_definitions == other.schema_definitions
             && self.other == other.other
     }
 }
@@ -1179,6 +1184,11 @@ mod test {
               "op": "readallproperties"
             }
           ],
+          "schemaDefinitions": {
+              "schema": {
+                  "type": "null"
+              }
+          },
           "securityDefinitions": {
             "nosec": {
               "scheme": "nosec"
@@ -1296,6 +1306,17 @@ mod test {
                 href: "https://mylamp.example.com/enumerate".to_string(),
                 ..Default::default()
             }]),
+            schema_definitions: Some(
+                [(
+                    "schema".to_string(),
+                    DataSchema {
+                        subtype: Some(DataSchemaSubtype::Null),
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
             security_definitions: [("nosec".to_string(), SecurityScheme::default())]
                 .into_iter()
                 .collect(),
@@ -1481,14 +1502,26 @@ mod test {
                 other: FormExtA { f: A(11) },
                 ..Default::default()
             }]),
-            other: ThingExtA { a: A(12) },
+            schema_definitions: Some(
+                [(
+                    "schema".to_string(),
+                    DataSchema {
+                        subtype: Some(DataSchemaSubtype::Null),
+                        other: DataSchemaExtA { h: A(12) },
+                        ..Default::default()
+                    },
+                )]
+                .into_iter()
+                .collect(),
+            ),
+            other: ThingExtA { a: A(13) },
             ..Default::default()
         };
 
         let thing_json = serde_json::to_value(thing).unwrap();
         assert_eq!(
             thing_json,
-            json!({
+            json![{
                 "@context": "test",
                 "title": "",
                 "properties": {
@@ -1540,10 +1573,18 @@ mod test {
                     },
                     "f": 11,
                 }],
+                "schemaDefinitions": {
+                    "schema": {
+                        "type": "null",
+                        "readOnly": false,
+                        "writeOnly": false,
+                        "h": 12,
+                    }
+                },
                 "security": [],
                 "securityDefinitions": {},
-                "a": 12,
-            }),
+                "a": 13,
+            }],
         );
     }
 
