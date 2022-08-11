@@ -110,6 +110,58 @@ impl<'a> HListMut for &'a mut Nil {
     }
 }
 
+pub trait NonEmptyHList {
+    type Init;
+    type Last;
+    type Reversed;
+
+    fn split_last(self) -> (Self::Last, Self::Init);
+    fn reverse(self) -> Self::Reversed;
+}
+
+impl<T> NonEmptyHList for Cons<T, Nil> {
+    type Last = T;
+    type Init = Nil;
+    type Reversed = Self;
+
+    #[inline]
+    fn split_last(self) -> (Self::Last, Self::Init) {
+        let Self { head, tail } = self;
+
+        (head, tail)
+    }
+
+    #[inline]
+    fn reverse(self) -> Self::Reversed {
+        self
+    }
+}
+
+impl<T, U> NonEmptyHList for Cons<T, U>
+where
+    U: NonEmptyHList,
+    Cons<T, U::Init>: NonEmptyHList,
+{
+    type Init = Cons<T, U::Init>;
+    type Last = U::Last;
+    type Reversed = Cons<Self::Last, <Self::Init as NonEmptyHList>::Reversed>;
+
+    #[inline]
+    fn split_last(self) -> (Self::Last, Self::Init) {
+        let Self { head, tail } = self;
+        let (last, tail) = tail.split_last();
+        let init = Cons { head, tail };
+        (last, init)
+    }
+
+    #[inline]
+    fn reverse(self) -> Self::Reversed {
+        let (last, init) = self.split_last();
+        let tail = init.reverse();
+        Cons { head: last, tail }
+    }
+}
+
 impl Serialize for Nil {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -299,6 +351,57 @@ mod tests {
             Cons::new_head(&mut A(42))
                 .add(&mut B(1.234))
                 .add(&mut C("hello".to_string())),
+        )
+    }
+
+    #[test]
+    fn split_last() {
+        #[derive(Debug, PartialEq)]
+        struct A(i32);
+
+        #[derive(Debug, PartialEq)]
+        struct B(f32);
+
+        #[derive(Debug, PartialEq)]
+        struct C(String);
+
+        let list = Cons::new_head(A(42))
+            .add(B(1.234))
+            .add(C("hello".to_string()));
+
+        let (last, init) = list.split_last();
+        assert_eq!(last, A(42));
+        assert_eq!(init, Cons::new_head(B(1.234)).add(C("hello".to_string())));
+
+        let (last, init) = init.split_last();
+        assert_eq!(last, B(1.234));
+        assert_eq!(init, Cons::new_head(C("hello".to_string())));
+
+        let (last, init) = init.split_last();
+        assert_eq!(last, C("hello".to_string()));
+        assert_eq!(init, Nil);
+    }
+
+    #[test]
+    fn reverse() {
+        #[derive(Debug, PartialEq)]
+        struct A(i32);
+
+        #[derive(Debug, PartialEq)]
+        struct B(f32);
+
+        #[derive(Debug, PartialEq)]
+        struct C(String);
+
+        let list = Cons::new_head(A(42))
+            .add(B(1.234))
+            .add(C("hello".to_string()));
+
+        assert_eq!(
+            list.reverse(),
+            Cons::new_head(C("hello".to_string()))
+                .add(B(1.234))
+                .add(A(42)),
         )
     }
 }
