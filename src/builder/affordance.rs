@@ -1529,7 +1529,7 @@ where
         } = builder;
 
         let forms = forms.into_iter().map(Form::from).collect();
-        let uri_variables = uri_variables.is_empty().not().then(|| uri_variables);
+        let uri_variables = uri_variables.is_empty().not().then_some(uri_variables);
         let other = other.into();
 
         Self {
@@ -1655,7 +1655,7 @@ where
         } = builder;
 
         let forms = forms.into_iter().map(Form::from).collect();
-        let uri_variables = uri_variables.is_empty().not().then(|| uri_variables);
+        let uri_variables = uri_variables.is_empty().not().then_some(uri_variables);
 
         let interaction = InteractionAffordance {
             attype,

@@ -398,7 +398,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             }
         }
 
-        let profile = profile.is_empty().not().then(|| profile);
+        let profile = profile.is_empty().not().then_some(profile);
 
         let forms = forms
             .map(|forms| {
@@ -418,7 +418,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         let schema_definitions = schema_definitions
             .is_empty()
             .not()
-            .then(|| schema_definitions);
+            .then_some(schema_definitions);
 
         let context = {
             // TODO: improve this

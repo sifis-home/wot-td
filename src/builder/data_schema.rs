@@ -1208,7 +1208,7 @@ where
                 },
         } = inner.into();
 
-        let items = items.is_empty().not().then(|| items);
+        let items = items.is_empty().not().then_some(items);
         let subtype = Some(DataSchemaSubtype::Array(ArraySchema {
             items,
             min_items,
@@ -1259,7 +1259,7 @@ where
             _marker: _,
         } = inner.into();
 
-        let items = items.is_empty().not().then(|| items);
+        let items = items.is_empty().not().then_some(items);
         let subtype = Some(DataSchemaSubtype::Array(ArraySchema {
             items,
             min_items,
@@ -1519,7 +1519,7 @@ where
             .is_empty()
             .not()
             .then(|| properties.into_iter().collect());
-        let required = required.is_empty().not().then(|| required);
+        let required = required.is_empty().not().then_some(required);
         let subtype = Some(DataSchemaSubtype::Object(ObjectSchema {
             properties,
             required,
@@ -1572,7 +1572,7 @@ where
             .is_empty()
             .not()
             .then(|| properties.into_iter().collect());
-        let required = required.is_empty().not().then(|| required);
+        let required = required.is_empty().not().then_some(required);
         let subtype = Some(DataSchemaSubtype::Object(ObjectSchema {
             properties,
             required,
