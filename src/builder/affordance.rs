@@ -2455,6 +2455,7 @@ mod test {
                     security: Default::default(),
                     scopes: Default::default(),
                     response: Default::default(),
+                    additional_responses: Default::default(),
                 }],
                 other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).add(
                     InteractionAffordanceExtB {
