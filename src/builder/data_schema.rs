@@ -3665,7 +3665,7 @@ mod tests {
             data_schema,
             DataSchema {
                 title: Some("title".to_string()),
-                other: Cons::new_head(DataSchemaExtA { a: A(1) }).cons(DataSchemaExtB {
+                other: Nil::cons(DataSchemaExtA { a: A(1) }).cons(DataSchemaExtB {
                     d: B("hello".to_string())
                 }),
                 attype: Default::default(),
@@ -3712,7 +3712,7 @@ mod tests {
             data_schema,
             DataSchema {
                 title: Some("title".to_string()),
-                other: Cons::new_head(DataSchemaExtA { a: A(1) }).cons(DataSchemaExtB {
+                other: Nil::cons(DataSchemaExtA { a: A(1) }).cons(DataSchemaExtB {
                     d: B("hello".to_string())
                 }),
                 attype: Default::default(),
@@ -3727,7 +3727,7 @@ mod tests {
                 write_only: Default::default(),
                 format: Default::default(),
                 subtype: Some(DataSchemaSubtype::Array(ArraySchema {
-                    other: Cons::new_head(ArraySchemaExtA { b: A(2) }).cons(ArraySchemaExtB {
+                    other: Nil::cons(ArraySchemaExtA { b: A(2) }).cons(ArraySchemaExtB {
                         e: B("world".to_string())
                     }),
                     max_items: Some(10),
@@ -3773,22 +3773,20 @@ mod tests {
             data_schema,
             DataSchema {
                 title: Some("title".to_string()),
-                other: Cons::new_head(DataSchemaExtA { a: A(1) }).cons(DataSchemaExtB {
+                other: Nil::cons(DataSchemaExtA { a: A(1) }).cons(DataSchemaExtB {
                     d: B("hello".to_string())
                 }),
                 subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
-                    other: Cons::new_head(ObjectSchemaExtA { c: A(2) }).cons(ObjectSchemaExtB {
+                    other: Nil::cons(ObjectSchemaExtA { c: A(2) }).cons(ObjectSchemaExtB {
                         f: B("world".to_string())
                     }),
                     properties: Some(
                         [(
                             "x".to_string(),
                             DataSchema {
-                                other: Cons::new_head(DataSchemaExtA { a: A(3) }).cons(
-                                    DataSchemaExtB {
-                                        d: B("other".to_string())
-                                    }
-                                ),
+                                other: Nil::cons(DataSchemaExtA { a: A(3) }).cons(DataSchemaExtB {
+                                    d: B("other".to_string())
+                                }),
                                 subtype: Some(DataSchemaSubtype::Null),
                                 attype: Default::default(),
                                 title: Default::default(),

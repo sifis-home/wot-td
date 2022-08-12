@@ -1613,18 +1613,18 @@ mod test {
                     "prop".to_string(),
                     PropertyAffordance {
                         interaction: InteractionAffordance {
-                            other: Cons::new_head(IntAffExtA { b: A(1) }),
+                            other: Nil::cons(IntAffExtA { b: A(1) }),
                             ..Default::default()
                         },
                         data_schema: DataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema {
-                                other: Cons::new_head(ArraySchemaExtA { j: A(2) }),
+                                other: Nil::cons(ArraySchemaExtA { j: A(2) }),
                                 ..Default::default()
                             })),
-                            other: Cons::new_head(DataSchemaExtA { h: A(3) }),
+                            other: Nil::cons(DataSchemaExtA { h: A(3) }),
                             ..Default::default()
                         },
-                        other: Cons::new_head(PropAffExtA { d: A(4) }),
+                        other: Nil::cons(PropAffExtA { d: A(4) }),
                         ..Default::default()
                     },
                 )]
@@ -1636,19 +1636,19 @@ mod test {
                     "action".to_string(),
                     ActionAffordance {
                         interaction: InteractionAffordance {
-                            other: Cons::new_head(IntAffExtA { b: A(5) }),
+                            other: Nil::cons(IntAffExtA { b: A(5) }),
                             ..Default::default()
                         },
                         input: Some(DataSchema {
                             subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
-                                other: Cons::new_head(ObjectSchemaExtA { i: A(6) }),
+                                other: Nil::cons(ObjectSchemaExtA { i: A(6) }),
                                 ..Default::default()
                             })),
-                            other: Cons::new_head(DataSchemaExtA { h: A(7) }),
+                            other: Nil::cons(DataSchemaExtA { h: A(7) }),
                             ..Default::default()
                         }),
                         output: Some(DataSchema::default()),
-                        other: Cons::new_head(ActionAffExtA { c: A(8) }),
+                        other: Nil::cons(ActionAffExtA { c: A(8) }),
                         ..Default::default()
                     },
                 )]
@@ -1659,7 +1659,7 @@ mod test {
                 [(
                     "event".to_string(),
                     EventAffordance {
-                        other: Cons::new_head(EventAffExtA { e: A(9) }),
+                        other: Nil::cons(EventAffExtA { e: A(9) }),
                         ..Default::default()
                     },
                 )]
@@ -1668,13 +1668,13 @@ mod test {
             ),
             forms: Some(vec![Form {
                 response: Some(ExpectedResponse {
-                    other: Cons::new_head(RespExtA { g: A(10) }),
+                    other: Nil::cons(RespExtA { g: A(10) }),
                     ..Default::default()
                 }),
-                other: Cons::new_head(FormExtA { f: A(11) }),
+                other: Nil::cons(FormExtA { f: A(11) }),
                 ..Default::default()
             }]),
-            other: Cons::new_head(ThingExtA { a: A(12) }),
+            other: Nil::cons(ThingExtA { a: A(12) }),
             ..Default::default()
         };
 
@@ -1811,22 +1811,20 @@ mod test {
                     "prop".to_string(),
                     PropertyAffordance {
                         interaction: InteractionAffordance {
-                            other: Cons::new_head(IntAffExtA { b: A(1) })
-                                .cons(IntAffExtB { l: A(2) }),
+                            other: Nil::cons(IntAffExtA { b: A(1) }).cons(IntAffExtB { l: A(2) }),
                             ..Default::default()
                         },
                         data_schema: DataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema {
-                                other: Cons::new_head(ArraySchemaExtA { j: A(3) })
+                                other: Nil::cons(ArraySchemaExtA { j: A(3) })
                                     .cons(ArraySchemaExtB { t: A(4) }),
                                 ..Default::default()
                             })),
-                            other: Cons::new_head(DataSchemaExtA { h: A(5) })
+                            other: Nil::cons(DataSchemaExtA { h: A(5) })
                                 .cons(DataSchemaExtB { r: A(6) }),
                             ..Default::default()
                         },
-                        other: Cons::new_head(PropAffExtA { d: A(7) })
-                            .cons(PropAffExtB { n: A(8) }),
+                        other: Nil::cons(PropAffExtA { d: A(7) }).cons(PropAffExtB { n: A(8) }),
                         ..Default::default()
                     },
                 )]
@@ -1838,22 +1836,21 @@ mod test {
                     "action".to_string(),
                     ActionAffordance {
                         interaction: InteractionAffordance {
-                            other: Cons::new_head(IntAffExtA { b: A(9) })
-                                .cons(IntAffExtB { l: A(10) }),
+                            other: Nil::cons(IntAffExtA { b: A(9) }).cons(IntAffExtB { l: A(10) }),
                             ..Default::default()
                         },
                         input: Some(DataSchema {
                             subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
-                                other: Cons::new_head(ObjectSchemaExtA { i: A(11) })
+                                other: Nil::cons(ObjectSchemaExtA { i: A(11) })
                                     .cons(ObjectSchemaExtB { s: A(12) }),
                                 ..Default::default()
                             })),
-                            other: Cons::new_head(DataSchemaExtA { h: A(13) })
+                            other: Nil::cons(DataSchemaExtA { h: A(13) })
                                 .cons(DataSchemaExtB { r: A(14) }),
                             ..Default::default()
                         }),
                         output: Some(DataSchema::default()),
-                        other: Cons::new_head(ActionAffExtA { c: A(15) })
+                        other: Nil::cons(ActionAffExtA { c: A(15) })
                             .cons(ActionAffExtB { m: A(16) }),
                         ..Default::default()
                     },
@@ -1865,8 +1862,7 @@ mod test {
                 [(
                     "event".to_string(),
                     EventAffordance {
-                        other: Cons::new_head(EventAffExtA { e: A(17) })
-                            .cons(EventAffExtB { o: A(18) }),
+                        other: Nil::cons(EventAffExtA { e: A(17) }).cons(EventAffExtB { o: A(18) }),
                         ..Default::default()
                     },
                 )]
@@ -1875,13 +1871,13 @@ mod test {
             ),
             forms: Some(vec![Form {
                 response: Some(ExpectedResponse {
-                    other: Cons::new_head(RespExtA { g: A(19) }).cons(RespExtB { q: A(20) }),
+                    other: Nil::cons(RespExtA { g: A(19) }).cons(RespExtB { q: A(20) }),
                     ..Default::default()
                 }),
-                other: Cons::new_head(FormExtA { f: A(21) }).cons(FormExtB { p: A(22) }),
+                other: Nil::cons(FormExtA { f: A(21) }).cons(FormExtB { p: A(22) }),
                 ..Default::default()
             }]),
-            other: Cons::new_head(ThingExtA { a: A(23) }).cons(ThingExtB { k: A(24) }),
+            other: Nil::cons(ThingExtA { a: A(23) }).cons(ThingExtB { k: A(24) }),
             ..Default::default()
         };
 
@@ -2017,24 +2013,24 @@ mod test {
                     "prop".to_string(),
                     PropertyAffordance {
                         interaction: InteractionAffordance {
-                            other: Cons::new_head(IntAffExtA { b: A(1) })
+                            other: Nil::cons(IntAffExtA { b: A(1) })
                                 .cons(())
                                 .cons(IntAffExtB { l: A(2) }),
                             ..Default::default()
                         },
                         data_schema: DataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema {
-                                other: Cons::new_head(ArraySchemaExtA { j: A(3) })
+                                other: Nil::cons(ArraySchemaExtA { j: A(3) })
                                     .cons(())
                                     .cons(ArraySchemaExtB { t: A(4) }),
                                 ..Default::default()
                             })),
-                            other: Cons::new_head(DataSchemaExtA { h: A(5) })
+                            other: Nil::cons(DataSchemaExtA { h: A(5) })
                                 .cons(())
                                 .cons(DataSchemaExtB { r: A(6) }),
                             ..Default::default()
                         },
-                        other: Cons::new_head(PropAffExtA { d: A(7) })
+                        other: Nil::cons(PropAffExtA { d: A(7) })
                             .cons(())
                             .cons(PropAffExtB { n: A(8) }),
                         ..Default::default()
@@ -2049,32 +2045,32 @@ mod test {
                     ActionAffordance {
                         interaction: InteractionAffordance {
                             forms: vec![Form {
-                                other: Cons::new_head(FormExtA::default())
+                                other: Nil::cons(FormExtA::default())
                                     .cons(HttpForm {
                                         method_name: Some(HttpMethod::Put),
                                     })
                                     .cons(FormExtB::default()),
                                 ..Default::default()
                             }],
-                            other: Cons::new_head(IntAffExtA { b: A(9) })
+                            other: Nil::cons(IntAffExtA { b: A(9) })
                                 .cons(())
                                 .cons(IntAffExtB { l: A(10) }),
                             ..Default::default()
                         },
                         input: Some(DataSchema {
                             subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
-                                other: Cons::new_head(ObjectSchemaExtA { i: A(11) })
+                                other: Nil::cons(ObjectSchemaExtA { i: A(11) })
                                     .cons(())
                                     .cons(ObjectSchemaExtB { s: A(12) }),
                                 ..Default::default()
                             })),
-                            other: Cons::new_head(DataSchemaExtA { h: A(13) })
+                            other: Nil::cons(DataSchemaExtA { h: A(13) })
                                 .cons(())
                                 .cons(DataSchemaExtB { r: A(14) }),
                             ..Default::default()
                         }),
                         output: Some(DataSchema::default()),
-                        other: Cons::new_head(ActionAffExtA { c: A(15) })
+                        other: Nil::cons(ActionAffExtA { c: A(15) })
                             .cons(())
                             .cons(ActionAffExtB { m: A(16) }),
                         ..Default::default()
@@ -2087,7 +2083,7 @@ mod test {
                 [(
                     "event".to_string(),
                     EventAffordance {
-                        other: Cons::new_head(EventAffExtA { e: A(17) })
+                        other: Nil::cons(EventAffExtA { e: A(17) })
                             .cons(())
                             .cons(EventAffExtB { o: A(18) }),
                         ..Default::default()
@@ -2098,7 +2094,7 @@ mod test {
             ),
             forms: Some(vec![Form {
                 response: Some(ExpectedResponse {
-                    other: Cons::new_head(RespExtA { g: A(19) })
+                    other: Nil::cons(RespExtA { g: A(19) })
                         .cons(HttpResponse {
                             headers: vec![HttpMessageHeader {
                                 field_name: Some("hello".to_string()),
@@ -2109,14 +2105,14 @@ mod test {
                         .cons(RespExtB { q: A(20) }),
                     ..Default::default()
                 }),
-                other: Cons::new_head(FormExtA { f: A(21) })
+                other: Nil::cons(FormExtA { f: A(21) })
                     .cons(HttpForm {
                         method_name: Some(HttpMethod::Get),
                     })
                     .cons(FormExtB { p: A(22) }),
                 ..Default::default()
             }]),
-            other: Cons::new_head(ThingExtA { a: A(23) })
+            other: Nil::cons(ThingExtA { a: A(23) })
                 .cons(HttpThing {})
                 .cons(ThingExtB { k: A(24) }),
             ..Default::default()

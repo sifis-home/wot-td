@@ -3296,7 +3296,7 @@ mod tests {
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
                     href: "href".to_string(),
-                    other: Cons::new_head(FormExtA {
+                    other: Nil::cons(FormExtA {
                         a: "test".to_string()
                     })
                     .cons(FormExtB { b: B(42) }),
@@ -3391,13 +3391,13 @@ mod tests {
             Form {
                 op: DefaultedFormOperations::Custom(vec![FormOperation::ReadProperty]),
                 href: "href".to_string(),
-                other: Cons::new_head(FormExtA {
+                other: Nil::cons(FormExtA {
                     a: A("a".to_string())
                 })
                 .cons(FormExtB { c: B(1) }),
                 response: Some(ExpectedResponse {
                     content_type: "application/json".to_string(),
-                    other: Cons::new_head(ExpectedResponseExtA {
+                    other: Nil::cons(ExpectedResponseExtA {
                         b: A("b".to_string())
                     })
                     .cons(ExpectedResponseExtB { d: B(2) })
@@ -3667,7 +3667,7 @@ mod tests {
             Thing {
                 context: TD_CONTEXT_11.into(),
                 title: "thing title".to_string(),
-                other: Cons::new_head(ThingA { a: 1, b: 2 })
+                other: Nil::cons(ThingA { a: 1, b: 2 })
                     .cons(ThingB {})
                     .cons(ThingC { c: 3 }),
                 id: Some("id".to_string()),
@@ -3677,7 +3677,7 @@ mod tests {
                         "uri_variable".to_string(),
                         DataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema::default())),
-                            other: Cons::new_head(DataSchemaExtA { h: 4 })
+                            other: Nil::cons(DataSchemaExtA { h: 4 })
                                 .cons(())
                                 .cons(DataSchemaExtC { t: 5 }),
                             attype: Default::default(),
@@ -3702,7 +3702,7 @@ mod tests {
                         "property".to_string(),
                         PropertyAffordance {
                             interaction: InteractionAffordance {
-                                other: Cons::new_head(InteractionAffordanceExtA { d: 6 })
+                                other: Nil::cons(InteractionAffordanceExtA { d: 6 })
                                     .cons(InteractionAffordanceExtB { j: 9. })
                                     .cons(InteractionAffordanceExtC { p: 10 }),
                                 attype: Default::default(),
@@ -3714,7 +3714,7 @@ mod tests {
                                     href: "href1".to_string(),
                                     response: Some(ExpectedResponse {
                                         content_type: "application/json".to_string(),
-                                        other: Cons::new_head(ExpectedResponseExtA { g: 16 })
+                                        other: Nil::cons(ExpectedResponseExtA { g: 16 })
                                             .cons(ExpectedResponseExtB { n: 17 })
                                             .cons(ExpectedResponseExtC { s: 18 })
                                     }),
@@ -3723,7 +3723,7 @@ mod tests {
                                         content_type: Some("application/xml".to_string()),
                                         schema: Some("schema".to_string()),
                                     }]),
-                                    other: Cons::new_head(()).cons(FormExtB { m: 19 }).cons(()),
+                                    other: Nil::cons(()).cons(FormExtB { m: 19 }).cons(()),
                                     op: Default::default(),
                                     content_type: Default::default(),
                                     content_coding: Default::default(),
@@ -3735,13 +3735,13 @@ mod tests {
                             },
                             data_schema: DataSchema {
                                 subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
-                                    other: Cons::new_head(ObjectSchemaExtA { i: 11 })
+                                    other: Nil::cons(ObjectSchemaExtA { i: 11 })
                                         .cons(ObjectSchemaExtB { o: 12 })
                                         .cons(ObjectSchemaExtC { u: 13 }),
                                     properties: Default::default(),
                                     required: Default::default(),
                                 })),
-                                other: Cons::new_head(DataSchemaExtA { h: 7 })
+                                other: Nil::cons(DataSchemaExtA { h: 7 })
                                     .cons(())
                                     .cons(DataSchemaExtC { t: 8 }),
                                 attype: Default::default(),
@@ -3757,7 +3757,7 @@ mod tests {
                                 write_only: Default::default(),
                                 format: Default::default(),
                             },
-                            other: Cons::new_head(())
+                            other: Nil::cons(())
                                 .cons(PropertyAffordanceExtB { k: 14. })
                                 .cons(PropertyAffordanceExtC { q: 15 }),
                             observable: Default::default(),
@@ -3779,7 +3779,7 @@ mod tests {
                                             subtype: Some(DataSchemaSubtype::Array(
                                                 ArraySchema::default()
                                             )),
-                                            other: Cons::new_head(DataSchemaExtA { h: 27 })
+                                            other: Nil::cons(DataSchemaExtA { h: 27 })
                                                 .cons(())
                                                 .cons(DataSchemaExtC { t: 28 }),
                                             attype: Default::default(),
@@ -3799,7 +3799,7 @@ mod tests {
                                     .into_iter()
                                     .collect()
                                 ),
-                                other: Cons::new_head(InteractionAffordanceExtA { d: 22 })
+                                other: Nil::cons(InteractionAffordanceExtA { d: 22 })
                                     .cons(InteractionAffordanceExtB { j: 23. })
                                     .cons(InteractionAffordanceExtC { p: 24 }),
                                 attype: Default::default(),
@@ -3815,7 +3815,7 @@ mod tests {
                                     maximum: Some(5.),
                                     ..Default::default()
                                 })),
-                                other: Cons::new_head(DataSchemaExtA { h: 25 })
+                                other: Nil::cons(DataSchemaExtA { h: 25 })
                                     .cons(())
                                     .cons(DataSchemaExtC { t: 26 }),
                                 attype: Default::default(),
@@ -3830,7 +3830,7 @@ mod tests {
                                 write_only: Default::default(),
                                 format: Default::default(),
                             }),
-                            other: Cons::new_head(ActionAffordanceExtA { e: 20 })
+                            other: Nil::cons(ActionAffordanceExtA { e: 20 })
                                 .cons(())
                                 .cons(ActionAffordanceExtC { r: 21 }),
                             output: Default::default(),
@@ -3847,7 +3847,7 @@ mod tests {
                         "event".to_string(),
                         EventAffordance {
                             interaction: InteractionAffordance {
-                                other: Cons::new_head(InteractionAffordanceExtA { d: 31 })
+                                other: Nil::cons(InteractionAffordanceExtA { d: 31 })
                                     .cons(InteractionAffordanceExtB { j: 32. })
                                     .cons(InteractionAffordanceExtC { p: 33 }),
                                 attype: Default::default(),
@@ -3860,7 +3860,7 @@ mod tests {
                             },
                             data: Some(DataSchema {
                                 subtype: Some(DataSchemaSubtype::Boolean),
-                                other: Cons::new_head(DataSchemaExtA { h: 34 })
+                                other: Nil::cons(DataSchemaExtA { h: 34 })
                                     .cons(())
                                     .cons(DataSchemaExtC { t: 35 }),
                                 attype: Default::default(),
@@ -3876,7 +3876,7 @@ mod tests {
                                 write_only: Default::default(),
                                 format: Default::default(),
                             }),
-                            other: Cons::new_head(EventAffordanceExtA { f: 29 })
+                            other: Nil::cons(EventAffordanceExtA { f: 29 })
                                 .cons(EventAffordanceExtB { l: 30 })
                                 .cons(()),
                             subscription: Default::default(),
@@ -3891,11 +3891,11 @@ mod tests {
                     href: "href2".to_string(),
                     response: Some(ExpectedResponse {
                         content_type: "test".to_string(),
-                        other: Cons::new_head(ExpectedResponseExtA { g: 37 })
+                        other: Nil::cons(ExpectedResponseExtA { g: 37 })
                             .cons(ExpectedResponseExtB { n: 38 })
                             .cons(ExpectedResponseExtC { s: 39 })
                     }),
-                    other: Cons::new_head(()).cons(FormExtB { m: 36 }).cons(()),
+                    other: Nil::cons(()).cons(FormExtB { m: 36 }).cons(()),
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
                     content_type: Default::default(),
                     content_coding: Default::default(),
@@ -3909,7 +3909,7 @@ mod tests {
                         "schema".to_string(),
                         DataSchema {
                             subtype: Some(DataSchemaSubtype::Null),
-                            other: Cons::new_head(DataSchemaExtA { h: 40 })
+                            other: Nil::cons(DataSchemaExtA { h: 40 })
                                 .cons(())
                                 .cons(DataSchemaExtC { t: 41 }),
                             attype: Default::default(),

@@ -77,7 +77,7 @@ impl<T> Extend<T> for Nil {
     type Target = Cons<T, Nil>;
 
     fn ext(self, t: T) -> Self::Target {
-        Cons::new_head(t)
+        Nil::cons(t)
     }
 }
 
