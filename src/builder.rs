@@ -987,7 +987,7 @@ impl<T> MultiLanguageBuilder<T> {
     /// Add the language-specific variant
     ///
     /// NOTE: The language key is currently free-form
-    pub fn add(&mut self, language: impl Into<String>, value: impl Into<T>) -> &mut Self {
+    pub fn cons(&mut self, language: impl Into<String>, value: impl Into<T>) -> &mut Self {
         self.values.insert(language.into(), value.into());
         self
     }
@@ -1905,7 +1905,7 @@ mod tests {
     #[test]
     fn titles() {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
-            .titles(|ml| ml.add("en", "My lamp").add("it", "La mia lampada"))
+            .titles(|ml| ml.cons("en", "My lamp").cons("it", "La mia lampada"))
             .build()
             .unwrap();
 
@@ -1929,7 +1929,7 @@ mod tests {
     fn descriptions() {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .description("My Lamp")
-            .descriptions(|ml| ml.add("en", "My lamp").add("it", "La mia lampada"))
+            .descriptions(|ml| ml.cons("en", "My lamp").cons("it", "La mia lampada"))
             .build()
             .unwrap();
 
@@ -2060,7 +2060,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
+                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2107,7 +2107,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
+                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2160,7 +2160,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
+                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2213,7 +2213,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
+                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2268,7 +2268,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
+                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2326,7 +2326,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
+                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2383,7 +2383,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
+                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -3299,7 +3299,7 @@ mod tests {
                     other: Cons::new_head(FormExtA {
                         a: "test".to_string()
                     })
-                    .add(FormExtB { b: B(42) }),
+                    .cons(FormExtB { b: B(42) }),
                     content_type: Default::default(),
                     content_coding: Default::default(),
                     subprotocol: Default::default(),
@@ -3394,13 +3394,13 @@ mod tests {
                 other: Cons::new_head(FormExtA {
                     a: A("a".to_string())
                 })
-                .add(FormExtB { c: B(1) }),
+                .cons(FormExtB { c: B(1) }),
                 response: Some(ExpectedResponse {
                     content_type: "application/json".to_string(),
                     other: Cons::new_head(ExpectedResponseExtA {
                         b: A("b".to_string())
                     })
-                    .add(ExpectedResponseExtB { d: B(2) })
+                    .cons(ExpectedResponseExtB { d: B(2) })
                 }),
                 content_type: Default::default(),
                 content_coding: Default::default(),
@@ -3668,8 +3668,8 @@ mod tests {
                 context: TD_CONTEXT_11.into(),
                 title: "thing title".to_string(),
                 other: Cons::new_head(ThingA { a: 1, b: 2 })
-                    .add(ThingB {})
-                    .add(ThingC { c: 3 }),
+                    .cons(ThingB {})
+                    .cons(ThingC { c: 3 }),
                 id: Some("id".to_string()),
                 description: Some("description".to_string()),
                 uri_variables: Some(
@@ -3678,8 +3678,8 @@ mod tests {
                         DataSchema {
                             subtype: Some(DataSchemaSubtype::Array(ArraySchema::default())),
                             other: Cons::new_head(DataSchemaExtA { h: 4 })
-                                .add(())
-                                .add(DataSchemaExtC { t: 5 }),
+                                .cons(())
+                                .cons(DataSchemaExtC { t: 5 }),
                             attype: Default::default(),
                             title: Default::default(),
                             titles: Default::default(),
@@ -3703,8 +3703,8 @@ mod tests {
                         PropertyAffordance {
                             interaction: InteractionAffordance {
                                 other: Cons::new_head(InteractionAffordanceExtA { d: 6 })
-                                    .add(InteractionAffordanceExtB { j: 9. })
-                                    .add(InteractionAffordanceExtC { p: 10 }),
+                                    .cons(InteractionAffordanceExtB { j: 9. })
+                                    .cons(InteractionAffordanceExtC { p: 10 }),
                                 attype: Default::default(),
                                 title: Default::default(),
                                 titles: Default::default(),
@@ -3715,15 +3715,15 @@ mod tests {
                                     response: Some(ExpectedResponse {
                                         content_type: "application/json".to_string(),
                                         other: Cons::new_head(ExpectedResponseExtA { g: 16 })
-                                            .add(ExpectedResponseExtB { n: 17 })
-                                            .add(ExpectedResponseExtC { s: 18 })
+                                            .cons(ExpectedResponseExtB { n: 17 })
+                                            .cons(ExpectedResponseExtC { s: 18 })
                                     }),
                                     additional_responses: Some(vec![AdditionalExpectedResponse {
                                         success: true,
                                         content_type: Some("application/xml".to_string()),
                                         schema: Some("schema".to_string()),
                                     }]),
-                                    other: Cons::new_head(()).add(FormExtB { m: 19 }).add(()),
+                                    other: Cons::new_head(()).cons(FormExtB { m: 19 }).cons(()),
                                     op: Default::default(),
                                     content_type: Default::default(),
                                     content_coding: Default::default(),
@@ -3736,14 +3736,14 @@ mod tests {
                             data_schema: DataSchema {
                                 subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
                                     other: Cons::new_head(ObjectSchemaExtA { i: 11 })
-                                        .add(ObjectSchemaExtB { o: 12 })
-                                        .add(ObjectSchemaExtC { u: 13 }),
+                                        .cons(ObjectSchemaExtB { o: 12 })
+                                        .cons(ObjectSchemaExtC { u: 13 }),
                                     properties: Default::default(),
                                     required: Default::default(),
                                 })),
                                 other: Cons::new_head(DataSchemaExtA { h: 7 })
-                                    .add(())
-                                    .add(DataSchemaExtC { t: 8 }),
+                                    .cons(())
+                                    .cons(DataSchemaExtC { t: 8 }),
                                 attype: Default::default(),
                                 title: Default::default(),
                                 titles: Default::default(),
@@ -3758,8 +3758,8 @@ mod tests {
                                 format: Default::default(),
                             },
                             other: Cons::new_head(())
-                                .add(PropertyAffordanceExtB { k: 14. })
-                                .add(PropertyAffordanceExtC { q: 15 }),
+                                .cons(PropertyAffordanceExtB { k: 14. })
+                                .cons(PropertyAffordanceExtC { q: 15 }),
                             observable: Default::default(),
                         }
                     )]
@@ -3780,8 +3780,8 @@ mod tests {
                                                 ArraySchema::default()
                                             )),
                                             other: Cons::new_head(DataSchemaExtA { h: 27 })
-                                                .add(())
-                                                .add(DataSchemaExtC { t: 28 }),
+                                                .cons(())
+                                                .cons(DataSchemaExtC { t: 28 }),
                                             attype: Default::default(),
                                             title: Default::default(),
                                             titles: Default::default(),
@@ -3800,8 +3800,8 @@ mod tests {
                                     .collect()
                                 ),
                                 other: Cons::new_head(InteractionAffordanceExtA { d: 22 })
-                                    .add(InteractionAffordanceExtB { j: 23. })
-                                    .add(InteractionAffordanceExtC { p: 24 }),
+                                    .cons(InteractionAffordanceExtB { j: 23. })
+                                    .cons(InteractionAffordanceExtC { p: 24 }),
                                 attype: Default::default(),
                                 titles: Default::default(),
                                 description: Default::default(),
@@ -3816,8 +3816,8 @@ mod tests {
                                     ..Default::default()
                                 })),
                                 other: Cons::new_head(DataSchemaExtA { h: 25 })
-                                    .add(())
-                                    .add(DataSchemaExtC { t: 26 }),
+                                    .cons(())
+                                    .cons(DataSchemaExtC { t: 26 }),
                                 attype: Default::default(),
                                 titles: Default::default(),
                                 description: Default::default(),
@@ -3831,8 +3831,8 @@ mod tests {
                                 format: Default::default(),
                             }),
                             other: Cons::new_head(ActionAffordanceExtA { e: 20 })
-                                .add(())
-                                .add(ActionAffordanceExtC { r: 21 }),
+                                .cons(())
+                                .cons(ActionAffordanceExtC { r: 21 }),
                             output: Default::default(),
                             safe: Default::default(),
                             idempotent: Default::default(),
@@ -3848,8 +3848,8 @@ mod tests {
                         EventAffordance {
                             interaction: InteractionAffordance {
                                 other: Cons::new_head(InteractionAffordanceExtA { d: 31 })
-                                    .add(InteractionAffordanceExtB { j: 32. })
-                                    .add(InteractionAffordanceExtC { p: 33 }),
+                                    .cons(InteractionAffordanceExtB { j: 32. })
+                                    .cons(InteractionAffordanceExtC { p: 33 }),
                                 attype: Default::default(),
                                 title: Default::default(),
                                 titles: Default::default(),
@@ -3861,8 +3861,8 @@ mod tests {
                             data: Some(DataSchema {
                                 subtype: Some(DataSchemaSubtype::Boolean),
                                 other: Cons::new_head(DataSchemaExtA { h: 34 })
-                                    .add(())
-                                    .add(DataSchemaExtC { t: 35 }),
+                                    .cons(())
+                                    .cons(DataSchemaExtC { t: 35 }),
                                 attype: Default::default(),
                                 title: Default::default(),
                                 titles: Default::default(),
@@ -3877,8 +3877,8 @@ mod tests {
                                 format: Default::default(),
                             }),
                             other: Cons::new_head(EventAffordanceExtA { f: 29 })
-                                .add(EventAffordanceExtB { l: 30 })
-                                .add(()),
+                                .cons(EventAffordanceExtB { l: 30 })
+                                .cons(()),
                             subscription: Default::default(),
                             data_response: Default::default(),
                             cancellation: Default::default(),
@@ -3892,10 +3892,10 @@ mod tests {
                     response: Some(ExpectedResponse {
                         content_type: "test".to_string(),
                         other: Cons::new_head(ExpectedResponseExtA { g: 37 })
-                            .add(ExpectedResponseExtB { n: 38 })
-                            .add(ExpectedResponseExtC { s: 39 })
+                            .cons(ExpectedResponseExtB { n: 38 })
+                            .cons(ExpectedResponseExtC { s: 39 })
                     }),
-                    other: Cons::new_head(()).add(FormExtB { m: 36 }).add(()),
+                    other: Cons::new_head(()).cons(FormExtB { m: 36 }).cons(()),
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
                     content_type: Default::default(),
                     content_coding: Default::default(),
@@ -3910,8 +3910,8 @@ mod tests {
                         DataSchema {
                             subtype: Some(DataSchemaSubtype::Null),
                             other: Cons::new_head(DataSchemaExtA { h: 40 })
-                                .add(())
-                                .add(DataSchemaExtC { t: 41 }),
+                                .cons(())
+                                .cons(DataSchemaExtC { t: 41 }),
                             attype: Default::default(),
                             title: Default::default(),
                             titles: Default::default(),

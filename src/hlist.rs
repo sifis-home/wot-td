@@ -20,7 +20,7 @@ impl<T> Cons<T, Nil> {
 
 impl<T, U> Cons<T, U> {
     #[inline]
-    pub(crate) fn add<V>(self, value: V) -> Cons<V, Self> {
+    pub(crate) fn cons<V>(self, value: V) -> Cons<V, Self> {
         Cons {
             head: value,
             tail: self,
@@ -211,17 +211,19 @@ mod tests {
         #[derive(Debug, PartialEq)]
         struct C(String);
 
-        let list = Cons::new_head(A(42)).add(B(1.234)).add(C("C".to_string()));
+        let list = Cons::new_head(A(42))
+            .cons(B(1.234))
+            .cons(C("C".to_string()));
 
         assert_eq!(
             list.split_head(),
-            (C("C".to_string()), Cons::new_head(A(42)).add(B(1.234))),
+            (C("C".to_string()), Cons::new_head(A(42)).cons(B(1.234))),
         )
     }
 
     #[test]
     fn chain() {
-        let list = Cons::new_head("A").add(2).add("C".to_string());
+        let list = Cons::new_head("A").cons(2).cons("C".to_string());
 
         assert_eq!(
             list,
@@ -271,7 +273,7 @@ mod tests {
 
         let value = serde_json::to_value(A {
             a: 42,
-            b: Cons::new_head(B { foo: 42 }).add(C { bar: "42" }),
+            b: Cons::new_head(B { foo: 42 }).cons(C { bar: "42" }),
         })
         .unwrap();
         assert_eq!(value.get("a").unwrap(), &Value::Number(42.into()));
@@ -320,14 +322,14 @@ mod tests {
         struct C(String);
 
         let list = Cons::new_head(A(42))
-            .add(B(1.234))
-            .add(C("hello".to_string()));
+            .cons(B(1.234))
+            .cons(C("hello".to_string()));
 
         assert_eq!(
             list.to_ref(),
             Cons::new_head(&A(42))
-                .add(&B(1.234))
-                .add(&C("hello".to_string())),
+                .cons(&B(1.234))
+                .cons(&C("hello".to_string())),
         )
     }
 
@@ -343,14 +345,14 @@ mod tests {
         struct C(String);
 
         let mut list = Cons::new_head(A(42))
-            .add(B(1.234))
-            .add(C("hello".to_string()));
+            .cons(B(1.234))
+            .cons(C("hello".to_string()));
 
         assert_eq!(
             list.to_mut(),
             Cons::new_head(&mut A(42))
-                .add(&mut B(1.234))
-                .add(&mut C("hello".to_string())),
+                .cons(&mut B(1.234))
+                .cons(&mut C("hello".to_string())),
         )
     }
 
@@ -366,12 +368,12 @@ mod tests {
         struct C(String);
 
         let list = Cons::new_head(A(42))
-            .add(B(1.234))
-            .add(C("hello".to_string()));
+            .cons(B(1.234))
+            .cons(C("hello".to_string()));
 
         let (last, init) = list.split_last();
         assert_eq!(last, A(42));
-        assert_eq!(init, Cons::new_head(B(1.234)).add(C("hello".to_string())));
+        assert_eq!(init, Cons::new_head(B(1.234)).cons(C("hello".to_string())));
 
         let (last, init) = init.split_last();
         assert_eq!(last, B(1.234));
@@ -394,14 +396,14 @@ mod tests {
         struct C(String);
 
         let list = Cons::new_head(A(42))
-            .add(B(1.234))
-            .add(C("hello".to_string()));
+            .cons(B(1.234))
+            .cons(C("hello".to_string()));
 
         assert_eq!(
             list.reverse(),
             Cons::new_head(C("hello".to_string()))
-                .add(B(1.234))
-                .add(A(42)),
+                .cons(B(1.234))
+                .cons(A(42)),
         )
     }
 }
