@@ -11,10 +11,13 @@ pub struct Cons<T, U = Nil> {
     pub(crate) tail: U,
 }
 
-impl<T> Cons<T, Nil> {
+impl Nil {
     #[inline]
-    pub(crate) fn new_head(head: T) -> Self {
-        Cons { head, tail: Nil {} }
+    pub(crate) fn cons<T>(value: T) -> Cons<T, Nil> {
+        Cons {
+            head: value,
+            tail: Nil,
+        }
     }
 }
 

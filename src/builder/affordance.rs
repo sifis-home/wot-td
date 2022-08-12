@@ -2423,11 +2423,9 @@ mod test {
                         "x".to_string(),
                         DataSchema {
                             subtype: Some(DataSchemaSubtype::Null),
-                            other: Cons::new_head(DataSchemaExtA { f: A(2) }).cons(
-                                DataSchemaExtB {
-                                    m: B("a".to_string())
-                                }
-                            ),
+                            other: Nil::cons(DataSchemaExtA { f: A(2) }).cons(DataSchemaExtB {
+                                m: B("a".to_string())
+                            }),
                             attype: Default::default(),
                             title: Default::default(),
                             titles: Default::default(),
@@ -2447,7 +2445,7 @@ mod test {
                 ),
                 forms: vec![Form {
                     href: "href".to_string(),
-                    other: Cons::new_head(FormExtA { d: A(3) }).cons(FormExtB {
+                    other: Nil::cons(FormExtA { d: A(3) }).cons(FormExtB {
                         k: B("c".to_string())
                     }),
                     op: Default::default(),
@@ -2458,7 +2456,7 @@ mod test {
                     scopes: Default::default(),
                     response: Default::default(),
                 }],
-                other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).cons(
+                other: Nil::cons(InteractionAffordanceExtA { a: A(1) }).cons(
                     InteractionAffordanceExtB {
                         g: B("b".to_string())
                     }
@@ -2505,7 +2503,7 @@ mod test {
             affordance,
             PropertyAffordance {
                 interaction: InteractionAffordance {
-                    other: Cons::new_head(InteractionAffordanceExtA { a: A(2) }).cons(
+                    other: Nil::cons(InteractionAffordanceExtA { a: A(2) }).cons(
                         InteractionAffordanceExtB {
                             g: B("b".to_string())
                         }
@@ -2515,11 +2513,9 @@ mod test {
                             "x".to_string(),
                             DataSchema {
                                 subtype: Some(DataSchemaSubtype::Null),
-                                other: Cons::new_head(DataSchemaExtA { f: A(3) }).cons(
-                                    DataSchemaExtB {
-                                        m: B("a".to_string())
-                                    }
-                                ),
+                                other: Nil::cons(DataSchemaExtA { f: A(3) }).cons(DataSchemaExtB {
+                                    m: B("a".to_string())
+                                }),
                                 attype: Default::default(),
                                 title: Default::default(),
                                 titles: Default::default(),
@@ -2547,7 +2543,7 @@ mod test {
                 data_schema: DataSchema {
                     title: Some("title".to_string()),
                     subtype: Some(DataSchemaSubtype::Null),
-                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).cons(DataSchemaExtB {
+                    other: Nil::cons(DataSchemaExtA { f: A(4) }).cons(DataSchemaExtB {
                         m: B("d".to_string())
                     }),
                     attype: Default::default(),
@@ -2562,11 +2558,9 @@ mod test {
                     write_only: Default::default(),
                     format: Default::default(),
                 },
-                other: Cons::new_head(PropertyAffordanceExtA { b: A(1) }).cons(
-                    PropertyAffordanceExtB {
-                        h: B("c".to_string())
-                    }
-                ),
+                other: Nil::cons(PropertyAffordanceExtA { b: A(1) }).cons(PropertyAffordanceExtB {
+                    h: B("c".to_string())
+                }),
                 observable: Default::default(),
             }
         );
@@ -2613,11 +2607,9 @@ mod test {
                             "x".to_string(),
                             DataSchema {
                                 subtype: Some(DataSchemaSubtype::Null),
-                                other: Cons::new_head(DataSchemaExtA { f: A(2) }).cons(
-                                    DataSchemaExtB {
-                                        m: B("a".to_string())
-                                    }
-                                ),
+                                other: Nil::cons(DataSchemaExtA { f: A(2) }).cons(DataSchemaExtB {
+                                    m: B("a".to_string())
+                                }),
                                 attype: Default::default(),
                                 title: Default::default(),
                                 titles: Default::default(),
@@ -2635,7 +2627,7 @@ mod test {
                         .into_iter()
                         .collect()
                     ),
-                    other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).cons(
+                    other: Nil::cons(InteractionAffordanceExtA { a: A(1) }).cons(
                         InteractionAffordanceExtB {
                             g: B("b".to_string())
                         }
@@ -2648,7 +2640,7 @@ mod test {
                 },
                 subscription: Some(DataSchema {
                     subtype: Some(DataSchemaSubtype::Null),
-                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).cons(DataSchemaExtB {
+                    other: Nil::cons(DataSchemaExtA { f: A(4) }).cons(DataSchemaExtB {
                         m: B("d".to_string())
                     }),
                     attype: Default::default(),
@@ -2664,7 +2656,7 @@ mod test {
                     write_only: Default::default(),
                     format: Default::default(),
                 }),
-                other: Cons::new_head(EventAffordanceExtA { c: A(3) }).cons(EventAffordanceExtB {
+                other: Nil::cons(EventAffordanceExtA { c: A(3) }).cons(EventAffordanceExtB {
                     j: B("c".to_string())
                 }),
                 data: Default::default(),
@@ -2715,11 +2707,9 @@ mod test {
                             "x".to_string(),
                             DataSchema {
                                 subtype: Some(DataSchemaSubtype::Null),
-                                other: Cons::new_head(DataSchemaExtA { f: A(2) }).cons(
-                                    DataSchemaExtB {
-                                        m: B("a".to_string())
-                                    }
-                                ),
+                                other: Nil::cons(DataSchemaExtA { f: A(2) }).cons(DataSchemaExtB {
+                                    m: B("a".to_string())
+                                }),
                                 attype: Default::default(),
                                 title: Default::default(),
                                 titles: Default::default(),
@@ -2737,7 +2727,7 @@ mod test {
                         .into_iter()
                         .collect()
                     ),
-                    other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).cons(
+                    other: Nil::cons(InteractionAffordanceExtA { a: A(1) }).cons(
                         InteractionAffordanceExtB {
                             g: B("b".to_string())
                         }
@@ -2750,7 +2740,7 @@ mod test {
                 },
                 input: Some(DataSchema {
                     subtype: Some(DataSchemaSubtype::Null),
-                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).cons(DataSchemaExtB {
+                    other: Nil::cons(DataSchemaExtA { f: A(4) }).cons(DataSchemaExtB {
                         m: B("d".to_string())
                     }),
                     attype: Default::default(),
@@ -2766,11 +2756,9 @@ mod test {
                     write_only: Default::default(),
                     format: Default::default(),
                 }),
-                other: Cons::new_head(ActionAffordanceExtA { b: A(3) }).cons(
-                    ActionAffordanceExtB {
-                        i: B("c".to_string())
-                    }
-                ),
+                other: Nil::cons(ActionAffordanceExtA { b: A(3) }).cons(ActionAffordanceExtB {
+                    i: B("c".to_string())
+                }),
                 output: Default::default(),
                 safe: Default::default(),
                 idempotent: Default::default(),
