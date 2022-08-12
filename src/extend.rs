@@ -93,6 +93,6 @@ impl<T, U, V> Extend<T> for Cons<U, V> {
     type Target = Cons<T, Cons<U, V>>;
 
     fn ext(self, t: T) -> Self::Target {
-        self.add(t)
+        self.cons(t)
     }
 }

@@ -1854,9 +1854,9 @@ mod test {
                 .attype("attype1")
                 .attype("attype2")
                 .title("title")
-                .titles(|b| b.add("it", "title_it").add("en", "title_en"))
+                .titles(|b| b.cons("it", "title_it").cons("en", "title_en"))
                 .description("description")
-                .descriptions(|b| b.add("it", "description_it").add("en", "description_en"))
+                .descriptions(|b| b.cons("it", "description_it").cons("en", "description_en"))
                 .form(|b| b.href("form1_href").content_type("content_type"))
                 .form(|b| {
                     b.op(FormOperation::WriteProperty)
@@ -2423,9 +2423,11 @@ mod test {
                         "x".to_string(),
                         DataSchema {
                             subtype: Some(DataSchemaSubtype::Null),
-                            other: Cons::new_head(DataSchemaExtA { f: A(2) }).add(DataSchemaExtB {
-                                m: B("a".to_string())
-                            }),
+                            other: Cons::new_head(DataSchemaExtA { f: A(2) }).cons(
+                                DataSchemaExtB {
+                                    m: B("a".to_string())
+                                }
+                            ),
                             attype: Default::default(),
                             title: Default::default(),
                             titles: Default::default(),
@@ -2445,7 +2447,7 @@ mod test {
                 ),
                 forms: vec![Form {
                     href: "href".to_string(),
-                    other: Cons::new_head(FormExtA { d: A(3) }).add(FormExtB {
+                    other: Cons::new_head(FormExtA { d: A(3) }).cons(FormExtB {
                         k: B("c".to_string())
                     }),
                     op: Default::default(),
@@ -2456,7 +2458,7 @@ mod test {
                     scopes: Default::default(),
                     response: Default::default(),
                 }],
-                other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).add(
+                other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).cons(
                     InteractionAffordanceExtB {
                         g: B("b".to_string())
                     }
@@ -2503,7 +2505,7 @@ mod test {
             affordance,
             PropertyAffordance {
                 interaction: InteractionAffordance {
-                    other: Cons::new_head(InteractionAffordanceExtA { a: A(2) }).add(
+                    other: Cons::new_head(InteractionAffordanceExtA { a: A(2) }).cons(
                         InteractionAffordanceExtB {
                             g: B("b".to_string())
                         }
@@ -2513,7 +2515,7 @@ mod test {
                             "x".to_string(),
                             DataSchema {
                                 subtype: Some(DataSchemaSubtype::Null),
-                                other: Cons::new_head(DataSchemaExtA { f: A(3) }).add(
+                                other: Cons::new_head(DataSchemaExtA { f: A(3) }).cons(
                                     DataSchemaExtB {
                                         m: B("a".to_string())
                                     }
@@ -2545,7 +2547,7 @@ mod test {
                 data_schema: DataSchema {
                     title: Some("title".to_string()),
                     subtype: Some(DataSchemaSubtype::Null),
-                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).add(DataSchemaExtB {
+                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).cons(DataSchemaExtB {
                         m: B("d".to_string())
                     }),
                     attype: Default::default(),
@@ -2560,7 +2562,7 @@ mod test {
                     write_only: Default::default(),
                     format: Default::default(),
                 },
-                other: Cons::new_head(PropertyAffordanceExtA { b: A(1) }).add(
+                other: Cons::new_head(PropertyAffordanceExtA { b: A(1) }).cons(
                     PropertyAffordanceExtB {
                         h: B("c".to_string())
                     }
@@ -2611,7 +2613,7 @@ mod test {
                             "x".to_string(),
                             DataSchema {
                                 subtype: Some(DataSchemaSubtype::Null),
-                                other: Cons::new_head(DataSchemaExtA { f: A(2) }).add(
+                                other: Cons::new_head(DataSchemaExtA { f: A(2) }).cons(
                                     DataSchemaExtB {
                                         m: B("a".to_string())
                                     }
@@ -2633,7 +2635,7 @@ mod test {
                         .into_iter()
                         .collect()
                     ),
-                    other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).add(
+                    other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).cons(
                         InteractionAffordanceExtB {
                             g: B("b".to_string())
                         }
@@ -2646,7 +2648,7 @@ mod test {
                 },
                 subscription: Some(DataSchema {
                     subtype: Some(DataSchemaSubtype::Null),
-                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).add(DataSchemaExtB {
+                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).cons(DataSchemaExtB {
                         m: B("d".to_string())
                     }),
                     attype: Default::default(),
@@ -2662,7 +2664,7 @@ mod test {
                     write_only: Default::default(),
                     format: Default::default(),
                 }),
-                other: Cons::new_head(EventAffordanceExtA { c: A(3) }).add(EventAffordanceExtB {
+                other: Cons::new_head(EventAffordanceExtA { c: A(3) }).cons(EventAffordanceExtB {
                     j: B("c".to_string())
                 }),
                 data: Default::default(),
@@ -2713,7 +2715,7 @@ mod test {
                             "x".to_string(),
                             DataSchema {
                                 subtype: Some(DataSchemaSubtype::Null),
-                                other: Cons::new_head(DataSchemaExtA { f: A(2) }).add(
+                                other: Cons::new_head(DataSchemaExtA { f: A(2) }).cons(
                                     DataSchemaExtB {
                                         m: B("a".to_string())
                                     }
@@ -2735,7 +2737,7 @@ mod test {
                         .into_iter()
                         .collect()
                     ),
-                    other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).add(
+                    other: Cons::new_head(InteractionAffordanceExtA { a: A(1) }).cons(
                         InteractionAffordanceExtB {
                             g: B("b".to_string())
                         }
@@ -2748,7 +2750,7 @@ mod test {
                 },
                 input: Some(DataSchema {
                     subtype: Some(DataSchemaSubtype::Null),
-                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).add(DataSchemaExtB {
+                    other: Cons::new_head(DataSchemaExtA { f: A(4) }).cons(DataSchemaExtB {
                         m: B("d".to_string())
                     }),
                     attype: Default::default(),
@@ -2764,9 +2766,11 @@ mod test {
                     write_only: Default::default(),
                     format: Default::default(),
                 }),
-                other: Cons::new_head(ActionAffordanceExtA { b: A(3) }).add(ActionAffordanceExtB {
-                    i: B("c".to_string())
-                }),
+                other: Cons::new_head(ActionAffordanceExtA { b: A(3) }).cons(
+                    ActionAffordanceExtB {
+                        i: B("c".to_string())
+                    }
+                ),
                 output: Default::default(),
                 safe: Default::default(),
                 idempotent: Default::default(),

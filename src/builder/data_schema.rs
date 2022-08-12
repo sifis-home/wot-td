@@ -2626,9 +2626,9 @@ mod tests {
             .attype("attype1")
             .attype("attype2")
             .title("title")
-            .titles(|b| b.add("en", "title_en").add("it", "title_it"))
+            .titles(|b| b.cons("en", "title_en").cons("it", "title_it"))
             .description("description")
-            .descriptions(|b| b.add("en", "description_en").add("it", "description_it"))
+            .descriptions(|b| b.cons("en", "description_en").cons("it", "description_it"))
             .unit("cm")
             .format("format")
             .into();
@@ -2671,9 +2671,9 @@ mod tests {
             .enumeration(3u32)
             .attype("attype")
             .title("title")
-            .titles(|b| b.add("en", "title_en").add("it", "title_it"))
+            .titles(|b| b.cons("en", "title_en").cons("it", "title_it"))
             .description("description")
-            .descriptions(|b| b.add("en", "description_en").add("it", "description_it"))
+            .descriptions(|b| b.cons("en", "description_en").cons("it", "description_it"))
             .unit("cm")
             .format("format")
             .into();
@@ -3665,7 +3665,7 @@ mod tests {
             data_schema,
             DataSchema {
                 title: Some("title".to_string()),
-                other: Cons::new_head(DataSchemaExtA { a: A(1) }).add(DataSchemaExtB {
+                other: Cons::new_head(DataSchemaExtA { a: A(1) }).cons(DataSchemaExtB {
                     d: B("hello".to_string())
                 }),
                 attype: Default::default(),
@@ -3712,7 +3712,7 @@ mod tests {
             data_schema,
             DataSchema {
                 title: Some("title".to_string()),
-                other: Cons::new_head(DataSchemaExtA { a: A(1) }).add(DataSchemaExtB {
+                other: Cons::new_head(DataSchemaExtA { a: A(1) }).cons(DataSchemaExtB {
                     d: B("hello".to_string())
                 }),
                 attype: Default::default(),
@@ -3727,7 +3727,7 @@ mod tests {
                 write_only: Default::default(),
                 format: Default::default(),
                 subtype: Some(DataSchemaSubtype::Array(ArraySchema {
-                    other: Cons::new_head(ArraySchemaExtA { b: A(2) }).add(ArraySchemaExtB {
+                    other: Cons::new_head(ArraySchemaExtA { b: A(2) }).cons(ArraySchemaExtB {
                         e: B("world".to_string())
                     }),
                     max_items: Some(10),
@@ -3773,18 +3773,18 @@ mod tests {
             data_schema,
             DataSchema {
                 title: Some("title".to_string()),
-                other: Cons::new_head(DataSchemaExtA { a: A(1) }).add(DataSchemaExtB {
+                other: Cons::new_head(DataSchemaExtA { a: A(1) }).cons(DataSchemaExtB {
                     d: B("hello".to_string())
                 }),
                 subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
-                    other: Cons::new_head(ObjectSchemaExtA { c: A(2) }).add(ObjectSchemaExtB {
+                    other: Cons::new_head(ObjectSchemaExtA { c: A(2) }).cons(ObjectSchemaExtB {
                         f: B("world".to_string())
                     }),
                     properties: Some(
                         [(
                             "x".to_string(),
                             DataSchema {
-                                other: Cons::new_head(DataSchemaExtA { a: A(3) }).add(
+                                other: Cons::new_head(DataSchemaExtA { a: A(3) }).cons(
                                     DataSchemaExtB {
                                         d: B("other".to_string())
                                     }
