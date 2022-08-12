@@ -10,11 +10,12 @@ use time::OffsetDateTime;
 use crate::{
     extend::{Extend, Extendable, ExtendableThing},
     thing::{
-        ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, DataSchemaFromOther,
-        DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
-        KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme, PskSecurityScheme,
-        QualityOfProtection, SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype,
-        Thing, UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
+        AdditionalExpectedResponse, ApiKeySecurityScheme, BasicSecurityScheme,
+        BearerSecurityScheme, DataSchemaFromOther, DefaultedFormOperations, DigestSecurityScheme,
+        ExpectedResponse, Form, FormOperation, KnownSecuritySchemeSubtype, Link, MultiLanguage,
+        OAuth2SecurityScheme, PskSecurityScheme, QualityOfProtection,
+        SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype, Thing,
+        UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
     },
 };
 
@@ -119,6 +120,9 @@ pub enum Error {
 
     #[error("\"multipleOf\" field must be strictly greater than 0")]
     InvalidMultipleOf,
+
+    #[error("Using the data schema \"{0}\", which is not declared in the schema definitions")]
+    MissingSchemaDefinition(String),
 }
 
 /// The possible affordance types
@@ -395,21 +399,26 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         }
 
         let profile = profile.is_empty().not().then(|| profile);
-        let schema_definitions = schema_definitions
-            .is_empty()
-            .not()
-            .then(|| schema_definitions);
 
         let forms = forms
             .map(|forms| {
                 forms
                     .into_iter()
                     .map(|form_builder| {
-                        Self::build_form_from_builder(form_builder, &security_definitions)
+                        Self::build_form_from_builder(
+                            form_builder,
+                            &security_definitions,
+                            &schema_definitions,
+                        )
                     })
                     .collect::<Result<Vec<_>, _>>()
             })
             .transpose()?;
+
+        let schema_definitions = schema_definitions
+            .is_empty()
+            .not()
+            .then(|| schema_definitions);
 
         let context = {
             // TODO: improve this
@@ -487,6 +496,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     fn build_form_from_builder(
         form_builder: FormBuilder<Other, String, Other::Form>,
         security_definitions: &HashMap<String, SecurityScheme>,
+        schema_definitions: &HashMap<String, DataSchemaFromOther<Other>>,
     ) -> Result<Form<Other>, Error> {
         use DefaultedFormOperations::*;
         use FormOperation::*;
@@ -500,6 +510,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             mut security,
             scopes,
             response,
+            additional_responses,
             other,
             _marker: _,
         } = form_builder;
@@ -536,6 +547,20 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             }
         }
 
+        additional_responses
+            .iter()
+            .flat_map(|additional_response| additional_response.schema.as_ref())
+            .try_for_each(|schema| {
+                schema_definitions
+                    .contains_key(schema)
+                    .then_some(())
+                    .ok_or_else(|| Error::MissingSchemaDefinition(schema.clone()))
+            })?;
+        let additional_responses = additional_responses
+            .is_empty()
+            .not()
+            .then_some(additional_responses);
+
         Ok(Form {
             op,
             href,
@@ -545,6 +570,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             security,
             scopes,
             response,
+            additional_responses,
             other,
         })
     }
@@ -1431,6 +1457,7 @@ pub struct FormBuilder<Other: ExtendableThing, Href, OtherForm> {
     security: Option<Vec<String>>,
     scopes: Option<Vec<String>>,
     response: Option<ExpectedResponse<Other::ExpectedResponse>>,
+    additional_responses: Vec<AdditionalExpectedResponse>,
     other: OtherForm,
     _marker: PhantomData<fn() -> Other>,
 }
@@ -1452,6 +1479,7 @@ where
             security: Default::default(),
             scopes: Default::default(),
             response: Default::default(),
+            additional_responses: Default::default(),
             other,
             _marker: PhantomData,
         }
@@ -1473,6 +1501,7 @@ where
             security,
             scopes,
             response,
+            additional_responses,
             other,
             _marker,
         } = self;
@@ -1487,6 +1516,7 @@ where
             security,
             scopes,
             response,
+            additional_responses,
             other,
             _marker,
         }
@@ -1538,6 +1568,28 @@ where
         self
     }
 
+    pub fn additional_response<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(&mut AdditionalExpectedResponseBuilder) -> &mut AdditionalExpectedResponseBuilder,
+    {
+        let mut builder = AdditionalExpectedResponseBuilder::new();
+        f(&mut builder);
+
+        let AdditionalExpectedResponseBuilder {
+            success,
+            content_type,
+            schema,
+        } = builder;
+        let additional_response = AdditionalExpectedResponse {
+            success,
+            content_type,
+            schema,
+        };
+
+        self.additional_responses.push(additional_response);
+        self
+    }
+
     pub fn ext_with<F, T>(self, f: F) -> FormBuilder<Other, Href, OtherForm::Target>
     where
         OtherForm: Extend<T>,
@@ -1552,6 +1604,7 @@ where
             security,
             scopes,
             response,
+            additional_responses,
             other,
             _marker,
         } = self;
@@ -1565,6 +1618,7 @@ where
             security,
             scopes,
             response,
+            additional_responses,
             other,
             _marker,
         }
@@ -1632,9 +1686,15 @@ where
             security,
             scopes,
             response,
+            additional_responses,
             other,
             _marker: _,
         } = builder;
+
+        let additional_responses = additional_responses
+            .is_empty()
+            .not()
+            .then_some(additional_responses);
 
         Self {
             op,
@@ -1645,8 +1705,42 @@ where
             security,
             scopes,
             response,
+            additional_responses,
             other,
         }
+    }
+}
+
+/// Builder for the AdditionalExpectedResponse
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdditionalExpectedResponseBuilder {
+    success: bool,
+    content_type: Option<String>,
+    schema: Option<String>,
+}
+
+impl AdditionalExpectedResponseBuilder {
+    const fn new() -> Self {
+        Self {
+            success: false,
+            content_type: None,
+            schema: None,
+        }
+    }
+
+    pub fn success(&mut self) -> &mut Self {
+        self.success = true;
+        self
+    }
+
+    pub fn content_type(&mut self, value: impl Into<String>) -> &mut Self {
+        self.content_type = Some(value.into());
+        self
+    }
+
+    pub fn schema(&mut self, value: impl Into<String>) -> &mut Self {
+        self.schema = Some(value.into());
+        self
     }
 }
 
@@ -2556,6 +2650,9 @@ mod tests {
                     .scope("scope1")
                     .scope("scope2")
                     .response_default_ext("application/json")
+                    .additional_response(|b| b.content_type("application/xml").schema("schema1"))
+                    .additional_response(|b| b.success().schema("schema2"))
+                    .additional_response(|b| b)
             })
             .security(|b| b.digest())
             .security(|b| b.basic())
@@ -2581,6 +2678,19 @@ mod tests {
                         content_type: "application/json".to_string(),
                         other: Nil,
                     }),
+                    additional_responses: Some(vec![
+                        AdditionalExpectedResponse {
+                            success: false,
+                            content_type: Some("application/xml".to_string()),
+                            schema: Some("schema1".to_string()),
+                        },
+                        AdditionalExpectedResponse {
+                            success: true,
+                            content_type: None,
+                            schema: Some("schema2".to_string()),
+                        },
+                        AdditionalExpectedResponse::default(),
+                    ]),
                     other: Nil,
                 }]),
                 schema_definitions: Some(
@@ -3196,6 +3306,7 @@ mod tests {
                     security: Default::default(),
                     scopes: Default::default(),
                     response: Default::default(),
+                    additional_responses: Default::default(),
                 }]),
                 ..Default::default()
             }
@@ -3296,6 +3407,7 @@ mod tests {
                 subprotocol: Default::default(),
                 security: Default::default(),
                 scopes: Default::default(),
+                additional_responses: Default::default(),
             },
         );
     }
@@ -3482,6 +3594,9 @@ mod tests {
                         .ext(FormExtB { m: 19 })
                         .ext(())
                         .href("href1")
+                        .additional_response(|b| {
+                            b.success().content_type("application/xml").schema("schema")
+                        })
                     })
             })
             .action("action", |b| {
@@ -3603,6 +3718,11 @@ mod tests {
                                             .add(ExpectedResponseExtB { n: 17 })
                                             .add(ExpectedResponseExtC { s: 18 })
                                     }),
+                                    additional_responses: Some(vec![AdditionalExpectedResponse {
+                                        success: true,
+                                        content_type: Some("application/xml".to_string()),
+                                        schema: Some("schema".to_string()),
+                                    }]),
                                     other: Cons::new_head(()).add(FormExtB { m: 19 }).add(()),
                                     op: Default::default(),
                                     content_type: Default::default(),
@@ -3782,6 +3902,7 @@ mod tests {
                     subprotocol: Default::default(),
                     security: Default::default(),
                     scopes: Default::default(),
+                    additional_responses: Default::default(),
                 }]),
                 schema_definitions: Some(
                     [(
@@ -3821,6 +3942,66 @@ mod tests {
                 security_definitions: Default::default(),
                 profile: Default::default(),
             },
+        );
+    }
+
+    #[test]
+    fn additional_response() {
+        let mut builder = AdditionalExpectedResponseBuilder::new();
+        assert_eq!(
+            builder,
+            AdditionalExpectedResponseBuilder {
+                success: Default::default(),
+                content_type: Default::default(),
+                schema: Default::default(),
+            },
+        );
+
+        assert_eq!(
+            *builder.clone().success(),
+            AdditionalExpectedResponseBuilder {
+                success: true,
+                content_type: Default::default(),
+                schema: Default::default(),
+            },
+        );
+
+        assert_eq!(
+            *builder.clone().content_type("hello"),
+            AdditionalExpectedResponseBuilder {
+                success: Default::default(),
+                content_type: Some("hello".to_string()),
+                schema: Default::default(),
+            },
+        );
+
+        assert_eq!(
+            *builder.schema("schema"),
+            AdditionalExpectedResponseBuilder {
+                success: Default::default(),
+                content_type: Default::default(),
+                schema: Some("schema".to_string()),
+            },
+        );
+    }
+
+    #[test]
+    fn additional_response_with_missing_schema() {
+        let error = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .schema_definition("schema1", |b| b.finish_extend().null())
+            .schema_definition("schema2", |b| b.finish_extend().number().minimum(5.))
+            .form(|b| {
+                b.href("href")
+                    .op(FormOperation::ReadAllProperties)
+                    .additional_response(|b| b.schema("invalid_schema"))
+            })
+            .build()
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            Error::MissingSchemaDefinition("invalid_schema".to_string())
         );
     }
 }

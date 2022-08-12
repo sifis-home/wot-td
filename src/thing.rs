@@ -989,6 +989,10 @@ pub struct Form<Other: ExtendableThing> {
 
     pub response: Option<ExpectedResponse<Other::ExpectedResponse>>,
 
+    #[serde(default)]
+    #[serde_as(as = "Option<OneOrMany<_>>")]
+    pub additional_responses: Option<Vec<AdditionalExpectedResponse>>,
+
     #[serde(flatten)]
     pub other: Other::Form,
 }
@@ -1009,6 +1013,7 @@ where
             security: self.security.clone(),
             scopes: self.scopes.clone(),
             response: self.response.clone(),
+            additional_responses: self.additional_responses.clone(),
             other: self.other.clone(),
         }
     }
@@ -1070,6 +1075,17 @@ pub struct ExpectedResponse<Other> {
 
     #[serde(flatten)]
     pub other: Other,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdditionalExpectedResponse {
+    #[serde(default)]
+    pub success: bool,
+
+    pub content_type: Option<String>,
+
+    pub schema: Option<String>,
 }
 
 #[cfg(test)]
