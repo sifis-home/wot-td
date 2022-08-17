@@ -6,14 +6,14 @@ pub struct Nil;
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cons<T, U = Nil> {
     #[serde(flatten)]
-    pub(crate) head: T,
+    pub head: T,
     #[serde(flatten)]
-    pub(crate) tail: U,
+    pub tail: U,
 }
 
 impl Nil {
     #[inline]
-    pub(crate) fn cons<T>(value: T) -> Cons<T, Nil> {
+    pub fn cons<T>(value: T) -> Cons<T, Nil> {
         Cons {
             head: value,
             tail: Nil,
@@ -23,7 +23,7 @@ impl Nil {
 
 impl<T, U> Cons<T, U> {
     #[inline]
-    pub(crate) fn cons<V>(self, value: V) -> Cons<V, Self> {
+    pub fn cons<V>(self, value: V) -> Cons<V, Self> {
         Cons {
             head: value,
             tail: self,
