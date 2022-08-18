@@ -24,7 +24,8 @@ use super::{
     human_readable_info::{
         impl_delegate_buildable_hr_info, BuildableHumanReadableInfo, HumanReadableInfo,
     },
-    Error, Extended, FormBuilder, MultiLanguageBuilder, ToExtend,
+    uri_variables_contains_arrays_objects, Error, Extended, FormBuilder, MultiLanguageBuilder,
+    ToExtend,
 };
 
 pub trait IntoUsable<T>: Sized {
@@ -1792,7 +1793,12 @@ impl<Other: ExtendableThing> CheckableInteractionAffordanceBuilder
     for PartialInteractionAffordanceBuilder<Other, Other::InteractionAffordance>
 {
     fn check(&self, security_definitions: &HashMap<String, SecurityScheme>) -> Result<(), Error> {
-        check_form_builders(&self.forms, security_definitions)
+        check_form_builders(&self.forms, security_definitions)?;
+        if uri_variables_contains_arrays_objects::<Other>(&self.uri_variables) {
+            return Err(Error::InvalidUriVariables);
+        }
+
+        Ok(())
     }
 }
 
@@ -1800,7 +1806,12 @@ impl<Other: ExtendableThing> CheckableInteractionAffordanceBuilder
     for InteractionAffordanceBuilder<Other, Other::InteractionAffordance>
 {
     fn check(&self, security_definitions: &HashMap<String, SecurityScheme>) -> Result<(), Error> {
-        check_form_builders(&self.partial.forms, security_definitions)
+        check_form_builders(&self.partial.forms, security_definitions)?;
+        if uri_variables_contains_arrays_objects::<Other>(&self.partial.uri_variables) {
+            return Err(Error::InvalidUriVariables);
+        }
+
+        Ok(())
     }
 }
 
