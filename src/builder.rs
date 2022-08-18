@@ -62,7 +62,7 @@ pub struct ThingBuilder<Other: ExtendableThing, Status> {
     security_definitions: Vec<(String, SecurityScheme)>,
     profile: Vec<String>,
     schema_definitions: HashMap<String, DataSchemaFromOther<Other>>,
-    other: Other,
+    pub other: Other,
     _marker: PhantomData<Status>,
 }
 
@@ -1458,7 +1458,7 @@ pub struct FormBuilder<Other: ExtendableThing, Href, OtherForm> {
     scopes: Option<Vec<String>>,
     response: Option<ExpectedResponse<Other::ExpectedResponse>>,
     additional_responses: Vec<AdditionalExpectedResponse>,
-    other: OtherForm,
+    pub other: OtherForm,
     _marker: PhantomData<fn() -> Other>,
 }
 
