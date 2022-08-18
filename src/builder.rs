@@ -11,11 +11,11 @@ use crate::{
     extend::{Extend, Extendable, ExtendableThing},
     thing::{
         AdditionalExpectedResponse, ApiKeySecurityScheme, BasicSecurityScheme,
-        BearerSecurityScheme, DataSchemaFromOther, DefaultedFormOperations, DigestSecurityScheme,
-        ExpectedResponse, Form, FormOperation, KnownSecuritySchemeSubtype, Link, MultiLanguage,
-        OAuth2SecurityScheme, PskSecurityScheme, QualityOfProtection,
-        SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype, Thing,
-        UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
+        BearerSecurityScheme, DataSchemaFromOther, DataSchemaMap, DataSchemaSubtype,
+        DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
+        KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme, PskSecurityScheme,
+        QualityOfProtection, SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype,
+        Thing, UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
     },
 };
 
@@ -123,6 +123,9 @@ pub enum Error {
 
     #[error("Using the data schema \"{0}\", which is not declared in the schema definitions")]
     MissingSchemaDefinition(String),
+
+    #[error("An uriVariable cannot be an ObjectSchema or ArraySchema")]
+    InvalidUriVariables,
 }
 
 /// The possible affordance types
@@ -437,6 +440,14 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
                     .collect()
             }
         };
+
+        let invalid_uri_variables = uri_variables
+            .as_ref()
+            .map(uri_variables_contains_arrays_objects::<Other>)
+            .unwrap_or(false);
+        if invalid_uri_variables {
+            return Err(Error::InvalidUriVariables);
+        }
 
         let properties = try_build_affordance(
             properties,
@@ -1744,6 +1755,18 @@ impl AdditionalExpectedResponseBuilder {
     }
 }
 
+fn uri_variables_contains_arrays_objects<Other>(uri_variables: &DataSchemaMap<Other>) -> bool
+where
+    Other: ExtendableThing,
+{
+    uri_variables.values().any(|schema| {
+        matches!(
+            &schema.subtype,
+            Some(DataSchemaSubtype::Object(_) | DataSchemaSubtype::Array(_))
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use serde::{Deserialize, Serialize};
@@ -1758,8 +1781,8 @@ mod tests {
         },
         hlist::{Cons, Nil},
         thing::{
-            ActionAffordance, ArraySchema, DataSchema, DataSchemaSubtype, EventAffordance,
-            InteractionAffordance, NumberSchema, ObjectSchema, PropertyAffordance,
+            ActionAffordance, DataSchema, DataSchemaSubtype, EventAffordance,
+            InteractionAffordance, NumberSchema, ObjectSchema, PropertyAffordance, StringSchema,
         },
     };
 
@@ -3566,7 +3589,7 @@ mod tests {
                     .ext(())
                     .ext(DataSchemaExtC { t: 5 })
                     .finish_extend()
-                    .array()
+                    .string()
             })
             .property("property", |b| {
                 b.ext_interaction(InteractionAffordanceExtA { d: 6 })
@@ -3621,7 +3644,7 @@ mod tests {
                             .ext(())
                             .ext(DataSchemaExtC { t: 28 })
                             .finish_extend()
-                            .array_ext(|b| b.ext(()).ext(()).ext(()))
+                            .string()
                     })
                     .title("action")
             })
@@ -3676,7 +3699,7 @@ mod tests {
                     [(
                         "uri_variable".to_string(),
                         DataSchema {
-                            subtype: Some(DataSchemaSubtype::Array(ArraySchema::default())),
+                            subtype: Some(DataSchemaSubtype::String(StringSchema::default())),
                             other: Nil::cons(DataSchemaExtA { h: 4 })
                                 .cons(())
                                 .cons(DataSchemaExtC { t: 5 }),
@@ -3776,8 +3799,8 @@ mod tests {
                                     [(
                                         "y".to_string(),
                                         DataSchema {
-                                            subtype: Some(DataSchemaSubtype::Array(
-                                                ArraySchema::default()
+                                            subtype: Some(DataSchemaSubtype::String(
+                                                StringSchema::default()
                                             )),
                                             other: Nil::cons(DataSchemaExtA { h: 27 })
                                                 .cons(())
@@ -4003,5 +4026,49 @@ mod tests {
             error,
             Error::MissingSchemaDefinition("invalid_schema".to_string())
         );
+    }
+
+    #[test]
+    fn invalid_thing_uri_variables() {
+        let error = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .uri_variable("uriVariable", |b| b.finish_extend().object())
+            .build()
+            .unwrap_err();
+
+        assert_eq!(error, Error::InvalidUriVariables);
+
+        let error = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .uri_variable("uriVariable", |b| b.finish_extend().array())
+            .build()
+            .unwrap_err();
+
+        assert_eq!(error, Error::InvalidUriVariables);
+    }
+
+    #[test]
+    fn invalid_interaction_uri_variables() {
+        let error = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .action("action", |b| {
+                b.uri_variable("uriVariable", |b| b.finish_extend().object())
+            })
+            .build()
+            .unwrap_err();
+
+        assert_eq!(error, Error::InvalidUriVariables);
+
+        let error = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .property("property", |b| {
+                b.finish_extend_data_schema()
+                    .uri_variable("uriVariable", |b| b.finish_extend().array())
+                    .string()
+            })
+            .build()
+            .unwrap_err();
+
+        assert_eq!(error, Error::InvalidUriVariables);
     }
 }
