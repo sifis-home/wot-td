@@ -61,7 +61,7 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
 pub struct PartialInteractionAffordanceBuilder<Other: ExtendableThing, OtherInteractionAffordance> {
     pub(super) forms: Vec<FormBuilder<Other, String, Other::Form>>,
     pub(super) uri_variables: HashMap<String, DataSchemaFromOther<Other>>,
-    pub(super) other: OtherInteractionAffordance,
+    pub other: OtherInteractionAffordance,
 }
 
 impl<Other, OtherInteractionAffordance> Default
@@ -263,7 +263,7 @@ pub struct PropertyAffordanceBuilder<
     pub(super) info: HumanReadableInfo,
     pub(super) data_schema: DataSchema,
     pub(super) observable: Option<bool>,
-    pub(super) other: OtherPropertyAffordance,
+    pub other: OtherPropertyAffordance,
 }
 
 impl<Other, DataSchema, OtherInteractionAffordance, OtherPropertyAffordance> Default
@@ -301,7 +301,7 @@ pub struct ActionAffordanceBuilder<
     pub(super) safe: bool,
     pub(super) idempotent: bool,
     pub(super) synchronous: Option<bool>,
-    pub(super) other: OtherActionAffordance,
+    pub other: OtherActionAffordance,
 }
 
 impl<Other, OtherInteractionAffordance, OtherActionAffordance> Default
@@ -358,7 +358,7 @@ pub struct EventAffordanceBuilder<
     pub(super) data: Option<DataSchemaFromOther<Other>>,
     pub(super) cancellation: Option<DataSchemaFromOther<Other>>,
     pub(super) data_response: Option<DataSchemaFromOther<Other>>,
-    pub(super) other: OtherEventAffordance,
+    pub other: OtherEventAffordance,
 }
 
 type EmptyEventAffordanceBuilder<Other> = EventAffordanceBuilder<

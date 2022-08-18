@@ -24,7 +24,7 @@ pub struct PartialDataSchemaBuilder<DS, AS, OS, Status> {
     read_only: bool,
     write_only: bool,
     format: Option<String>,
-    other: DS,
+    pub other: DS,
     _marker: PhantomData<Status>,
 }
 
@@ -141,7 +141,7 @@ pub(super) struct PartialDataSchema<DS, AS, OS> {
     pub(super) write_only: bool,
     pub(super) format: Option<String>,
     pub(super) subtype: Option<DataSchemaSubtype<DS, AS, OS>>,
-    pub(super) other: DS,
+    pub other: DS,
 }
 
 /// Basic builder for [`DataSchema`].
@@ -286,7 +286,7 @@ pub struct ArrayDataSchemaBuilder<Inner, DS, AS, OS> {
     items: Vec<DataSchema<DS, AS, OS>>,
     min_items: Option<u32>,
     max_items: Option<u32>,
-    other: AS,
+    pub other: AS,
 }
 
 pub struct NumberDataSchemaBuilder<Inner> {
@@ -306,7 +306,7 @@ pub struct ObjectDataSchemaBuilder<Inner, DS, AS, OS> {
     inner: Inner,
     properties: Vec<(String, DataSchema<DS, AS, OS>)>,
     required: Vec<String>,
-    other: OS,
+    pub other: OS,
 }
 
 pub struct StringDataSchemaBuilder<Inner> {
