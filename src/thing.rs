@@ -1216,7 +1216,15 @@ mod test {
           "profile": [
               "profile1",
               "profile2"
-          ]
+          ],
+          "uriVariables": {
+            "uriVariable1": {
+              "type": "string"
+            },
+            "uriVariable2": {
+              "type": "number"
+            }
+          }
         }"#;
 
         let expected_thing = Thing {
@@ -1338,6 +1346,26 @@ mod test {
                 .collect(),
             security: vec!["nosec".to_string()],
             profile: Some(vec!["profile1".to_string(), "profile2".to_string()]),
+            uri_variables: Some(
+                [
+                    (
+                        "uriVariable1".to_string(),
+                        DataSchema {
+                            subtype: Some(DataSchemaSubtype::String(Default::default())),
+                            ..Default::default()
+                        },
+                    ),
+                    (
+                        "uriVariable2".to_string(),
+                        DataSchema {
+                            subtype: Some(DataSchemaSubtype::Number(Default::default())),
+                            ..Default::default()
+                        },
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            ),
             ..Default::default()
         };
 
