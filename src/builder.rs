@@ -731,6 +731,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         let name = name.unwrap_or_else(|| {
             match &security_scheme.subtype {
                 Known(KnownSecuritySchemeSubtype::NoSec) => "nosec",
+                Known(KnownSecuritySchemeSubtype::Auto) => "auto",
                 Known(KnownSecuritySchemeSubtype::Basic(_)) => "basic",
                 Known(KnownSecuritySchemeSubtype::Digest(_)) => "digest",
                 Known(KnownSecuritySchemeSubtype::Bearer(_)) => "bearer",
@@ -1059,6 +1060,9 @@ pub struct SecuritySchemeBuilder<S> {
 /// Placeholder Type for the NoSecurity Scheme
 pub struct SecuritySchemeNoSecTag;
 
+/// Placeholder Type for the Auto Security Scheme
+pub struct SecuritySchemeAutoTag;
+
 /// Builder for the Security Scheme Subtype
 pub trait BuildableSecuritySchemeSubtype {
     /// Consume the builder and produce the SecuritySchemeSubtype
@@ -1085,6 +1089,29 @@ impl SecuritySchemeBuilder<()> {
             proxy,
             name,
             subtype: SecuritySchemeNoSecTag,
+            required,
+        }
+    }
+
+    /// Auto security scheme
+    pub fn auto(self) -> SecuritySchemeBuilder<SecuritySchemeAutoTag> {
+        let Self {
+            attype,
+            description,
+            descriptions,
+            proxy,
+            name,
+            subtype: _,
+            required,
+        } = self;
+
+        SecuritySchemeBuilder {
+            attype,
+            description,
+            descriptions,
+            proxy,
+            name,
+            subtype: SecuritySchemeAutoTag,
             required,
         }
     }
@@ -1317,6 +1344,12 @@ impl_buildable_known_security_scheme_subtype! (
 impl BuildableSecuritySchemeSubtype for SecuritySchemeNoSecTag {
     fn build(self) -> SecuritySchemeSubtype {
         SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::NoSec)
+    }
+}
+
+impl BuildableSecuritySchemeSubtype for SecuritySchemeAutoTag {
+    fn build(self) -> SecuritySchemeSubtype {
+        SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Auto)
     }
 }
 
@@ -2111,6 +2144,51 @@ mod tests {
                         ),
                         proxy: Some("proxy".to_string()),
                         subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::NoSec)
+                    }
+                )]
+                .into_iter()
+                .collect(),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn auto_security() {
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .security(|b| {
+                b.auto()
+                    .attype("ty1")
+                    .attype("ty2")
+                    .description("desc")
+                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
+                    .proxy("proxy")
+                    .required()
+            })
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT_11.into(),
+                title: "MyLampThing".to_string(),
+                security: vec!["auto".to_string()],
+                security_definitions: [(
+                    "auto".to_string(),
+                    SecurityScheme {
+                        attype: Some(vec!["ty1".to_string(), "ty2".to_string()]),
+                        description: Some("desc".to_string()),
+                        descriptions: Some(
+                            [
+                                ("en".to_string(), "desc_en".to_string()),
+                                ("it".to_string(), "desc_it".to_string()),
+                            ]
+                            .into_iter()
+                            .collect()
+                        ),
+                        proxy: Some("proxy".to_string()),
+                        subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Auto)
                     }
                 )]
                 .into_iter()

@@ -755,6 +755,7 @@ pub struct SecurityScheme {
 pub enum KnownSecuritySchemeSubtype {
     #[default]
     NoSec,
+    Auto,
     Basic(BasicSecurityScheme),
     Digest(DigestSecurityScheme),
     Bearer(BearerSecurityScheme),
