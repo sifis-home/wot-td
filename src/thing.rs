@@ -1078,15 +1078,24 @@ pub struct ExpectedResponse<Other> {
     pub other: Other,
 }
 
+#[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdditionalExpectedResponse {
-    #[serde(default)]
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub success: bool,
 
     pub content_type: Option<String>,
 
     pub schema: Option<String>,
+}
+
+const fn bool_true() -> bool {
+    true
+}
+
+const fn is_true(b: &bool) -> bool {
+    *b
 }
 
 #[cfg(test)]
@@ -2254,5 +2263,43 @@ mod test {
     #[test]
     fn default_object_schema() {
         ObjectSchema::<DataSchemaExt, ArraySchemaExt, ()>::default();
+    }
+
+    #[test]
+    fn serde_empty_additional_expected_response() {
+        let response: AdditionalExpectedResponse = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(
+            response,
+            AdditionalExpectedResponse {
+                success: true,
+                content_type: None,
+                schema: None,
+            },
+        );
+
+        assert_eq!(serde_json::to_value(response).unwrap(), json!({}));
+    }
+
+    #[test]
+    fn serde_full_additional_expected_response() {
+        let raw_data = json!({
+            "success": false,
+            "contentType": "application/json",
+            "schema": "test",
+        });
+
+        let response: AdditionalExpectedResponse =
+            serde_json::from_value(raw_data.clone()).unwrap();
+
+        assert_eq!(
+            response,
+            AdditionalExpectedResponse {
+                success: false,
+                content_type: Some("application/json".to_string()),
+                schema: Some("test".to_string()),
+            },
+        );
+
+        assert_eq!(serde_json::to_value(response).unwrap(), raw_data);
     }
 }
