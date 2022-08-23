@@ -4313,4 +4313,153 @@ mod tests {
 
         assert_eq!(error, Error::InvalidUriVariables);
     }
+
+    #[test]
+    fn combo_security_scheme_with_all_of() {
+        let builder = SecuritySchemeBuilder {
+            attype: Default::default(),
+            description: Default::default(),
+            descriptions: Default::default(),
+            proxy: Default::default(),
+            name: Default::default(),
+            subtype: (),
+            required: Default::default(),
+        }
+        .combo()
+        .attype("attype")
+        .all_of(["schema1", "schema2"])
+        .extend(["schema3", "schema4"])
+        .push("schema1")
+        .description("description");
+
+        assert_eq!(builder.attype, Some(vec!["attype".to_string()]));
+        assert_eq!(builder.description, Some("description".to_string()));
+        assert_eq!(
+            builder.subtype,
+            (
+                AllOfComboSecuritySchemeTag,
+                ["schema1", "schema2", "schema3", "schema4", "schema1"]
+                    .map(String::from)
+                    .into(),
+            ),
+        );
+
+        let subtype = builder.subtype.build();
+        assert_eq!(
+            subtype,
+            SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Combo(
+                ComboSecurityScheme::AllOf(
+                    ["schema1", "schema2", "schema3", "schema4", "schema1"]
+                        .map(String::from)
+                        .into()
+                )
+            ))
+        );
+    }
+
+    #[test]
+    fn combo_security_scheme_with_one_of() {
+        let builder = SecuritySchemeBuilder {
+            attype: Default::default(),
+            description: Default::default(),
+            descriptions: Default::default(),
+            proxy: Default::default(),
+            name: Default::default(),
+            subtype: (),
+            required: Default::default(),
+        }
+        .combo()
+        .attype("attype")
+        .one_of(["schema1", "schema2"])
+        .extend(["schema3", "schema4"])
+        .push("schema1")
+        .description("description");
+
+        assert_eq!(builder.attype, Some(vec!["attype".to_string()]));
+        assert_eq!(builder.description, Some("description".to_string()));
+        assert_eq!(
+            builder.subtype,
+            (
+                OneOfComboSecuritySchemeTag,
+                ["schema1", "schema2", "schema3", "schema4", "schema1"]
+                    .map(String::from)
+                    .into(),
+            ),
+        );
+
+        let subtype = builder.subtype.build();
+        assert_eq!(
+            subtype,
+            SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Combo(
+                ComboSecurityScheme::OneOf(
+                    ["schema1", "schema2", "schema3", "schema4", "schema1"]
+                        .map(String::from)
+                        .into()
+                )
+            ))
+        );
+    }
+
+    #[test]
+    fn valid_combo_security_scheme() {
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .security(|b| b.basic())
+            .security(|b| b.combo().one_of(["basic", "nosec"]))
+            .security(|b| b.no_sec())
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT_11.into(),
+                title: "MyLampThing".to_string(),
+                security_definitions: [
+                    (
+                        "basic".to_string(),
+                        SecurityScheme {
+                            subtype: SecuritySchemeSubtype::Known(
+                                KnownSecuritySchemeSubtype::Basic(Default::default())
+                            ),
+                            ..Default::default()
+                        }
+                    ),
+                    (
+                        "combo".to_string(),
+                        SecurityScheme {
+                            subtype: SecuritySchemeSubtype::Known(
+                                KnownSecuritySchemeSubtype::Combo(ComboSecurityScheme::OneOf(
+                                    vec!["basic".to_string(), "nosec".to_string()]
+                                ))
+                            ),
+                            ..Default::default()
+                        }
+                    ),
+                    (
+                        "nosec".to_string(),
+                        SecurityScheme {
+                            subtype: SecuritySchemeSubtype::Known(
+                                KnownSecuritySchemeSubtype::NoSec
+                            ),
+                            ..Default::default()
+                        }
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+                ..Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn missing_combo_security_scheme() {
+        let err = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .security(|b| b.combo().one_of(["basic", "nosec"]))
+            .security(|b| b.no_sec())
+            .build()
+            .unwrap_err();
+
+        assert_eq!(err, Error::MissingSchemaDefinition("basic".to_string()));
+    }
 }

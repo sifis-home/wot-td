@@ -2311,4 +2311,47 @@ mod test {
 
         assert_eq!(serde_json::to_value(response).unwrap(), raw_data);
     }
+
+    #[test]
+    fn combo_security_scheme() {
+        let raw_data = json!({
+            "oneOf": "simple",
+        });
+        let combo: ComboSecurityScheme = serde_json::from_value(raw_data.clone()).unwrap();
+        assert_eq!(
+            combo,
+            ComboSecurityScheme::OneOf(vec!["simple".to_string()]),
+        );
+        assert_eq!(serde_json::to_value(combo).unwrap(), raw_data);
+
+        let raw_data = json!({
+            "oneOf": ["data1", "data2"],
+        });
+        let combo: ComboSecurityScheme = serde_json::from_value(raw_data.clone()).unwrap();
+        assert_eq!(
+            combo,
+            ComboSecurityScheme::OneOf(vec!["data1".to_string(), "data2".to_string()]),
+        );
+        assert_eq!(serde_json::to_value(combo).unwrap(), raw_data);
+
+        let raw_data = json!({
+            "allOf": "simple",
+        });
+        let combo: ComboSecurityScheme = serde_json::from_value(raw_data.clone()).unwrap();
+        assert_eq!(
+            combo,
+            ComboSecurityScheme::AllOf(vec!["simple".to_string()]),
+        );
+        assert_eq!(serde_json::to_value(combo).unwrap(), raw_data);
+
+        let raw_data = json!({
+            "allOf": ["data1", "data2"],
+        });
+        let combo: ComboSecurityScheme = serde_json::from_value(raw_data.clone()).unwrap();
+        assert_eq!(
+            combo,
+            ComboSecurityScheme::AllOf(vec!["data1".to_string(), "data2".to_string()]),
+        );
+        assert_eq!(serde_json::to_value(combo).unwrap(), raw_data);
+    }
 }
