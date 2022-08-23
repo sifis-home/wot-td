@@ -1029,7 +1029,7 @@ where
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FormOperation {
     ReadProperty,
@@ -1043,6 +1043,26 @@ pub enum FormOperation {
     WriteAllProperties,
     ReadMultipleProperties,
     WriteMultipleProperties,
+}
+
+impl fmt::Display for FormOperation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::ReadProperty => "readproperty",
+            Self::WriteProperty => "writeproperty",
+            Self::ObserveProperty => "observeproperty",
+            Self::UnobserveProperty => "unobserveproperty",
+            Self::InvokeAction => "invokeaction",
+            Self::SubscribeEvent => "subscribeevent",
+            Self::UnsubscribeEvent => "unsubscribeevent",
+            Self::ReadAllProperties => "readallproperties",
+            Self::WriteAllProperties => "writeallproperties",
+            Self::ReadMultipleProperties => "readmultipleproperties",
+            Self::WriteMultipleProperties => "writemultipleproperties",
+        };
+
+        f.write_str(s)
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]

@@ -92,9 +92,12 @@ pub enum Error {
     #[error("A Form directly placed in a Thing must contain at least one relevant operation")]
     MissingOpInForm,
 
-    /// The Thing-level forms must work on the Thing properties collectively at once.
-    #[error("The operation of a Form directly placed in a Thing can only be one or more of the following: readallproperties, writeallproperties, readmultipleproperties, writemultipleproperties")]
-    InvalidOpInForm,
+    /// The Form can use only a specific set of operations depending on the context.
+    #[error("Invalid Form operation {operation} in {context} context")]
+    InvalidOpInForm {
+        context: FormContext,
+        operation: FormOperation,
+    },
 
     /// The security field must refer to existing security definitions.
     #[error("Security \"{0}\" is not specified in Thing security definitions")]
@@ -126,6 +129,37 @@ pub enum Error {
 
     #[error("An uriVariable cannot be an ObjectSchema or ArraySchema")]
     InvalidUriVariables,
+}
+
+/// Context of a [`Form`]
+///
+/// [`Form`]: `crate::thing::Form`
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FormContext {
+    /// The root Thing context
+    Thing,
+
+    /// A property affordance context
+    Property,
+
+    /// An action affordance context
+    Action,
+
+    /// An event affordance context
+    Event,
+}
+
+impl fmt::Display for FormContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Thing => "Thing",
+            Self::Property => "PropertyAffordance",
+            Self::Action => "ActionAffordance",
+            Self::Event => "EventAffordance",
+        };
+
+        f.write_str(s)
+    }
 }
 
 /// The possible affordance types
@@ -561,18 +595,25 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         match &op {
             Default => return Err(Error::MissingOpInForm),
             Custom(operations) => {
-                let allowed_ops = operations.iter().all(|op| {
-                    matches!(
-                        op,
-                        ReadAllProperties
-                            | WriteAllProperties
-                            | ReadMultipleProperties
-                            | WriteMultipleProperties
-                    )
-                });
+                let wrong_op = operations
+                    .iter()
+                    .find(|op| {
+                        matches!(
+                            op,
+                            ReadAllProperties
+                                | WriteAllProperties
+                                | ReadMultipleProperties
+                                | WriteMultipleProperties
+                        )
+                        .not()
+                    })
+                    .copied();
 
-                if allowed_ops.not() {
-                    return Err(Error::InvalidOpInForm);
+                if let Some(operation) = wrong_op {
+                    return Err(Error::InvalidOpInForm {
+                        context: FormContext::Thing,
+                        operation,
+                    });
                 }
             }
         }
@@ -3060,7 +3101,13 @@ mod tests {
             .build()
             .unwrap_err();
 
-        assert_eq!(err, Error::InvalidOpInForm);
+        assert_eq!(
+            err,
+            Error::InvalidOpInForm {
+                context: FormContext::Thing,
+                operation: FormOperation::ReadProperty
+            }
+        );
     }
 
     #[test]
