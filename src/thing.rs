@@ -756,6 +756,7 @@ pub enum KnownSecuritySchemeSubtype {
     #[default]
     NoSec,
     Auto,
+    Combo(ComboSecurityScheme),
     Basic(BasicSecurityScheme),
     Digest(DigestSecurityScheme),
     Bearer(BearerSecurityScheme),
@@ -783,6 +784,14 @@ impl Default for SecuritySchemeSubtype {
     fn default() -> Self {
         Self::Known(KnownSecuritySchemeSubtype::default())
     }
+}
+
+#[serde_as]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ComboSecurityScheme {
+    OneOf(#[serde_as(as = "OneOrMany<_>")] Vec<String>),
+    AllOf(#[serde_as(as = "OneOrMany<_>")] Vec<String>),
 }
 
 #[skip_serializing_none]

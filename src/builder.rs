@@ -11,11 +11,11 @@ use crate::{
     extend::{Extend, Extendable, ExtendableThing},
     thing::{
         AdditionalExpectedResponse, ApiKeySecurityScheme, BasicSecurityScheme,
-        BearerSecurityScheme, DataSchemaFromOther, DataSchemaMap, DataSchemaSubtype,
-        DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form, FormOperation,
-        KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme, PskSecurityScheme,
-        QualityOfProtection, SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype,
-        Thing, UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
+        BearerSecurityScheme, ComboSecurityScheme, DataSchemaFromOther, DataSchemaMap,
+        DataSchemaSubtype, DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form,
+        FormOperation, KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme,
+        PskSecurityScheme, QualityOfProtection, SecurityAuthenticationLocation, SecurityScheme,
+        SecuritySchemeSubtype, Thing, UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
     },
 };
 
@@ -400,6 +400,25 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
                 }
             }
         }
+        let security_definitions = security_definitions;
+        security_definitions
+            .values()
+            .filter_map(|security| match &security.subtype {
+                SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Combo(combo)) => {
+                    Some(combo)
+                }
+                _ => None,
+            })
+            .flat_map(|combo| match combo {
+                ComboSecurityScheme::OneOf(names) => names.as_slice(),
+                ComboSecurityScheme::AllOf(names) => names.as_slice(),
+            })
+            .try_for_each(|security_name| {
+                security_definitions
+                    .contains_key(security_name)
+                    .then_some(())
+                    .ok_or_else(|| Error::MissingSchemaDefinition(security_name.to_string()))
+            })?;
 
         let profile = profile.is_empty().not().then_some(profile);
 
@@ -732,6 +751,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             match &security_scheme.subtype {
                 Known(KnownSecuritySchemeSubtype::NoSec) => "nosec",
                 Known(KnownSecuritySchemeSubtype::Auto) => "auto",
+                Known(KnownSecuritySchemeSubtype::Combo(_)) => "combo",
                 Known(KnownSecuritySchemeSubtype::Basic(_)) => "basic",
                 Known(KnownSecuritySchemeSubtype::Digest(_)) => "digest",
                 Known(KnownSecuritySchemeSubtype::Bearer(_)) => "bearer",
@@ -1063,6 +1083,17 @@ pub struct SecuritySchemeNoSecTag;
 /// Placeholder Type for the Auto Security Scheme
 pub struct SecuritySchemeAutoTag;
 
+/// Placeholder Type for the Combo Security Scheme without `allOf` or `oneOf`
+pub struct EmptyComboSecuritySchemeTag;
+
+/// Placeholder Type for the Combo Security Scheme using `allOf`
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct AllOfComboSecuritySchemeTag;
+
+/// Placeholder Type for the Combo Security Scheme using `oneOf`
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct OneOfComboSecuritySchemeTag;
+
 /// Builder for the Security Scheme Subtype
 pub trait BuildableSecuritySchemeSubtype {
     /// Consume the builder and produce the SecuritySchemeSubtype
@@ -1112,6 +1143,29 @@ impl SecuritySchemeBuilder<()> {
             proxy,
             name,
             subtype: SecuritySchemeAutoTag,
+            required,
+        }
+    }
+
+    /// Combo security scheme
+    pub fn combo(self) -> SecuritySchemeBuilder<EmptyComboSecuritySchemeTag> {
+        let Self {
+            attype,
+            description,
+            descriptions,
+            proxy,
+            name,
+            subtype: _,
+            required,
+        } = self;
+
+        SecuritySchemeBuilder {
+            attype,
+            description,
+            descriptions,
+            proxy,
+            name,
+            subtype: EmptyComboSecuritySchemeTag,
             required,
         }
     }
@@ -1353,6 +1407,22 @@ impl BuildableSecuritySchemeSubtype for SecuritySchemeAutoTag {
     }
 }
 
+impl BuildableSecuritySchemeSubtype for (AllOfComboSecuritySchemeTag, Vec<String>) {
+    fn build(self) -> SecuritySchemeSubtype {
+        SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Combo(
+            ComboSecurityScheme::AllOf(self.1),
+        ))
+    }
+}
+
+impl BuildableSecuritySchemeSubtype for (OneOfComboSecuritySchemeTag, Vec<String>) {
+    fn build(self) -> SecuritySchemeSubtype {
+        SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Combo(
+            ComboSecurityScheme::OneOf(self.1),
+        ))
+    }
+}
+
 impl BuildableSecuritySchemeSubtype for UnknownSecuritySchemeSubtype {
     fn build(self) -> SecuritySchemeSubtype {
         SecuritySchemeSubtype::Unknown(self)
@@ -1422,6 +1492,100 @@ where
     /// Location of the security authentication information
     pub fn location(mut self, value: SecurityAuthenticationLocation) -> Self {
         *self.subtype.location_mut() = value;
+        self
+    }
+}
+
+impl SecuritySchemeBuilder<EmptyComboSecuritySchemeTag> {
+    /// Require all the specified schema definitions for the security combo.
+    pub fn all_of<I, T>(
+        self,
+        iter: I,
+    ) -> SecuritySchemeBuilder<(AllOfComboSecuritySchemeTag, Vec<String>)>
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<String>,
+    {
+        let Self {
+            attype,
+            description,
+            descriptions,
+            proxy,
+            name,
+            subtype: _,
+            required,
+        } = self;
+        let subtype = (AllOfComboSecuritySchemeTag, Vec::new());
+
+        SecuritySchemeBuilder {
+            attype,
+            description,
+            descriptions,
+            proxy,
+            name,
+            subtype,
+            required,
+        }
+        .extend(iter)
+    }
+
+    /// Require one of the specified schema definitions for the security combo.
+    pub fn one_of<I, T>(
+        self,
+        iter: I,
+    ) -> SecuritySchemeBuilder<(OneOfComboSecuritySchemeTag, Vec<String>)>
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<String>,
+    {
+        let Self {
+            attype,
+            description,
+            descriptions,
+            proxy,
+            name,
+            subtype: _,
+            required,
+        } = self;
+        let subtype = (OneOfComboSecuritySchemeTag, Vec::new());
+
+        SecuritySchemeBuilder {
+            attype,
+            description,
+            descriptions,
+            proxy,
+            name,
+            subtype,
+            required,
+        }
+        .extend(iter)
+    }
+
+    /// Name for query, header or cookie parameter
+    pub fn name(mut self, value: impl Into<String>) -> Self {
+        self.name = Some(value.into());
+        self
+    }
+}
+
+impl<T> SecuritySchemeBuilder<(T, Vec<String>)> {
+    pub fn extend<I, U>(mut self, iter: I) -> Self
+    where
+        I: IntoIterator<Item = U>,
+        U: Into<String>,
+    {
+        self.subtype.1.extend(iter.into_iter().map(Into::into));
+        self
+    }
+
+    pub fn push(mut self, security_name: impl Into<String>) -> Self {
+        self.subtype.1.push(security_name.into());
+        self
+    }
+
+    /// Name for query, header or cookie parameter
+    pub fn name(mut self, value: impl Into<String>) -> Self {
+        self.name = Some(value.into());
         self
     }
 }
