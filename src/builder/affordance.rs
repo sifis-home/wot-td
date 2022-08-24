@@ -1915,9 +1915,9 @@ mod test {
                 .attype("attype1")
                 .attype("attype2")
                 .title("title")
-                .titles(|b| b.cons("it", "title_it").cons("en", "title_en"))
+                .titles(|b| b.add("it", "title_it").add("en", "title_en"))
                 .description("description")
-                .descriptions(|b| b.cons("it", "description_it").cons("en", "description_en"))
+                .descriptions(|b| b.add("it", "description_it").add("en", "description_en"))
                 .form(|b| b.href("form1_href").content_type("content_type"))
                 .form(|b| {
                     b.op(FormOperation::WriteProperty)

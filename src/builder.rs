@@ -1104,7 +1104,7 @@ impl<T> MultiLanguageBuilder<T> {
     /// Add the language-specific variant
     ///
     /// NOTE: The language key is currently free-form
-    pub fn cons(&mut self, language: impl Into<String>, value: impl Into<T>) -> &mut Self {
+    pub fn add(&mut self, language: impl Into<String>, value: impl Into<T>) -> &mut Self {
         self.values.insert(language.into(), value.into());
         self
     }
@@ -2210,7 +2210,7 @@ mod tests {
     #[test]
     fn titles() {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
-            .titles(|ml| ml.cons("en", "My lamp").cons("it", "La mia lampada"))
+            .titles(|ml| ml.add("en", "My lamp").add("it", "La mia lampada"))
             .build()
             .unwrap();
 
@@ -2234,7 +2234,7 @@ mod tests {
     fn descriptions() {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .description("My Lamp")
-            .descriptions(|ml| ml.cons("en", "My lamp").cons("it", "La mia lampada"))
+            .descriptions(|ml| ml.add("en", "My lamp").add("it", "La mia lampada"))
             .build()
             .unwrap();
 
@@ -2365,7 +2365,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2410,7 +2410,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2457,7 +2457,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2510,7 +2510,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2563,7 +2563,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2618,7 +2618,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2676,7 +2676,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
@@ -2733,7 +2733,7 @@ mod tests {
                     .attype("ty1")
                     .attype("ty2")
                     .description("desc")
-                    .descriptions(|ml| ml.cons("en", "desc_en").cons("it", "desc_it"))
+                    .descriptions(|ml| ml.add("en", "desc_en").add("it", "desc_it"))
                     .proxy("proxy")
                     .required()
             })
