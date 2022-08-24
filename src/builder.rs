@@ -4553,4 +4553,245 @@ mod tests {
 
         assert_eq!(err, Error::MissingSchemaDefinition("basic".to_string()));
     }
+
+    #[test]
+    fn checked_op_in_form() {
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .form(|b| {
+                b.op(FormOperation::ReadAllProperties)
+                    .op(FormOperation::WriteAllProperties)
+                    .op(FormOperation::ReadMultipleProperties)
+                    .op(FormOperation::WriteMultipleProperties)
+                    .op(FormOperation::ObserveAllProperties)
+                    .op(FormOperation::UnobserveAllProperties)
+                    .op(FormOperation::SubscribeAllEvents)
+                    .op(FormOperation::UnsubscribeAllEvents)
+                    .op(FormOperation::QueryAllActions)
+                    .href("href")
+            })
+            .property("property", |b| {
+                b.finish_extend_data_schema().null().form(|b| {
+                    b.op(FormOperation::ReadProperty)
+                        .op(FormOperation::WriteProperty)
+                        .op(FormOperation::ObserveProperty)
+                        .op(FormOperation::UnobserveProperty)
+                        .href("href")
+                })
+            })
+            .action("action", |b| {
+                b.form(|b| {
+                    b.op(FormOperation::InvokeAction)
+                        .op(FormOperation::QueryAction)
+                        .op(FormOperation::CancelAction)
+                        .href("href")
+                })
+            })
+            .event("event", |b| {
+                b.form(|b| {
+                    b.op(FormOperation::SubscribeEvent)
+                        .op(FormOperation::UnsubscribeEvent)
+                        .href("href")
+                })
+            })
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT_11.into(),
+                title: "MyLampThing".to_string(),
+                forms: Some(vec![Form {
+                    op: DefaultedFormOperations::Custom(vec![
+                        FormOperation::ReadAllProperties,
+                        FormOperation::WriteAllProperties,
+                        FormOperation::ReadMultipleProperties,
+                        FormOperation::WriteMultipleProperties,
+                        FormOperation::ObserveAllProperties,
+                        FormOperation::UnobserveAllProperties,
+                        FormOperation::SubscribeAllEvents,
+                        FormOperation::UnsubscribeAllEvents,
+                        FormOperation::QueryAllActions
+                    ]),
+                    href: "href".to_string(),
+                    ..Default::default()
+                }]),
+                properties: Some(
+                    [(
+                        "property".to_string(),
+                        PropertyAffordance {
+                            interaction: InteractionAffordance {
+                                forms: vec![Form {
+                                    op: DefaultedFormOperations::Custom(vec![
+                                        FormOperation::ReadProperty,
+                                        FormOperation::WriteProperty,
+                                        FormOperation::ObserveProperty,
+                                        FormOperation::UnobserveProperty,
+                                    ]),
+                                    href: "href".to_string(),
+                                    ..Default::default()
+                                }],
+                                ..Default::default()
+                            },
+                            data_schema: DataSchema {
+                                subtype: Some(DataSchemaSubtype::Null),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
+                actions: Some(
+                    [(
+                        "action".to_string(),
+                        ActionAffordance {
+                            interaction: InteractionAffordance {
+                                forms: vec![Form {
+                                    op: DefaultedFormOperations::Custom(vec![
+                                        FormOperation::InvokeAction,
+                                        FormOperation::QueryAction,
+                                        FormOperation::CancelAction,
+                                    ]),
+                                    href: "href".to_string(),
+                                    ..Default::default()
+                                }],
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
+                events: Some(
+                    [(
+                        "event".to_string(),
+                        EventAffordance {
+                            interaction: InteractionAffordance {
+                                forms: vec![Form {
+                                    op: DefaultedFormOperations::Custom(vec![
+                                        FormOperation::SubscribeEvent,
+                                        FormOperation::UnsubscribeEvent,
+                                    ]),
+                                    href: "href".to_string(),
+                                    ..Default::default()
+                                }],
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        }
+                    )]
+                    .into_iter()
+                    .collect()
+                ),
+                ..Default::default()
+            },
+        )
+    }
+
+    #[test]
+    fn invalid_form_with_invalid_op_in_property_affordance() {
+        let err = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .property("property", |b| {
+                b.finish_extend_data_schema().null().form(|b| {
+                    b.op(FormOperation::ReadProperty)
+                        .op(FormOperation::ReadAllProperties)
+                        .op(FormOperation::WriteAllProperties)
+                        .href("href")
+                })
+            })
+            .build()
+            .unwrap_err();
+
+        assert_eq!(
+            err,
+            Error::InvalidOpInForm {
+                context: FormContext::Property,
+                operation: FormOperation::ReadAllProperties
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_form_with_invalid_op_in_action_affordance() {
+        let err = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .action("action", |b| {
+                b.form(|b| {
+                    b.op(FormOperation::InvokeAction)
+                        .op(FormOperation::WriteProperty)
+                        .op(FormOperation::QueryAction)
+                        .href("href")
+                })
+            })
+            .build()
+            .unwrap_err();
+
+        assert_eq!(
+            err,
+            Error::InvalidOpInForm {
+                context: FormContext::Action,
+                operation: FormOperation::WriteProperty
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_form_with_invalid_op_in_event_affordance() {
+        let err = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .event("event", |b| {
+                b.form(|b| {
+                    b.op(FormOperation::SubscribeEvent)
+                        .op(FormOperation::ReadProperty)
+                        .op(FormOperation::UnsubscribeEvent)
+                        .href("href")
+                })
+            })
+            .build()
+            .unwrap_err();
+
+        assert_eq!(
+            err,
+            Error::InvalidOpInForm {
+                context: FormContext::Event,
+                operation: FormOperation::ReadProperty
+            }
+        );
+    }
+
+    #[test]
+    fn form_operation_serialize_display_coherence() {
+        const OPS: [FormOperation; 18] = [
+            FormOperation::ReadProperty,
+            FormOperation::WriteProperty,
+            FormOperation::ObserveProperty,
+            FormOperation::UnobserveProperty,
+            FormOperation::InvokeAction,
+            FormOperation::QueryAction,
+            FormOperation::CancelAction,
+            FormOperation::SubscribeEvent,
+            FormOperation::UnsubscribeEvent,
+            FormOperation::ReadAllProperties,
+            FormOperation::WriteAllProperties,
+            FormOperation::ReadMultipleProperties,
+            FormOperation::WriteMultipleProperties,
+            FormOperation::ObserveAllProperties,
+            FormOperation::UnobserveAllProperties,
+            FormOperation::SubscribeAllEvents,
+            FormOperation::UnsubscribeAllEvents,
+            FormOperation::QueryAllActions,
+        ];
+
+        for op in OPS {
+            assert_eq!(
+                serde_json::to_value(&op).unwrap(),
+                Value::String(op.to_string())
+            );
+        }
+    }
 }
