@@ -604,6 +604,11 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
                                 | WriteAllProperties
                                 | ReadMultipleProperties
                                 | WriteMultipleProperties
+                                | ObserveAllProperties
+                                | UnobserveAllProperties
+                                | SubscribeAllEvents
+                                | UnsubscribeAllEvents
+                                | QueryAllActions
                         )
                         .not()
                     })

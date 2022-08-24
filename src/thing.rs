@@ -1037,12 +1037,19 @@ pub enum FormOperation {
     ObserveProperty,
     UnobserveProperty,
     InvokeAction,
+    QueryAction,
+    CancelAction,
     SubscribeEvent,
     UnsubscribeEvent,
     ReadAllProperties,
     WriteAllProperties,
     ReadMultipleProperties,
     WriteMultipleProperties,
+    ObserveAllProperties,
+    UnobserveAllProperties,
+    SubscribeAllEvents,
+    UnsubscribeAllEvents,
+    QueryAllActions,
 }
 
 impl fmt::Display for FormOperation {
@@ -1053,12 +1060,19 @@ impl fmt::Display for FormOperation {
             Self::ObserveProperty => "observeproperty",
             Self::UnobserveProperty => "unobserveproperty",
             Self::InvokeAction => "invokeaction",
+            Self::QueryAction => "queryaction",
+            Self::CancelAction => "cancelaction",
             Self::SubscribeEvent => "subscribeevent",
             Self::UnsubscribeEvent => "unsubscribeevent",
             Self::ReadAllProperties => "readallproperties",
             Self::WriteAllProperties => "writeallproperties",
             Self::ReadMultipleProperties => "readmultipleproperties",
             Self::WriteMultipleProperties => "writemultipleproperties",
+            Self::ObserveAllProperties => "observeallproperties",
+            Self::UnobserveAllProperties => "unobserveallproperties",
+            Self::SubscribeAllEvents => "subscribeallevents",
+            Self::UnsubscribeAllEvents => "unsubscribeallevents",
+            Self::QueryAllActions => "queryallactions",
         };
 
         f.write_str(s)
