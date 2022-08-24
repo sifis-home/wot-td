@@ -162,6 +162,16 @@ impl fmt::Display for FormContext {
     }
 }
 
+impl From<AffordanceType> for FormContext {
+    fn from(ty: AffordanceType) -> Self {
+        match ty {
+            AffordanceType::Property => Self::Property,
+            AffordanceType::Action => Self::Action,
+            AffordanceType::Event => Self::Event,
+        }
+    }
+}
+
 /// The possible affordance types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AffordanceType {
@@ -507,6 +517,15 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             AffordanceType::Property,
             |property| &property.interaction,
             |property| [Some(&property.data_schema)],
+            |op| {
+                matches!(
+                    op,
+                    FormOperation::ReadProperty
+                        | FormOperation::WriteProperty
+                        | FormOperation::ObserveProperty
+                        | FormOperation::UnobserveProperty
+                )
+            },
             &security_definitions,
         )?;
         let actions = try_build_affordance(
@@ -514,6 +533,14 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             AffordanceType::Action,
             |action| &action.interaction,
             |action| [action.input.as_ref(), action.output.as_ref()],
+            |op| {
+                matches!(
+                    op,
+                    FormOperation::InvokeAction
+                        | FormOperation::QueryAction
+                        | FormOperation::CancelAction
+                )
+            },
             &security_definitions,
         )?;
         let events = try_build_affordance(
@@ -526,6 +553,12 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
                     event.data.as_ref(),
                     event.cancellation.as_ref(),
                 ]
+            },
+            |op| {
+                matches!(
+                    op,
+                    FormOperation::SubscribeEvent | FormOperation::UnsubscribeEvent
+                )
             },
             &security_definitions,
         )?;
@@ -977,11 +1010,12 @@ where
     }
 }
 
-fn try_build_affordance<A, F, IA, G, DS, T, const N: usize>(
+fn try_build_affordance<A, F, IA, G, DS, T, H, const N: usize>(
     affordances: Vec<AffordanceBuilder<A>>,
     affordance_type: AffordanceType,
     mut get_interaction: F,
     mut get_data_schemas: G,
+    is_allowed_op: H,
     security_definitions: &HashMap<String, SecurityScheme>,
 ) -> Result<Option<HashMap<String, T>>, Error>
 where
@@ -990,6 +1024,7 @@ where
     G: FnMut(&A) -> [Option<&DS>; N],
     DS: CheckableDataSchema,
     A: Into<T>,
+    H: Fn(FormOperation) -> bool,
 {
     use std::collections::hash_map::Entry;
 
@@ -1003,7 +1038,11 @@ where
                 .try_fold(new_affordances, |mut affordances, affordance| {
                     let AffordanceBuilder { name, affordance } = affordance;
 
-                    get_interaction(&affordance).check(security_definitions)?;
+                    get_interaction(&affordance).check(
+                        security_definitions,
+                        affordance_type,
+                        &is_allowed_op,
+                    )?;
                     get_data_schemas(&affordance)
                         .into_iter()
                         .flatten()

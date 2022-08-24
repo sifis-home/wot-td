@@ -5,8 +5,9 @@ use serde_json::Value;
 use crate::{
     extend::{Extend, Extendable, ExtendableThing},
     thing::{
-        ActionAffordance, DataSchema, DataSchemaFromOther, EventAffordance, Form,
-        InteractionAffordance, PropertyAffordance, SecurityScheme,
+        ActionAffordance, DataSchema, DataSchemaFromOther, DefaultedFormOperations,
+        EventAffordance, Form, FormOperation, InteractionAffordance, PropertyAffordance,
+        SecurityScheme,
     },
 };
 
@@ -24,8 +25,8 @@ use super::{
     human_readable_info::{
         impl_delegate_buildable_hr_info, BuildableHumanReadableInfo, HumanReadableInfo,
     },
-    uri_variables_contains_arrays_objects, Error, Extended, FormBuilder, MultiLanguageBuilder,
-    ToExtend,
+    uri_variables_contains_arrays_objects, AffordanceType, Error, Extended, FormBuilder,
+    MultiLanguageBuilder, ToExtend,
 };
 
 pub trait IntoUsable<T>: Sized {
@@ -1786,14 +1787,34 @@ where
 }
 
 pub(super) trait CheckableInteractionAffordanceBuilder {
-    fn check(&self, security_definitions: &HashMap<String, SecurityScheme>) -> Result<(), Error>;
+    fn check<F>(
+        &self,
+        security_definitions: &HashMap<String, SecurityScheme>,
+        affordance_type: AffordanceType,
+        is_allowed_op: F,
+    ) -> Result<(), Error>
+    where
+        F: Fn(FormOperation) -> bool;
 }
 
 impl<Other: ExtendableThing> CheckableInteractionAffordanceBuilder
     for PartialInteractionAffordanceBuilder<Other, Other::InteractionAffordance>
 {
-    fn check(&self, security_definitions: &HashMap<String, SecurityScheme>) -> Result<(), Error> {
-        check_form_builders(&self.forms, security_definitions)?;
+    fn check<F>(
+        &self,
+        security_definitions: &HashMap<String, SecurityScheme>,
+        affordance_type: AffordanceType,
+        is_allowed_op: F,
+    ) -> Result<(), Error>
+    where
+        F: Fn(FormOperation) -> bool,
+    {
+        check_form_builders(
+            &self.forms,
+            security_definitions,
+            affordance_type,
+            is_allowed_op,
+        )?;
         if uri_variables_contains_arrays_objects::<Other>(&self.uri_variables) {
             return Err(Error::InvalidUriVariables);
         }
@@ -1805,8 +1826,21 @@ impl<Other: ExtendableThing> CheckableInteractionAffordanceBuilder
 impl<Other: ExtendableThing> CheckableInteractionAffordanceBuilder
     for InteractionAffordanceBuilder<Other, Other::InteractionAffordance>
 {
-    fn check(&self, security_definitions: &HashMap<String, SecurityScheme>) -> Result<(), Error> {
-        check_form_builders(&self.partial.forms, security_definitions)?;
+    fn check<F>(
+        &self,
+        security_definitions: &HashMap<String, SecurityScheme>,
+        affordance_type: AffordanceType,
+        is_allowed_op: F,
+    ) -> Result<(), Error>
+    where
+        F: Fn(FormOperation) -> bool,
+    {
+        check_form_builders(
+            &self.partial.forms,
+            security_definitions,
+            affordance_type,
+            is_allowed_op,
+        )?;
         if uri_variables_contains_arrays_objects::<Other>(&self.partial.uri_variables) {
             return Err(Error::InvalidUriVariables);
         }
@@ -1815,11 +1849,27 @@ impl<Other: ExtendableThing> CheckableInteractionAffordanceBuilder
     }
 }
 
-pub(super) fn check_form_builders<Other: ExtendableThing>(
+pub(super) fn check_form_builders<Other, F>(
     forms: &[FormBuilder<Other, String, Other::Form>],
     security_definitions: &HashMap<String, SecurityScheme>,
-) -> Result<(), Error> {
+    affordance_type: AffordanceType,
+    is_allowed_op: F,
+) -> Result<(), Error>
+where
+    Other: ExtendableThing,
+    F: Fn(FormOperation) -> bool,
+{
     for form in forms {
+        if let DefaultedFormOperations::Custom(ops) = &form.op {
+            let invalid_op = ops.iter().copied().find(|&op| is_allowed_op(op).not());
+            if let Some(operation) = invalid_op {
+                return Err(Error::InvalidOpInForm {
+                    context: affordance_type.into(),
+                    operation,
+                });
+            }
+        }
+
         form.security
             .as_ref()
             .map(|securities| {
