@@ -2626,9 +2626,9 @@ mod tests {
             .attype("attype1")
             .attype("attype2")
             .title("title")
-            .titles(|b| b.cons("en", "title_en").cons("it", "title_it"))
+            .titles(|b| b.add("en", "title_en").add("it", "title_it"))
             .description("description")
-            .descriptions(|b| b.cons("en", "description_en").cons("it", "description_it"))
+            .descriptions(|b| b.add("en", "description_en").add("it", "description_it"))
             .unit("cm")
             .format("format")
             .into();
@@ -2671,9 +2671,9 @@ mod tests {
             .enumeration(3u32)
             .attype("attype")
             .title("title")
-            .titles(|b| b.cons("en", "title_en").cons("it", "title_it"))
+            .titles(|b| b.add("en", "title_en").add("it", "title_it"))
             .description("description")
-            .descriptions(|b| b.cons("en", "description_en").cons("it", "description_it"))
+            .descriptions(|b| b.add("en", "description_en").add("it", "description_it"))
             .unit("cm")
             .format("format")
             .into();
