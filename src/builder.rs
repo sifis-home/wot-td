@@ -10,29 +10,34 @@ pub mod human_readable_info;
 
 use std::{borrow::Cow, collections::HashMap, fmt, marker::PhantomData, ops::Not};
 
+use oxilangtag::LanguageTag;
 use serde_json::Value;
 use time::OffsetDateTime;
 
 use crate::{
+    builder::data_schema::uri_variables_contains_arrays_objects,
     extend::{Extend, Extendable, ExtendableThing},
     thing::{
         AdditionalExpectedResponse, ApiKeySecurityScheme, BasicSecurityScheme,
-        BearerSecurityScheme, ComboSecurityScheme, DataSchemaFromOther, DataSchemaMap,
-        DataSchemaSubtype, DefaultedFormOperations, DigestSecurityScheme, ExpectedResponse, Form,
-        FormOperation, KnownSecuritySchemeSubtype, Link, MultiLanguage, OAuth2SecurityScheme,
-        PskSecurityScheme, QualityOfProtection, SecurityAuthenticationLocation, SecurityScheme,
-        SecuritySchemeSubtype, Thing, UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
+        BearerSecurityScheme, ComboSecurityScheme, DataSchemaFromOther, DefaultedFormOperations,
+        DigestSecurityScheme, ExpectedResponse, Form, FormOperation, KnownSecuritySchemeSubtype,
+        Link, OAuth2SecurityScheme, PskSecurityScheme, QualityOfProtection,
+        SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype, Thing,
+        UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
     },
 };
 
 use self::{
     affordance::{
-        ActionAffordanceBuilder, AffordanceBuilder, CheckableInteractionAffordanceBuilder,
-        EventAffordanceBuilder, IntoUsable, PropertyAffordanceBuilder,
-        UsableActionAffordanceBuilder, UsableEventAffordanceBuilder,
+        ActionAffordanceBuilder, AffordanceBuilder, BuildableAffordance,
+        CheckableInteractionAffordanceBuilder, EventAffordanceBuilder, IntoUsable,
+        PropertyAffordanceBuilder, UsableActionAffordanceBuilder, UsableEventAffordanceBuilder,
         UsablePropertyAffordanceBuilder,
     },
-    data_schema::{CheckableDataSchema, DataSchemaBuilder, PartialDataSchemaBuilder},
+    data_schema::{
+        CheckableDataSchema, DataSchemaBuilder, PartialDataSchemaBuilder,
+        UncheckedDataSchemaFromOther,
+    },
 };
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -48,9 +53,9 @@ pub struct ThingBuilder<Other: ExtendableThing, Status> {
     id: Option<String>,
     attype: Option<Vec<String>>,
     title: String,
-    titles: Option<MultiLanguage>,
+    titles: Option<MultiLanguageBuilder<String>>,
     description: Option<String>,
-    descriptions: Option<MultiLanguage>,
+    descriptions: Option<MultiLanguageBuilder<String>>,
     version: Option<VersionInfo>,
     created: Option<OffsetDateTime>,
     modified: Option<OffsetDateTime>,
@@ -61,11 +66,11 @@ pub struct ThingBuilder<Other: ExtendableThing, Status> {
     events: Vec<AffordanceBuilder<UsableEventAffordanceBuilder<Other>>>,
     links: Option<Vec<Link>>,
     forms: Option<Vec<FormBuilder<Other, String, Other::Form>>>,
-    uri_variables: Option<HashMap<String, DataSchemaFromOther<Other>>>,
+    uri_variables: Option<HashMap<String, UncheckedDataSchemaFromOther<Other>>>,
     security: Vec<String>,
-    security_definitions: Vec<(String, SecurityScheme)>,
+    security_definitions: Vec<(String, UncheckedSecurityScheme)>,
     profile: Vec<String>,
-    schema_definitions: HashMap<String, DataSchemaFromOther<Other>>,
+    schema_definitions: HashMap<String, UncheckedDataSchemaFromOther<Other>>,
     pub other: Other,
     _marker: PhantomData<Status>,
 }
@@ -133,6 +138,9 @@ pub enum Error {
 
     #[error("An uriVariable cannot be an ObjectSchema or ArraySchema")]
     InvalidUriVariables,
+
+    #[error("Invalid language tag \"{0}\"")]
+    InvalidLanguageTag(String),
 }
 
 /// Context of a [`Form`]
@@ -446,6 +454,8 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
 
         let mut security_definitions = HashMap::with_capacity(security_definitions_vec.len());
         for (name, scheme) in security_definitions_vec {
+            let scheme: SecurityScheme = scheme.try_into()?;
+
             match security_definitions.entry(name) {
                 Entry::Vacant(entry) => {
                     entry.insert(scheme);
@@ -474,6 +484,10 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
                     .then_some(())
                     .ok_or_else(|| Error::MissingSchemaDefinition(security_name.to_string()))
             })?;
+        let schema_definitions = schema_definitions
+            .into_iter()
+            .map(|(key, value)| value.try_into().map(|value| (key, value)))
+            .collect::<Result<_, _>>()?;
 
         let profile = profile.is_empty().not().then_some(profile);
 
@@ -522,6 +536,15 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         if invalid_uri_variables {
             return Err(Error::InvalidUriVariables);
         }
+
+        let uri_variables = uri_variables
+            .map(|uri_variables| {
+                uri_variables
+                    .into_iter()
+                    .map(|(key, value)| value.try_into().map(|value| (key, value)))
+                    .collect()
+            })
+            .transpose()?;
 
         let properties = try_build_affordance(
             properties,
@@ -573,6 +596,11 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             },
             &security_definitions,
         )?;
+
+        let titles = titles.map(|titles| titles.build()).transpose()?;
+        let descriptions = descriptions
+            .map(|descriptions| descriptions.build())
+            .transpose()?;
 
         Ok(Thing {
             context,
@@ -747,7 +775,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         let mut builder = MultiLanguageBuilder::default();
         f(&mut builder);
 
-        self.titles = Some(builder.values);
+        self.titles = Some(builder);
         self
     }
 
@@ -758,7 +786,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     {
         let mut builder = MultiLanguageBuilder::default();
         f(&mut builder);
-        self.descriptions = Some(builder.values);
+        self.descriptions = Some(builder);
         self
     }
 
@@ -829,7 +857,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         } = f(builder);
 
         let subtype = subtype.build();
-        let security_scheme = SecurityScheme {
+        let security_scheme = UncheckedSecurityScheme {
             attype,
             description,
             descriptions,
@@ -904,7 +932,7 @@ where
                 ToExtend,
             >,
         ) -> T,
-        T: Into<DataSchemaFromOther<Other>>,
+        T: Into<UncheckedDataSchemaFromOther<Other>>,
         Other::DataSchema: Extendable,
     {
         self.uri_variables
@@ -931,19 +959,12 @@ where
                 <Other::PropertyAffordance as Extendable>::Empty,
             >,
         ) -> T,
-        T: Into<
-            PropertyAffordanceBuilder<
-                Other,
-                DataSchemaFromOther<Other>,
-                Other::InteractionAffordance,
-                Other::PropertyAffordance,
-            >,
-        >,
+        T: IntoUsable<UsablePropertyAffordanceBuilder<Other>>,
         Other::DataSchema: Extendable,
         Other::InteractionAffordance: Extendable,
         Other::PropertyAffordance: Extendable,
     {
-        let affordance = f(PropertyAffordanceBuilder::empty()).into();
+        let affordance = f(PropertyAffordanceBuilder::empty()).into_usable();
         let affordance_builder = AffordanceBuilder {
             name: name.into(),
             affordance,
@@ -1010,7 +1031,7 @@ where
                 ToExtend,
             >,
         ) -> T,
-        T: Into<DataSchemaFromOther<Other>>,
+        T: Into<UncheckedDataSchemaFromOther<Other>>,
         Other::DataSchema: Extendable,
     {
         self.schema_definitions.insert(
@@ -1034,7 +1055,7 @@ where
     IA: CheckableInteractionAffordanceBuilder,
     G: FnMut(&A) -> [Option<&DS>; N],
     DS: CheckableDataSchema,
-    A: Into<T>,
+    A: BuildableAffordance<Target = T>,
     H: Fn(FormOperation) -> bool,
 {
     use std::collections::hash_map::Entry;
@@ -1061,7 +1082,7 @@ where
 
                     match affordances.entry(name) {
                         Entry::Vacant(entry) => {
-                            entry.insert(affordance.into());
+                            entry.insert(affordance.build()?);
                             Ok(affordances)
                         }
                         Entry::Occupied(entry) => {
@@ -1106,7 +1127,7 @@ impl ContextMapBuilder {
 }
 
 /// Builder for language-specific variants of a field (e.g. titles, descriptions)
-#[derive(Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MultiLanguageBuilder<T> {
     values: HashMap<String, T>,
 }
@@ -1118,6 +1139,19 @@ impl<T> MultiLanguageBuilder<T> {
     pub fn add(&mut self, language: impl Into<String>, value: impl Into<T>) -> &mut Self {
         self.values.insert(language.into(), value.into());
         self
+    }
+
+    pub(crate) fn build(self) -> Result<HashMap<LanguageTag<String>, T>, Error> {
+        self.values
+            .into_iter()
+            .map(|(k, v)| {
+                // See https://github.com/oxigraph/oxilangtag/issues/4 for the reason of this,
+                // which unnecessarily allocate.
+                k.parse()
+                    .map(|k| (k, v))
+                    .map_err(|_| Error::InvalidLanguageTag(k))
+            })
+            .collect()
     }
 }
 
@@ -1166,7 +1200,7 @@ impl<T> LinkBuilder<T> {
 pub struct SecuritySchemeBuilder<S> {
     attype: Option<Vec<String>>,
     description: Option<String>,
-    descriptions: Option<MultiLanguage>,
+    descriptions: Option<MultiLanguageBuilder<String>>,
     proxy: Option<String>,
     name: Option<String>,
     subtype: S,
@@ -1455,7 +1489,7 @@ impl<T> SecuritySchemeBuilder<T> {
     {
         let mut builder = MultiLanguageBuilder::default();
         f(&mut builder);
-        self.descriptions = Some(builder.values);
+        self.descriptions = Some(builder);
         self
     }
 
@@ -2048,16 +2082,38 @@ impl AdditionalExpectedResponseBuilder {
     }
 }
 
-fn uri_variables_contains_arrays_objects<Other>(uri_variables: &DataSchemaMap<Other>) -> bool
-where
-    Other: ExtendableThing,
-{
-    uri_variables.values().any(|schema| {
-        matches!(
-            &schema.subtype,
-            Some(DataSchemaSubtype::Object(_) | DataSchemaSubtype::Array(_))
-        )
-    })
+pub(crate) struct UncheckedSecurityScheme {
+    attype: Option<Vec<String>>,
+    description: Option<String>,
+    descriptions: Option<MultiLanguageBuilder<String>>,
+    proxy: Option<String>,
+    subtype: SecuritySchemeSubtype,
+}
+
+impl TryFrom<UncheckedSecurityScheme> for SecurityScheme {
+    type Error = Error;
+
+    fn try_from(scheme: UncheckedSecurityScheme) -> Result<Self, Self::Error> {
+        let UncheckedSecurityScheme {
+            attype,
+            description,
+            descriptions,
+            proxy,
+            subtype,
+        } = scheme;
+
+        let descriptions = descriptions
+            .map(|descriptions| descriptions.build())
+            .transpose()?;
+
+        Ok(Self {
+            attype,
+            description,
+            descriptions,
+            proxy,
+            subtype,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -2233,7 +2289,7 @@ mod tests {
                 titles: Some(
                     [("en", "My lamp"), ("it", "La mia lampada")]
                         .into_iter()
-                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .map(|(k, v)| (k.parse().unwrap(), v.to_string()))
                         .collect()
                 ),
                 ..Default::default()
@@ -2258,7 +2314,7 @@ mod tests {
                 descriptions: Some(
                     [("en", "My lamp"), ("it", "La mia lampada")]
                         .into_iter()
-                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .map(|(k, v)| (k.parse().unwrap(), v.to_string()))
                         .collect()
                 ),
                 ..Default::default()
@@ -2396,8 +2452,8 @@ mod tests {
                         description: Some("desc".to_string()),
                         descriptions: Some(
                             [
-                                ("en".to_string(), "desc_en".to_string()),
-                                ("it".to_string(), "desc_it".to_string()),
+                                ("en".parse().unwrap(), "desc_en".to_string()),
+                                ("it".parse().unwrap(), "desc_it".to_string()),
                             ]
                             .into_iter()
                             .collect()
@@ -2441,8 +2497,8 @@ mod tests {
                         description: Some("desc".to_string()),
                         descriptions: Some(
                             [
-                                ("en".to_string(), "desc_en".to_string()),
-                                ("it".to_string(), "desc_it".to_string()),
+                                ("en".parse().unwrap(), "desc_en".to_string()),
+                                ("it".parse().unwrap(), "desc_it".to_string()),
                             ]
                             .into_iter()
                             .collect()
@@ -2488,8 +2544,8 @@ mod tests {
                         description: Some("desc".to_string()),
                         descriptions: Some(
                             [
-                                ("en".to_string(), "desc_en".to_string()),
-                                ("it".to_string(), "desc_it".to_string()),
+                                ("en".parse().unwrap(), "desc_en".to_string()),
+                                ("it".parse().unwrap(), "desc_it".to_string()),
                             ]
                             .into_iter()
                             .collect()
@@ -2541,8 +2597,8 @@ mod tests {
                         description: Some("desc".to_string()),
                         descriptions: Some(
                             [
-                                ("en".to_string(), "desc_en".to_string()),
-                                ("it".to_string(), "desc_it".to_string()),
+                                ("en".parse().unwrap(), "desc_en".to_string()),
+                                ("it".parse().unwrap(), "desc_it".to_string()),
                             ]
                             .into_iter()
                             .collect()
@@ -2594,8 +2650,8 @@ mod tests {
                         description: Some("desc".to_string()),
                         descriptions: Some(
                             [
-                                ("en".to_string(), "desc_en".to_string()),
-                                ("it".to_string(), "desc_it".to_string()),
+                                ("en".parse().unwrap(), "desc_en".to_string()),
+                                ("it".parse().unwrap(), "desc_it".to_string()),
                             ]
                             .into_iter()
                             .collect()
@@ -2649,8 +2705,8 @@ mod tests {
                         description: Some("desc".to_string()),
                         descriptions: Some(
                             [
-                                ("en".to_string(), "desc_en".to_string()),
-                                ("it".to_string(), "desc_it".to_string()),
+                                ("en".parse().unwrap(), "desc_en".to_string()),
+                                ("it".parse().unwrap(), "desc_it".to_string()),
                             ]
                             .into_iter()
                             .collect()
@@ -2707,8 +2763,8 @@ mod tests {
                         description: Some("desc".to_string()),
                         descriptions: Some(
                             [
-                                ("en".to_string(), "desc_en".to_string()),
-                                ("it".to_string(), "desc_it".to_string()),
+                                ("en".parse().unwrap(), "desc_en".to_string()),
+                                ("it".parse().unwrap(), "desc_it".to_string()),
                             ]
                             .into_iter()
                             .collect()
@@ -2764,8 +2820,8 @@ mod tests {
                         description: Some("desc".to_string()),
                         descriptions: Some(
                             [
-                                ("en".to_string(), "desc_en".to_string()),
-                                ("it".to_string(), "desc_it".to_string()),
+                                ("en".parse().unwrap(), "desc_en".to_string()),
+                                ("it".parse().unwrap(), "desc_it".to_string()),
                             ]
                             .into_iter()
                             .collect()

@@ -3,8 +3,6 @@
 //! This module contains the logic shared across multiple builders for the respective
 //! Thing Description Vocabulary definitions.
 
-use crate::thing::MultiLanguage;
-
 use super::MultiLanguageBuilder;
 
 /// Human readable informations and semantic tagging
@@ -16,11 +14,11 @@ pub struct HumanReadableInfo {
     /// Human readable title in the default language
     pub(super) title: Option<String>,
     /// Human redable title, multilanguage
-    pub(super) titles: Option<MultiLanguage>,
+    pub(super) titles: Option<MultiLanguageBuilder<String>>,
     /// Human readable description in the default language
     pub(super) description: Option<String>,
     /// Human readable description, multilanguage
-    pub(super) descriptions: Option<MultiLanguage>,
+    pub(super) descriptions: Option<MultiLanguageBuilder<String>>,
 }
 
 /// Trait shared across builders dealing with the same information
@@ -70,7 +68,7 @@ impl BuildableHumanReadableInfo for HumanReadableInfo {
     {
         let mut builder = MultiLanguageBuilder::default();
         f(&mut builder);
-        self.titles = Some(builder.values);
+        self.titles = Some(builder);
         self
     }
 
@@ -85,7 +83,7 @@ impl BuildableHumanReadableInfo for HumanReadableInfo {
     {
         let mut builder = MultiLanguageBuilder::default();
         f(&mut builder);
-        self.descriptions = Some(builder.values);
+        self.descriptions = Some(builder);
         self
     }
 }
