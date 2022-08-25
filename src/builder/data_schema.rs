@@ -1,10 +1,10 @@
-use std::{marker::PhantomData, ops::Not};
+use std::{collections::HashMap, marker::PhantomData, ops::Not};
 
 use crate::{
-    extend::{Extend, Extendable},
+    extend::{Extend, Extendable, ExtendableThing},
     thing::{
         ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
-        StringSchema,
+        StringSchema, UncheckedArraySchema, UncheckedDataSchemaSubtype, UncheckedObjectSchema,
     },
 };
 
@@ -15,11 +15,44 @@ use super::{
     Error, Extended, MultiLanguageBuilder, ToExtend,
 };
 
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct UncheckedDataSchema<DS, AS, OS> {
+    attype: Option<Vec<String>>,
+    title: Option<String>,
+    titles: Option<MultiLanguageBuilder<String>>,
+    description: Option<String>,
+    descriptions: Option<MultiLanguageBuilder<String>>,
+    constant: Option<Value>,
+    unit: Option<String>,
+    one_of: Option<Vec<Self>>,
+    enumeration: Option<Vec<Value>>,
+    read_only: bool,
+    write_only: bool,
+    format: Option<String>,
+    subtype: Option<UncheckedDataSchemaSubtype<DS, AS, OS>>,
+    other: DS,
+}
+
+pub(crate) type UncheckedDataSchemaFromOther<Other> = UncheckedDataSchema<
+    <Other as ExtendableThing>::DataSchema,
+    <Other as ExtendableThing>::ArraySchema,
+    <Other as ExtendableThing>::ObjectSchema,
+>;
+
+pub(crate) type UncheckedDataSchemaMap<Other> = HashMap<
+    String,
+    UncheckedDataSchema<
+        <Other as ExtendableThing>::DataSchema,
+        <Other as ExtendableThing>::ArraySchema,
+        <Other as ExtendableThing>::ObjectSchema,
+    >,
+>;
+
 #[derive(Debug, PartialEq)]
 pub struct PartialDataSchemaBuilder<DS, AS, OS, Status> {
     constant: Option<Value>,
     unit: Option<String>,
-    one_of: Vec<DataSchema<DS, AS, OS>>,
+    one_of: Vec<UncheckedDataSchema<DS, AS, OS>>,
     enumeration: Vec<Value>,
     read_only: bool,
     write_only: bool,
@@ -132,15 +165,15 @@ where
 }
 
 #[derive(Debug, Default, PartialEq)]
-pub(super) struct PartialDataSchema<DS, AS, OS> {
+pub struct PartialDataSchema<DS, AS, OS> {
     pub(super) constant: Option<Value>,
     pub(super) unit: Option<String>,
-    pub(super) one_of: Option<Vec<DataSchema<DS, AS, OS>>>,
+    pub(super) one_of: Option<Vec<UncheckedDataSchema<DS, AS, OS>>>,
     pub(super) enumeration: Option<Vec<Value>>,
     pub(super) read_only: bool,
     pub(super) write_only: bool,
     pub(super) format: Option<String>,
-    pub(super) subtype: Option<DataSchemaSubtype<DS, AS, OS>>,
+    pub(super) subtype: Option<UncheckedDataSchemaSubtype<DS, AS, OS>>,
     pub other: DS,
 }
 
@@ -268,7 +301,7 @@ pub trait UnionDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, Extended>
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
         DS: Extendable,
-        T: Into<DataSchema<DS, AS, OS>>;
+        T: Into<UncheckedDataSchema<DS, AS, OS>>;
 }
 
 pub trait ReadableWriteableDataSchema<DS, AS, OS, Extended>:
@@ -283,7 +316,7 @@ pub trait ReadableWriteableDataSchema<DS, AS, OS, Extended>:
 
 pub struct ArrayDataSchemaBuilder<Inner, DS, AS, OS> {
     inner: Inner,
-    items: Vec<DataSchema<DS, AS, OS>>,
+    items: Vec<UncheckedDataSchema<DS, AS, OS>>,
     min_items: Option<u32>,
     max_items: Option<u32>,
     pub other: AS,
@@ -304,7 +337,7 @@ pub struct IntegerDataSchemaBuilder<Inner> {
 
 pub struct ObjectDataSchemaBuilder<Inner, DS, AS, OS> {
     inner: Inner,
-    properties: Vec<(String, DataSchema<DS, AS, OS>)>,
+    properties: Vec<(String, UncheckedDataSchema<DS, AS, OS>)>,
     required: Vec<String>,
     pub other: OS,
 }
@@ -355,7 +388,7 @@ pub trait ArrayDataSchemaBuilderLike<DS, AS, OS> {
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
         DS: Extendable,
-        T: Into<DataSchema<DS, AS, OS>>;
+        T: Into<UncheckedDataSchema<DS, AS, OS>>;
 }
 
 pub trait NumberDataSchemaBuilderLike<DS, AS, OS> {
@@ -371,7 +404,7 @@ pub trait ObjectDataSchemaBuilderLike<DS, AS, OS> {
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
         DS: Extendable,
-        T: Into<DataSchema<DS, AS, OS>>;
+        T: Into<UncheckedDataSchema<DS, AS, OS>>;
 }
 
 pub trait StringDataSchemaBuilderLike<DS, AS, OS> {
@@ -400,7 +433,7 @@ where
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
         DS: Extendable,
-        T: Into<DataSchema<DS, AS, OS>>,
+        T: Into<UncheckedDataSchema<DS, AS, OS>>,
     {
         self.items
             .push(f(DataSchemaBuilder::<DS, _, _, _>::empty()).into());
@@ -429,7 +462,7 @@ where
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
         DS: Extendable,
-        T: Into<DataSchema<DS, AS, OS>>,
+        T: Into<UncheckedDataSchema<DS, AS, OS>>,
     {
         let data_schema = f(DataSchemaBuilder::<DS, _, _, _>::empty()).into();
         let name = name.into();
@@ -475,7 +508,7 @@ macro_rules! impl_inner_delegate_schema_builder_like_array {
                 >,
             ) -> T,
             DS: Extendable,
-            T: Into<crate::thing::DataSchema<DS, AS, OS>>,
+            T: Into<crate::builder::data_schema::UncheckedDataSchema<DS, AS, OS>>,
         {
             self.$inner = self.$inner.append(f);
             self
@@ -535,7 +568,7 @@ macro_rules! impl_inner_delegate_schema_builder_like_object {
                 >,
             ) -> T,
             DS: Extendable,
-            T: Into<crate::thing::DataSchema<DS, AS, OS>>,
+            T: Into<crate::builder::data_schema::UncheckedDataSchema<DS, AS, OS>>,
         {
             self.$inner = self.$inner.property(name, required, f);
             self
@@ -904,7 +937,7 @@ macro_rules! impl_union_data_schema {
                 where
                     F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
                     DS: Extendable,
-                    T: Into<DataSchema<DS, AS, OS>>,
+                    T: Into<UncheckedDataSchema<DS, AS, OS>>,
                 {
                     self $(. $($inner_path).+ )? .one_of.push(f(DataSchemaBuilder::<DS, _, _, _>::empty()).into());
                     OneOfDataSchemaBuilder { inner: self }
@@ -926,7 +959,7 @@ where
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
         DS: Extendable,
-        T: Into<DataSchema<DS, AS, OS>>,
+        T: Into<UncheckedDataSchema<DS, AS, OS>>,
     {
         let Self { inner } = self;
         let inner = inner.one_of(f);
@@ -944,7 +977,7 @@ where
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
         DS: Extendable,
-        T: Into<DataSchema<DS, AS, OS>>,
+        T: Into<UncheckedDataSchema<DS, AS, OS>>,
     {
         let Self { inner } = self;
         let inner = inner.one_of(f);
@@ -961,7 +994,7 @@ impl<DS, AS, OS> UnionDataSchema<DS, AS, OS>
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
         DS: Extendable,
-        T: Into<DataSchema<DS, AS, OS>>,
+        T: Into<UncheckedDataSchema<DS, AS, OS>>,
     {
         self.inner
             .one_of
@@ -979,7 +1012,7 @@ impl<DS, AS, OS> UnionDataSchema<DS, AS, OS>
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
         DS: Extendable,
-        T: Into<DataSchema<DS, AS, OS>>,
+        T: Into<UncheckedDataSchema<DS, AS, OS>>,
     {
         self.inner
             .partial
@@ -1080,16 +1113,16 @@ where
     }
 }
 
-impl<DS, AS, OS> From<StatelessDataSchemaType> for DataSchemaSubtype<DS, AS, OS> {
+impl<DS, AS, OS> From<StatelessDataSchemaType> for UncheckedDataSchemaSubtype<DS, AS, OS> {
     fn from(ty: StatelessDataSchemaType) -> Self {
         match ty {
-            StatelessDataSchemaType::Boolean => DataSchemaSubtype::Boolean,
-            StatelessDataSchemaType::Null => DataSchemaSubtype::Null,
+            StatelessDataSchemaType::Boolean => UncheckedDataSchemaSubtype::Boolean,
+            StatelessDataSchemaType::Null => UncheckedDataSchemaSubtype::Null,
         }
     }
 }
 
-impl<T, DS, AS, OS> From<StatelessDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<StatelessDataSchemaBuilder<T>> for UncheckedDataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
@@ -1120,7 +1153,7 @@ where
 
         let subtype = ty.map(Into::into);
 
-        DataSchema {
+        UncheckedDataSchema {
             attype,
             title,
             titles,
@@ -1136,6 +1169,18 @@ where
             subtype,
             other,
         }
+    }
+}
+
+impl<T, DS, AS, OS> TryFrom<StatelessDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+where
+    T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    type Error = Error;
+
+    fn try_from(value: StatelessDataSchemaBuilder<T>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
     }
 }
 
@@ -1173,7 +1218,7 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for UncheckedDataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
@@ -1209,14 +1254,14 @@ where
         } = inner.into();
 
         let items = items.is_empty().not().then_some(items);
-        let subtype = Some(DataSchemaSubtype::Array(ArraySchema {
+        let subtype = Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
             items,
             min_items,
             max_items,
             other: other_array_schema,
         }));
 
-        DataSchema {
+        UncheckedDataSchema {
             attype,
             title,
             titles,
@@ -1232,6 +1277,18 @@ where
             subtype,
             other: other_data_schema,
         }
+    }
+}
+
+impl<T, DS, AS, OS> TryFrom<ArrayDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
+where
+    T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    type Error = Error;
+
+    fn try_from(value: ArrayDataSchemaBuilder<T, DS, AS, OS>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
     }
 }
 
@@ -1260,7 +1317,7 @@ where
         } = inner.into();
 
         let items = items.is_empty().not().then_some(items);
-        let subtype = Some(DataSchemaSubtype::Array(ArraySchema {
+        let subtype = Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
             items,
             min_items,
             max_items,
@@ -1281,7 +1338,7 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<NumberDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<NumberDataSchemaBuilder<T>> for UncheckedDataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
@@ -1315,13 +1372,13 @@ where
                 },
         } = inner.into();
 
-        let subtype = Some(DataSchemaSubtype::Number(NumberSchema {
+        let subtype = Some(UncheckedDataSchemaSubtype::Number(NumberSchema {
             minimum,
             maximum,
             multiple_of,
         }));
 
-        DataSchema {
+        UncheckedDataSchema {
             attype,
             title,
             titles,
@@ -1337,6 +1394,18 @@ where
             subtype,
             other,
         }
+    }
+}
+
+impl<T, DS, AS, OS> TryFrom<NumberDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+where
+    T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    type Error = Error;
+
+    fn try_from(value: NumberDataSchemaBuilder<T>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
     }
 }
 
@@ -1363,7 +1432,7 @@ where
             _marker: _,
         } = inner.into();
 
-        let subtype = Some(DataSchemaSubtype::Number(NumberSchema {
+        let subtype = Some(UncheckedDataSchemaSubtype::Number(NumberSchema {
             minimum,
             maximum,
             multiple_of,
@@ -1383,7 +1452,7 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<IntegerDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<IntegerDataSchemaBuilder<T>> for UncheckedDataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
@@ -1416,12 +1485,12 @@ where
                 },
         } = inner.into();
 
-        let subtype = Some(DataSchemaSubtype::Integer(IntegerSchema {
+        let subtype = Some(UncheckedDataSchemaSubtype::Integer(IntegerSchema {
             minimum,
             maximum,
         }));
 
-        DataSchema {
+        UncheckedDataSchema {
             attype,
             title,
             titles,
@@ -1437,6 +1506,18 @@ where
             subtype,
             other,
         }
+    }
+}
+
+impl<T, DS, AS, OS> TryFrom<IntegerDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+where
+    T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    type Error = Error;
+
+    fn try_from(value: IntegerDataSchemaBuilder<T>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
     }
 }
 
@@ -1462,7 +1543,7 @@ where
             _marker: _,
         } = inner.into();
 
-        let subtype = Some(DataSchemaSubtype::Integer(IntegerSchema {
+        let subtype = Some(UncheckedDataSchemaSubtype::Integer(IntegerSchema {
             minimum,
             maximum,
         }));
@@ -1481,7 +1562,7 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<ObjectDataSchemaBuilder<T, DS, AS, OS>> for UncheckedDataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
@@ -1520,13 +1601,13 @@ where
             .not()
             .then(|| properties.into_iter().collect());
         let required = required.is_empty().not().then_some(required);
-        let subtype = Some(DataSchemaSubtype::Object(ObjectSchema {
+        let subtype = Some(UncheckedDataSchemaSubtype::Object(UncheckedObjectSchema {
             properties,
             required,
             other: other_object_schema,
         }));
 
-        DataSchema {
+        UncheckedDataSchema {
             attype,
             title,
             titles,
@@ -1542,6 +1623,18 @@ where
             subtype,
             other: other_data_schema,
         }
+    }
+}
+
+impl<T, DS, AS, OS> TryFrom<ObjectDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
+where
+    T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    type Error = Error;
+
+    fn try_from(value: ObjectDataSchemaBuilder<T, DS, AS, OS>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
     }
 }
 
@@ -1573,7 +1666,7 @@ where
             .not()
             .then(|| properties.into_iter().collect());
         let required = required.is_empty().not().then_some(required);
-        let subtype = Some(DataSchemaSubtype::Object(ObjectSchema {
+        let subtype = Some(UncheckedDataSchemaSubtype::Object(UncheckedObjectSchema {
             properties,
             required,
             other: other_object_schema,
@@ -1593,7 +1686,7 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<StringDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<StringDataSchemaBuilder<T>> for UncheckedDataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
@@ -1622,9 +1715,11 @@ where
                 },
         } = inner.into();
 
-        let subtype = Some(DataSchemaSubtype::String(StringSchema { max_length }));
+        let subtype = Some(UncheckedDataSchemaSubtype::String(StringSchema {
+            max_length,
+        }));
 
-        DataSchema {
+        UncheckedDataSchema {
             attype,
             title,
             titles,
@@ -1640,6 +1735,18 @@ where
             subtype,
             other,
         }
+    }
+}
+
+impl<T, DS, AS, OS> TryFrom<StringDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+where
+    T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    type Error = Error;
+
+    fn try_from(value: StringDataSchemaBuilder<T>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
     }
 }
 
@@ -1661,7 +1768,9 @@ where
             _marker: _,
         } = inner.into();
 
-        let subtype = Some(DataSchemaSubtype::String(StringSchema { max_length }));
+        let subtype = Some(UncheckedDataSchemaSubtype::String(StringSchema {
+            max_length,
+        }));
 
         PartialDataSchema {
             constant: None,
@@ -1677,9 +1786,9 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ReadOnly<T>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<ReadOnly<T>> for UncheckedDataSchema<DS, AS, OS>
 where
-    T: Into<DataSchema<DS, AS, OS>>,
+    T: Into<UncheckedDataSchema<DS, AS, OS>>,
 {
     fn from(builder: ReadOnly<T>) -> Self {
         let data_schema = builder.inner.into();
@@ -1690,9 +1799,21 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<WriteOnly<T>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> TryFrom<ReadOnly<T>> for DataSchema<DS, AS, OS>
 where
-    T: Into<DataSchema<DS, AS, OS>>,
+    T: Into<UncheckedDataSchema<DS, AS, OS>>,
+{
+    type Error = Error;
+
+    fn try_from(value: ReadOnly<T>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
+    }
+}
+
+impl<T, DS, AS, OS> From<WriteOnly<T>> for UncheckedDataSchema<DS, AS, OS>
+where
+    T: Into<UncheckedDataSchema<DS, AS, OS>>,
 {
     fn from(builder: WriteOnly<T>) -> Self {
         let data_schema = builder.inner.into();
@@ -1700,6 +1821,18 @@ where
             read_only: false,
             ..data_schema
         }
+    }
+}
+
+impl<T, DS, AS, OS> TryFrom<WriteOnly<T>> for DataSchema<DS, AS, OS>
+where
+    T: Into<UncheckedDataSchema<DS, AS, OS>>,
+{
+    type Error = Error;
+
+    fn try_from(value: WriteOnly<T>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
     }
 }
 
@@ -1729,7 +1862,7 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<EnumDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<EnumDataSchemaBuilder<T>> for UncheckedDataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
@@ -1777,6 +1910,18 @@ where
     }
 }
 
+impl<T, DS, AS, OS> TryFrom<EnumDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+where
+    T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    type Error = Error;
+
+    fn try_from(value: EnumDataSchemaBuilder<T>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
+    }
+}
+
 impl<T, DS, AS, OS> From<EnumDataSchemaBuilder<T>> for PartialDataSchema<DS, AS, OS>
 where
     T: Into<PartialDataSchemaBuilder<DS, AS, OS, Extended>>,
@@ -1809,7 +1954,7 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<OneOfDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<OneOfDataSchemaBuilder<T>> for UncheckedDataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
@@ -1857,6 +2002,18 @@ where
     }
 }
 
+impl<T, DS, AS, OS> TryFrom<OneOfDataSchemaBuilder<T>> for DataSchema<DS, AS, OS>
+where
+    T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    type Error = Error;
+
+    fn try_from(value: OneOfDataSchemaBuilder<T>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
+    }
+}
+
 impl<T, DS, AS, OS> From<OneOfDataSchemaBuilder<T>> for PartialDataSchema<DS, AS, OS>
 where
     T: Into<PartialDataSchemaBuilder<DS, AS, OS, Extended>>,
@@ -1893,7 +2050,7 @@ pub(super) trait CheckableDataSchema {
     fn check(&self) -> Result<(), Error>;
 }
 
-impl<DS, AS, OS> CheckableDataSchema for DataSchema<DS, AS, OS> {
+impl<DS, AS, OS> CheckableDataSchema for UncheckedDataSchema<DS, AS, OS> {
     fn check(&self) -> Result<(), Error> {
         check_data_schema_subtype(&self.subtype)?;
         check_one_of_schema(self.one_of.as_deref())?;
@@ -1910,9 +2067,9 @@ impl<DS, AS, OS> CheckableDataSchema for PartialDataSchema<DS, AS, OS> {
 }
 
 pub(super) fn check_data_schema_subtype<DS, AS, OS>(
-    mut subtype: &Option<DataSchemaSubtype<DS, AS, OS>>,
+    mut subtype: &Option<UncheckedDataSchemaSubtype<DS, AS, OS>>,
 ) -> Result<(), Error> {
-    use DataSchemaSubtype::*;
+    use UncheckedDataSchemaSubtype::*;
 
     let mut stack = Vec::new();
 
@@ -1947,7 +2104,7 @@ pub(super) fn check_data_schema_subtype<DS, AS, OS>(
                     (Some(min), Some(max)) if min > max => return Err(Error::InvalidMinMax),
                     _ => {}
                 },
-                Object(ObjectSchema {
+                Object(UncheckedObjectSchema {
                     properties: Some(properties),
                     ..
                 }) => stack.extend(properties.values()),
@@ -1977,6 +2134,143 @@ where
         .unwrap_or(Ok(()))
 }
 
+impl<DS, AS, OS> TryFrom<UncheckedDataSchema<DS, AS, OS>> for DataSchema<DS, AS, OS> {
+    type Error = Error;
+
+    fn try_from(data_schema: UncheckedDataSchema<DS, AS, OS>) -> Result<Self, Self::Error> {
+        let UncheckedDataSchema {
+            attype,
+            title,
+            titles,
+            description,
+            descriptions,
+            constant,
+            unit,
+            one_of,
+            enumeration,
+            read_only,
+            write_only,
+            format,
+            subtype,
+            other,
+        } = data_schema;
+
+        let titles = titles.map(|titles| titles.build()).transpose()?;
+        let descriptions = descriptions
+            .map(|descriptions| descriptions.build())
+            .transpose()?;
+        let one_of = one_of
+            .map(|one_of| {
+                one_of
+                    .into_iter()
+                    .map(|data_schema| data_schema.try_into())
+                    .collect()
+            })
+            .transpose()?;
+        let subtype = subtype.map(|subtype| subtype.try_into()).transpose()?;
+
+        Ok(Self {
+            attype,
+            title,
+            titles,
+            description,
+            descriptions,
+            constant,
+            unit,
+            one_of,
+            enumeration,
+            read_only,
+            write_only,
+            format,
+            subtype,
+            other,
+        })
+    }
+}
+
+pub(crate) fn uri_variables_contains_arrays_objects<Other>(
+    uri_variables: &UncheckedDataSchemaMap<Other>,
+) -> bool
+where
+    Other: ExtendableThing,
+{
+    uri_variables.values().any(|schema| {
+        matches!(
+            &schema.subtype,
+            Some(UncheckedDataSchemaSubtype::Object(_) | UncheckedDataSchemaSubtype::Array(_))
+        )
+    })
+}
+
+impl<DS, AS, OS> TryFrom<UncheckedDataSchemaSubtype<DS, AS, OS>> for DataSchemaSubtype<DS, AS, OS> {
+    type Error = Error;
+
+    fn try_from(value: UncheckedDataSchemaSubtype<DS, AS, OS>) -> Result<Self, Self::Error> {
+        use UncheckedDataSchemaSubtype::*;
+
+        let out = match value {
+            Array(array) => DataSchemaSubtype::Array(array.try_into()?),
+            Boolean => DataSchemaSubtype::Boolean,
+            Number(number) => DataSchemaSubtype::Number(number),
+            Integer(integer) => DataSchemaSubtype::Integer(integer),
+            Object(object) => DataSchemaSubtype::Object(object.try_into()?),
+            String(string) => DataSchemaSubtype::String(string),
+            Null => DataSchemaSubtype::Null,
+        };
+
+        Ok(out)
+    }
+}
+
+impl<DS, AS, OS> TryFrom<UncheckedArraySchema<DS, AS, OS>> for ArraySchema<DS, AS, OS> {
+    type Error = Error;
+
+    fn try_from(value: UncheckedArraySchema<DS, AS, OS>) -> Result<Self, Self::Error> {
+        let UncheckedArraySchema {
+            items,
+            min_items,
+            max_items,
+            other,
+        } = value;
+        let items = items
+            .map(|items| items.into_iter().map(TryInto::try_into).collect())
+            .transpose()?;
+
+        Ok(Self {
+            items,
+            min_items,
+            max_items,
+            other,
+        })
+    }
+}
+
+impl<DS, AS, OS> TryFrom<UncheckedObjectSchema<DS, AS, OS>> for ObjectSchema<DS, AS, OS> {
+    type Error = Error;
+
+    fn try_from(value: UncheckedObjectSchema<DS, AS, OS>) -> Result<Self, Self::Error> {
+        let UncheckedObjectSchema {
+            properties,
+            required,
+            other,
+        } = value;
+        let properties = properties
+            .map(|properties| {
+                properties
+                    .into_iter()
+                    .map(|(k, v)| v.try_into().map(|v| (k, v)))
+                    .collect()
+            })
+            .transpose()?;
+
+        Ok(Self {
+            properties,
+            required,
+            other,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde::{Deserialize, Serialize};
@@ -1992,7 +2286,8 @@ mod tests {
 
     #[test]
     fn null_simple() {
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().null().into();
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().null().try_into().unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2028,7 +2323,7 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::Null),
+                subtype: Some(UncheckedDataSchemaSubtype::Null),
                 other: Nil,
             }
         );
@@ -2036,7 +2331,8 @@ mod tests {
 
     #[test]
     fn boolean_simple() {
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().bool().into();
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().bool().try_into().unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2072,7 +2368,7 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::Boolean),
+                subtype: Some(UncheckedDataSchemaSubtype::Boolean),
                 other: Nil,
             }
         );
@@ -2080,7 +2376,8 @@ mod tests {
 
     #[test]
     fn string_simple() {
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().string().into();
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().string().try_into().unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2116,7 +2413,9 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
+                subtype: Some(UncheckedDataSchemaSubtype::String(StringSchema {
+                    max_length: None
+                })),
                 other: Nil,
             }
         );
@@ -2124,7 +2423,8 @@ mod tests {
 
     #[test]
     fn empty_simple_array() {
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().array().into();
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().array().try_into().unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2165,7 +2465,7 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                subtype: Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
                     items: None,
                     min_items: None,
                     max_items: None,
@@ -2178,7 +2478,8 @@ mod tests {
 
     #[test]
     fn number_simple() {
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().number().into();
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().number().try_into().unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2217,7 +2518,7 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::Number(NumberSchema {
+                subtype: Some(UncheckedDataSchemaSubtype::Number(NumberSchema {
                     maximum: None,
                     minimum: None,
                     multiple_of: None,
@@ -2229,7 +2530,8 @@ mod tests {
 
     #[test]
     fn integer_simple() {
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().integer().into();
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().integer().try_into().unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2268,7 +2570,7 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
+                subtype: Some(UncheckedDataSchemaSubtype::Integer(IntegerSchema {
                     maximum: None,
                     minimum: None
                 })),
@@ -2279,7 +2581,8 @@ mod tests {
 
     #[test]
     fn empty_simple_object() {
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default().object().into();
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().object().try_into().unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2319,7 +2622,7 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
+                subtype: Some(UncheckedDataSchemaSubtype::Object(UncheckedObjectSchema {
                     properties: None,
                     required: None,
                     other: Nil,
@@ -2333,7 +2636,8 @@ mod tests {
     fn constant_simple() {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .constant(json!({ "hello": 42 }))
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2386,7 +2690,8 @@ mod tests {
             .enumeration("hello")
             .enumeration("world")
             .enumeration(42)
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2433,8 +2738,11 @@ mod tests {
 
     #[test]
     fn read_only_simple() {
-        let data_schema: DataSchemaFromOther<Nil> =
-            DataSchemaBuilder::default().bool().read_only().into();
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+            .bool()
+            .read_only()
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2472,7 +2780,7 @@ mod tests {
                 read_only: true,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::Boolean),
+                subtype: Some(UncheckedDataSchemaSubtype::Boolean),
                 other: Nil,
             }
         );
@@ -2527,8 +2835,11 @@ mod tests {
 
     #[test]
     fn write_only_simple() {
-        let data_schema: DataSchemaFromOther<Nil> =
-            DataSchemaBuilder::default().bool().write_only().into();
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+            .bool()
+            .write_only()
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2566,7 +2877,7 @@ mod tests {
                 read_only: false,
                 write_only: true,
                 format: None,
-                subtype: Some(DataSchemaSubtype::Boolean),
+                subtype: Some(UncheckedDataSchemaSubtype::Boolean),
                 other: Nil,
             }
         );
@@ -2631,7 +2942,8 @@ mod tests {
             .descriptions(|b| b.add("en", "description_en").add("it", "description_it"))
             .unit("cm")
             .format("format")
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2640,14 +2952,14 @@ mod tests {
                 titles: Some(
                     [("en", "title_en"), ("it", "title_it")]
                         .into_iter()
-                        .map(|(a, b)| (a.to_string(), b.to_string()))
+                        .map(|(a, b)| (a.parse().unwrap(), b.to_string()))
                         .collect()
                 ),
                 description: Some("description".to_string()),
                 descriptions: Some(
                     [("en", "description_en"), ("it", "description_it")]
                         .into_iter()
-                        .map(|(a, b)| (a.to_string(), b.to_string()))
+                        .map(|(a, b)| (a.parse().unwrap(), b.to_string()))
                         .collect()
                 ),
                 constant: None,
@@ -2676,7 +2988,8 @@ mod tests {
             .descriptions(|b| b.add("en", "description_en").add("it", "description_it"))
             .unit("cm")
             .format("format")
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2685,14 +2998,14 @@ mod tests {
                 titles: Some(
                     [("en", "title_en"), ("it", "title_it")]
                         .into_iter()
-                        .map(|(a, b)| (a.to_string(), b.to_string()))
+                        .map(|(a, b)| (a.parse().unwrap(), b.to_string()))
                         .collect()
                 ),
                 description: Some("description".to_string()),
                 descriptions: Some(
                     [("en", "description_en"), ("it", "description_it")]
                         .into_iter()
-                        .map(|(a, b)| (a.to_string(), b.to_string()))
+                        .map(|(a, b)| (a.parse().unwrap(), b.to_string()))
                         .collect()
                 ),
                 constant: None,
@@ -2717,7 +3030,8 @@ mod tests {
             .read_only()
             .enumeration(42)
             .description("description")
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2747,7 +3061,8 @@ mod tests {
             .max_items(5)
             .append(|b| b.finish_extend().constant("hello"))
             .append(|b| b.finish_extend().bool())
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2815,7 +3130,8 @@ mod tests {
             .max_items(5)
             .append(|b| b.finish_extend().constant("hello"))
             .append(|b| b.finish_extend().bool())
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             PartialDataSchema {
@@ -2826,9 +3142,9 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                subtype: Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
                     items: Some(vec![
-                        DataSchema {
+                        UncheckedDataSchema {
                             attype: None,
                             title: None,
                             titles: None,
@@ -2844,7 +3160,7 @@ mod tests {
                             subtype: None,
                             other: Nil,
                         },
-                        DataSchema {
+                        UncheckedDataSchema {
                             attype: None,
                             title: None,
                             titles: None,
@@ -2857,7 +3173,7 @@ mod tests {
                             read_only: false,
                             write_only: false,
                             format: None,
-                            subtype: Some(DataSchemaSubtype::Boolean),
+                            subtype: Some(UncheckedDataSchemaSubtype::Boolean),
                             other: Nil,
                         },
                     ]),
@@ -2876,7 +3192,8 @@ mod tests {
             .object()
             .property("hello", false, |b| b.finish_extend().bool())
             .property("world", true, |b| b.title("title").finish_extend().number())
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -2955,7 +3272,8 @@ mod tests {
             .object()
             .property("hello", false, |b| b.finish_extend().bool())
             .property("world", true, |b| b.finish_extend().title("title").number())
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             PartialDataSchema {
@@ -2966,12 +3284,12 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::Object(ObjectSchema {
+                subtype: Some(UncheckedDataSchemaSubtype::Object(UncheckedObjectSchema {
                     properties: Some(
                         [
                             (
                                 "hello".to_string(),
-                                DataSchema {
+                                UncheckedDataSchema {
                                     attype: None,
                                     title: None,
                                     titles: None,
@@ -2984,13 +3302,13 @@ mod tests {
                                     read_only: false,
                                     write_only: false,
                                     format: None,
-                                    subtype: Some(DataSchemaSubtype::Boolean),
+                                    subtype: Some(UncheckedDataSchemaSubtype::Boolean),
                                     other: Nil,
                                 }
                             ),
                             (
                                 "world".to_string(),
-                                DataSchema {
+                                UncheckedDataSchema {
                                     attype: None,
                                     title: Some("title".to_string()),
                                     titles: None,
@@ -3003,11 +3321,13 @@ mod tests {
                                     read_only: false,
                                     write_only: false,
                                     format: None,
-                                    subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                                        maximum: None,
-                                        minimum: None,
-                                        multiple_of: None,
-                                    })),
+                                    subtype: Some(UncheckedDataSchemaSubtype::Number(
+                                        NumberSchema {
+                                            maximum: None,
+                                            minimum: None,
+                                            multiple_of: None,
+                                        }
+                                    )),
                                     other: Nil,
                                 }
                             )
@@ -3029,7 +3349,8 @@ mod tests {
             .integer()
             .minimum(10)
             .maximum(5)
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -3061,7 +3382,8 @@ mod tests {
             .minimum(10.)
             .maximum(5.)
             .multiple_of(2.)
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -3089,8 +3411,11 @@ mod tests {
 
     #[test]
     fn string_with_data() {
-        let data_schema: DataSchemaFromOther<Nil> =
-            DataSchemaBuilder::default().string().max_length(32).into();
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+            .string()
+            .max_length(32)
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -3120,7 +3445,8 @@ mod tests {
             .one_of(|b| b.finish_extend().number())
             .one_of(|b| b.finish_extend().integer())
             .one_of(|b| b.finish_extend().string())
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -3207,7 +3533,8 @@ mod tests {
                     .one_of(|b| b.finish_extend().string())
                     .one_of(|b| b.finish_extend().integer())
             })
-            .into();
+            .try_into()
+            .unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -3295,7 +3622,7 @@ mod tests {
 
     #[test]
     fn check_valid_data_schema() {
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3329,7 +3656,7 @@ mod tests {
 
     #[test]
     fn check_invalid_data_schema() {
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3348,7 +3675,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3367,7 +3694,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3386,7 +3713,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3405,7 +3732,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3424,7 +3751,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::NanMinMax);
 
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3443,7 +3770,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::NanMinMax);
 
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3462,7 +3789,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3486,7 +3813,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3509,7 +3836,7 @@ mod tests {
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
 
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
                     .array()
@@ -3534,14 +3861,14 @@ mod tests {
 
     #[test]
     fn check_invalid_data_schema_multiple_of() {
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .array()
             .append(|b| b.finish_extend().number().multiple_of(0.))
             .into();
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMultipleOf);
 
-        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .array()
             .append(|b| b.finish_extend().number().multiple_of(-2.))
             .into();
@@ -3659,7 +3986,8 @@ mod tests {
                 .finish_extend()
                 .title("title")
                 .null()
-                .into();
+                .try_into()
+                .unwrap();
 
         assert_eq!(
             data_schema,
@@ -3706,7 +4034,8 @@ mod tests {
                     })
             })
             .max_items(10)
-            .into();
+            .try_into()
+            .unwrap();
 
         assert_eq!(
             data_schema,
@@ -3767,7 +4096,8 @@ mod tests {
                     .finish_extend()
                     .null()
             })
-            .into();
+            .try_into()
+            .unwrap();
 
         assert_eq!(
             data_schema,

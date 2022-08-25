@@ -9,18 +9,19 @@
 
 use std::{borrow::Cow, collections::HashMap, fmt};
 
+use oxilangtag::LanguageTag;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use serde_with::{serde_as, skip_serializing_none, DeserializeAs, OneOrMany, Same};
 use time::OffsetDateTime;
 
 use crate::{
-    builder::{ThingBuilder, ToExtend},
+    builder::{data_schema::UncheckedDataSchema, ThingBuilder, ToExtend},
     extend::ExtendableThing,
     hlist::Nil,
 };
 
-pub(crate) type MultiLanguage = HashMap<String, String>;
+pub(crate) type MultiLanguage = HashMap<LanguageTag<String>, String>;
 pub(crate) type DataSchemaMap<Other> = HashMap<
     String,
     DataSchema<
@@ -640,6 +641,17 @@ pub enum DataSchemaSubtype<DS, AS, OS> {
     Null,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum UncheckedDataSchemaSubtype<DS, AS, OS> {
+    Array(UncheckedArraySchema<DS, AS, OS>),
+    Boolean,
+    Number(NumberSchema),
+    Integer(IntegerSchema),
+    Object(UncheckedObjectSchema<DS, AS, OS>),
+    String(StringSchema),
+    Null,
+}
+
 impl<DS, AS, OS> Default for DataSchemaSubtype<DS, AS, OS> {
     fn default() -> Self {
         Self::Null
@@ -664,6 +676,14 @@ pub struct ArraySchema<DS, AS, OS> {
 
     #[serde(flatten)]
     pub other: AS,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct UncheckedArraySchema<DS, AS, OS> {
+    pub(crate) items: Option<Vec<UncheckedDataSchema<DS, AS, OS>>>,
+    pub(crate) min_items: Option<u32>,
+    pub(crate) max_items: Option<u32>,
+    pub(crate) other: AS,
 }
 
 impl<DS, AS, OS> Default for ArraySchema<DS, AS, OS>
@@ -711,7 +731,27 @@ pub struct ObjectSchema<DS, AS, OS> {
     pub other: OS,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct UncheckedObjectSchema<DS, AS, OS> {
+    pub(crate) properties: Option<HashMap<String, UncheckedDataSchema<DS, AS, OS>>>,
+    pub(crate) required: Option<Vec<String>>,
+    pub(crate) other: OS,
+}
+
 impl<DS, AS, OS> Default for ObjectSchema<DS, AS, OS>
+where
+    OS: Default,
+{
+    fn default() -> Self {
+        Self {
+            properties: Default::default(),
+            required: Default::default(),
+            other: Default::default(),
+        }
+    }
+}
+
+impl<DS, AS, OS> Default for UncheckedObjectSchema<DS, AS, OS>
 where
     OS: Default,
 {
@@ -1287,8 +1327,11 @@ mod test {
             title: "MyLampThing".to_string(),
             titles: Some(
                 [
-                    ("en".to_string(), "MyLampThing".to_string()),
-                    ("it".to_string(), "La mia lampada intelligente".to_string()),
+                    ("en".parse().unwrap(), "MyLampThing".to_string()),
+                    (
+                        "it".parse().unwrap(),
+                        "La mia lampada intelligente".to_string(),
+                    ),
                 ]
                 .into_iter()
                 .collect(),
@@ -1296,9 +1339,9 @@ mod test {
             description: Some("A simple smart lamp".to_string()),
             descriptions: Some(
                 [
-                    ("en".to_string(), "A simple smart lamp".to_string()),
+                    ("en".parse().unwrap(), "A simple smart lamp".to_string()),
                     (
-                        "it".to_string(),
+                        "it".parse().unwrap(),
                         "Una semplice lampada intelligente".to_string(),
                     ),
                 ]
