@@ -4,9 +4,13 @@
 //!
 //! TODO: Write an example usage
 
-pub mod affordance;
-pub mod data_schema;
-pub mod human_readable_info;
+mod affordance;
+mod data_schema;
+mod human_readable_info;
+
+pub use affordance::*;
+pub use data_schema::*;
+pub use human_readable_info::*;
 
 use std::{borrow::Cow, collections::HashMap, fmt, marker::PhantomData, ops::Not};
 
