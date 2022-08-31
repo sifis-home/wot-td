@@ -6,8 +6,8 @@
 //! > provides interactions to and participates in the Web of Things.
 //!
 //! The crate relies on [serde](https://docs.rs/serde) to serialize and deserialize and provides
-//! an high level builder to ensure a valid TD is built and a set of accessors to make easier to
-//! operate with complex descriptions.
+//! an high level [builder](builder::ThingBuilder) to ensure a valid TD is built and a set of
+//! accessors to make easier to operate with complex descriptions.
 
 pub mod builder;
 pub mod extend;
