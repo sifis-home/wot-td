@@ -1,11 +1,25 @@
+//! Structured extensions for building and parsing Thing Descriptions
+//!
+//! The Thing Description can be extended adding additional ontologies in its [@context](https://www.w3.org/TR/json-ld11/#the-context).
+//!
+//! This module provides a trait, [ExtendableThing], to define extensions for each of the standard
+//! elements of a description.
+
 use serde::{Deserialize, Serialize};
 
 use crate::hlist::{Cons, Nil};
 
+/// Requirement trait for extending a Thing Description alement
+///
+/// The structure must be serializable/deserializable use `#[serde(skip)]` if it has to hold data
+/// you do not want to push in the serialized description.
 pub trait ExtendablePiece: Serialize + for<'a> Deserialize<'a> {}
 
 impl<T> ExtendablePiece for T where T: Serialize + for<'a> Deserialize<'a> {}
 
+/// Main extension trait
+///
+/// The trait uses an associated type for each element of the ThingDescription
 pub trait ExtendableThing {
     type InteractionAffordance: ExtendablePiece;
     type PropertyAffordance: ExtendablePiece;
@@ -49,12 +63,14 @@ where
 pub trait Extendable {
     type Empty;
 
+    /// Create an empty extension
     fn empty() -> Self::Empty;
 }
 
 pub trait Extend<T>: Sized {
     type Target;
 
+    /// Extend the current extension with an additional element
     fn ext(self, t: T) -> Self::Target;
 
     fn ext_with<F>(self, f: F) -> Self::Target
