@@ -13,3 +13,5 @@ pub mod builder;
 pub mod extend;
 pub mod hlist;
 pub mod thing;
+
+pub use thing::Thing;
