@@ -1,8 +1,14 @@
+//! Heterogeneous List
+//!
+//! It is used for the internals of the extension system.
+
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize};
 
+/// Empty type
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Nil;
 
+/// List type
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cons<T, U = Nil> {
     #[serde(flatten)]
@@ -12,6 +18,7 @@ pub struct Cons<T, U = Nil> {
 }
 
 impl Nil {
+    /// Add an element to the list
     #[inline]
     pub fn cons<T>(value: T) -> Cons<T, Nil> {
         Cons {
@@ -22,6 +29,7 @@ impl Nil {
 }
 
 impl<T, U> Cons<T, U> {
+    /// Add and element to the heterogeneous list
     #[inline]
     pub fn cons<V>(self, value: V) -> Cons<V, Self> {
         Cons {
@@ -30,7 +38,7 @@ impl<T, U> Cons<T, U> {
         }
     }
 
-    /// Split the head element of the heterogenous list
+    /// Split the head element of the heterogeneous list
     pub fn split_head(self) -> (T, U) {
         let Cons { head, tail } = self;
 
@@ -41,6 +49,7 @@ impl<T, U> Cons<T, U> {
 pub trait HListRef {
     type Target;
 
+    /// Create a heterogeneous list of references
     fn to_ref(self) -> Self::Target;
 }
 
@@ -84,6 +93,7 @@ pub trait HListMut {
     //     fn to_mut(&mut self) -> Self::ToMut<'_>;
     // }
     // ```
+    /// Create a heterogeneous list of mutable references
     #[allow(clippy::wrong_self_convention)]
     fn to_mut(self) -> Self::Target;
 }
@@ -118,7 +128,11 @@ pub trait NonEmptyHList {
     type Last;
     type Reversed;
 
+    /// Split the last element of an heterogeneous list
+    ///
+    /// Return a tuple with the last element and a list containing the remainder.
     fn split_last(self) -> (Self::Last, Self::Init);
+    /// Create a heterogeneous list with the elements in reverse order
     fn reverse(self) -> Self::Reversed;
 }
 
