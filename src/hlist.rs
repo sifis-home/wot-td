@@ -4,11 +4,11 @@
 
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize};
 
-/// Empty type
+/// Empty type.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Nil;
 
-/// List type
+/// List type.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cons<T, U = Nil> {
     #[serde(flatten)]
@@ -18,7 +18,7 @@ pub struct Cons<T, U = Nil> {
 }
 
 impl Nil {
-    /// Add an element to the list
+    /// Prepend a new `head` the heterogenous list.
     #[inline]
     pub fn cons<T>(value: T) -> Cons<T, Nil> {
         Cons {
@@ -29,7 +29,7 @@ impl Nil {
 }
 
 impl<T, U> Cons<T, U> {
-    /// Add and element to the heterogeneous list
+    /// Prepend a new `head` the heterogenous list.
     #[inline]
     pub fn cons<V>(self, value: V) -> Cons<V, Self> {
         Cons {
@@ -38,7 +38,7 @@ impl<T, U> Cons<T, U> {
         }
     }
 
-    /// Split the head element of the heterogeneous list
+    /// Split the head element of the heterogeneous list.
     pub fn split_head(self) -> (T, U) {
         let Cons { head, tail } = self;
 
@@ -49,7 +49,7 @@ impl<T, U> Cons<T, U> {
 pub trait HListRef {
     type Target;
 
-    /// Create a heterogeneous list of references
+    /// Create a heterogeneous list of references.
     fn to_ref(self) -> Self::Target;
 }
 

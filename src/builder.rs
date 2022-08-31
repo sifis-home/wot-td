@@ -1,3 +1,9 @@
+//! Thing Description builder
+//!
+//! The main entry point is [ThingBuilder].
+//!
+//! TODO: Write an example usage
+
 pub mod affordance;
 pub mod data_schema;
 pub mod human_readable_info;
@@ -35,9 +41,7 @@ pub struct ToExtend;
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Extended;
 
-/// Builder for WoT Thing
-///
-/// TODO: Write an example usage
+/// A builder for a [Thing]
 #[must_use]
 pub struct ThingBuilder<Other: ExtendableThing, Status> {
     context: Vec<Context>,
@@ -271,6 +275,12 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
         }
     }
 
+    /// Finalize the set of extensions that must be populated
+    ///
+    /// Moves the builder status from [ToExtend] to [Extended].
+    /// From this point is not possible to add further extensions to the builder.
+    ///
+    /// See [ThingBuilder::ext].
     pub fn finish_extend(self) -> ThingBuilder<Other, Extended> {
         let Self {
             context,
@@ -389,6 +399,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
         }
     }
 
+    /// Extend the [ThingBuilder] with a [ExtendableThing]
     #[inline]
     pub fn ext<T>(self, t: T) -> ThingBuilder<Other::Target, ToExtend>
     where
