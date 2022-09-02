@@ -4861,4 +4861,85 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn convert_valid_unchecked_security_schema() {
+        let schema = UncheckedSecurityScheme {
+            attype: Some(vec!["attype1".to_string(), "attype2".to_string()]),
+            description: Some("description".to_string()),
+            descriptions: Some({
+                let mut multilang = MultiLanguageBuilder::default();
+                multilang
+                    .add("it", "description1")
+                    .add("en", "description2");
+                multilang
+            }),
+            proxy: Some("proxy".to_string()),
+            subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Psk(
+                PskSecurityScheme {
+                    identity: Some("identity".to_string()),
+                },
+            )),
+        };
+
+        assert_eq!(
+            SecurityScheme::try_from(schema).unwrap(),
+            SecurityScheme {
+                attype: Some(vec!["attype1".to_string(), "attype2".to_string()]),
+                description: Some("description".to_string()),
+                descriptions: Some(
+                    [
+                        ("it".parse().unwrap(), "description1".to_string()),
+                        ("en".parse().unwrap(), "description2".to_string())
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+                proxy: Some("proxy".to_string()),
+                subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Psk(
+                    PskSecurityScheme {
+                        identity: Some("identity".to_string()),
+                    },
+                )),
+            },
+        );
+    }
+
+    #[test]
+    fn convert_invalid_unchecked_security_schema() {
+        let schema = UncheckedSecurityScheme {
+            attype: Some(vec!["attype1".to_string(), "attype2".to_string()]),
+            description: Some("description".to_string()),
+            descriptions: Some({
+                let mut multilang = MultiLanguageBuilder::default();
+                multilang
+                    .add("it", "description1")
+                    .add("e1n", "description2");
+                multilang
+            }),
+            proxy: Some("proxy".to_string()),
+            subtype: SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Psk(
+                PskSecurityScheme {
+                    identity: Some("identity".to_string()),
+                },
+            )),
+        };
+
+        assert_eq!(
+            SecurityScheme::try_from(schema).unwrap_err(),
+            Error::InvalidLanguageTag("e1n".to_string()),
+        );
+    }
+
+    #[test]
+    fn invalid_language_tag() {
+        let err = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .security(|b| {
+                b.auto()
+                    .descriptions(|ml| ml.add("en", "desc_en").add("i1t", "desc_it"))
+            })
+            .build()
+            .unwrap_err();
+        assert_eq!(err, Error::InvalidLanguageTag("i1t".to_string()));
+    }
 }

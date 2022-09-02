@@ -2967,4 +2967,46 @@ mod test {
             },
         );
     }
+
+    #[test]
+    fn build_invalid_property_affordance() {
+        let builder = PropertyAffordanceBuilder::<
+            Nil,
+            PartialDataSchemaBuilder<_, _, _, _>,
+            (),
+            (),
+        >::default()
+        .number()
+        .titles(|b| b.add("i1t", "title1"))
+        .into_usable();
+
+        assert_eq!(
+            builder.build().unwrap_err(),
+            Error::InvalidLanguageTag("i1t".to_string()),
+        );
+    }
+
+    #[test]
+    fn build_invalid_action_affordance() {
+        let builder = ActionAffordanceBuilder::<Nil, (), ()>::default()
+            .titles(|b| b.add("i1t", "title1"))
+            .into_usable();
+
+        assert_eq!(
+            builder.build().unwrap_err(),
+            Error::InvalidLanguageTag("i1t".to_string()),
+        );
+    }
+
+    #[test]
+    fn build_invalid_event_affordance() {
+        let builder = EventAffordanceBuilder::<Nil, (), ()>::default()
+            .titles(|b| b.add("i1t", "title1"))
+            .into_usable();
+
+        assert_eq!(
+            builder.build().unwrap_err(),
+            Error::InvalidLanguageTag("i1t".to_string()),
+        );
+    }
 }
