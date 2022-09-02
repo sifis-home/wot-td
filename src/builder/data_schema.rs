@@ -4151,4 +4151,396 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn valid_unchecked_array_data_schema() {
+        let data_schema = UncheckedArraySchema::<Nil, Nil, Nil> {
+            items: Some(vec![
+                UncheckedDataSchema {
+                    titles: Some({
+                        let mut multilang = MultiLanguageBuilder::default();
+                        multilang.add("it", "title1").add("en", "title2");
+                        multilang
+                    }),
+                    descriptions: Some({
+                        let mut multilang = MultiLanguageBuilder::default();
+                        multilang
+                            .add("it", "description1")
+                            .add("en", "description2");
+                        multilang
+                    }),
+                    ..Default::default()
+                },
+                UncheckedDataSchema {
+                    titles: Some({
+                        let mut multilang = MultiLanguageBuilder::default();
+                        multilang.add("it", "title3").add("en", "title4");
+                        multilang
+                    }),
+                    descriptions: Some({
+                        let mut multilang = MultiLanguageBuilder::default();
+                        multilang
+                            .add("it", "description3")
+                            .add("en", "description4");
+                        multilang
+                    }),
+                    ..Default::default()
+                },
+            ]),
+            min_items: Some(1),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            ArraySchema::try_from(data_schema).unwrap(),
+            ArraySchema {
+                items: Some(vec![
+                    DataSchema {
+                        titles: Some(
+                            [
+                                ("it".parse().unwrap(), "title1".to_string()),
+                                ("en".parse().unwrap(), "title2".to_string())
+                            ]
+                            .into_iter()
+                            .collect()
+                        ),
+                        descriptions: Some(
+                            [
+                                ("it".parse().unwrap(), "description1".to_string()),
+                                ("en".parse().unwrap(), "description2".to_string())
+                            ]
+                            .into_iter()
+                            .collect()
+                        ),
+                        ..Default::default()
+                    },
+                    DataSchema {
+                        titles: Some(
+                            [
+                                ("it".parse().unwrap(), "title3".to_string()),
+                                ("en".parse().unwrap(), "title4".to_string())
+                            ]
+                            .into_iter()
+                            .collect()
+                        ),
+                        descriptions: Some(
+                            [
+                                ("it".parse().unwrap(), "description3".to_string()),
+                                ("en".parse().unwrap(), "description4".to_string())
+                            ]
+                            .into_iter()
+                            .collect()
+                        ),
+                        ..Default::default()
+                    },
+                ]),
+                min_items: Some(1),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_unchecked_array_data_schema() {
+        let data_schema = UncheckedArraySchema::<Nil, Nil, Nil> {
+            items: Some(vec![
+                UncheckedDataSchema {
+                    titles: Some({
+                        let mut multilang = MultiLanguageBuilder::default();
+                        multilang.add("it", "title1").add("en", "title2");
+                        multilang
+                    }),
+                    descriptions: Some({
+                        let mut multilang = MultiLanguageBuilder::default();
+                        multilang
+                            .add("it", "description1")
+                            .add("en", "description2");
+                        multilang
+                    }),
+                    ..Default::default()
+                },
+                UncheckedDataSchema {
+                    titles: Some({
+                        let mut multilang = MultiLanguageBuilder::default();
+                        multilang.add("it", "title3").add("en", "title4");
+                        multilang
+                    }),
+                    descriptions: Some({
+                        let mut multilang = MultiLanguageBuilder::default();
+                        multilang
+                            .add("it", "description3")
+                            .add("e1n", "description4");
+                        multilang
+                    }),
+                    ..Default::default()
+                },
+            ]),
+            min_items: Some(1),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            ArraySchema::try_from(data_schema).unwrap_err(),
+            Error::InvalidLanguageTag("e1n".to_string()),
+        );
+    }
+
+    #[test]
+    fn valid_unchecked_object_data_schema() {
+        let data_schema = UncheckedObjectSchema::<Nil, Nil, Nil> {
+            properties: Some(
+                [
+                    (
+                        "data1".to_string(),
+                        UncheckedDataSchema {
+                            titles: Some({
+                                let mut multilang = MultiLanguageBuilder::default();
+                                multilang.add("it", "title1").add("en", "title2");
+                                multilang
+                            }),
+                            descriptions: Some({
+                                let mut multilang = MultiLanguageBuilder::default();
+                                multilang
+                                    .add("it", "description1")
+                                    .add("en", "description2");
+                                multilang
+                            }),
+                            ..Default::default()
+                        },
+                    ),
+                    (
+                        "data2".to_string(),
+                        UncheckedDataSchema {
+                            titles: Some({
+                                let mut multilang = MultiLanguageBuilder::default();
+                                multilang.add("it", "title3").add("en", "title4");
+                                multilang
+                            }),
+                            descriptions: Some({
+                                let mut multilang = MultiLanguageBuilder::default();
+                                multilang
+                                    .add("it", "description3")
+                                    .add("en", "description4");
+                                multilang
+                            }),
+                            ..Default::default()
+                        },
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            ),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            ObjectSchema::try_from(data_schema).unwrap(),
+            ObjectSchema {
+                properties: Some(
+                    [
+                        (
+                            "data1".to_string(),
+                            DataSchema {
+                                titles: Some(
+                                    [
+                                        ("it".parse().unwrap(), "title1".to_string()),
+                                        ("en".parse().unwrap(), "title2".to_string())
+                                    ]
+                                    .into_iter()
+                                    .collect()
+                                ),
+                                descriptions: Some(
+                                    [
+                                        ("it".parse().unwrap(), "description1".to_string()),
+                                        ("en".parse().unwrap(), "description2".to_string())
+                                    ]
+                                    .into_iter()
+                                    .collect()
+                                ),
+                                ..Default::default()
+                            }
+                        ),
+                        (
+                            "data2".to_string(),
+                            DataSchema {
+                                titles: Some(
+                                    [
+                                        ("it".parse().unwrap(), "title3".to_string()),
+                                        ("en".parse().unwrap(), "title4".to_string())
+                                    ]
+                                    .into_iter()
+                                    .collect()
+                                ),
+                                descriptions: Some(
+                                    [
+                                        ("it".parse().unwrap(), "description3".to_string()),
+                                        ("en".parse().unwrap(), "description4".to_string())
+                                    ]
+                                    .into_iter()
+                                    .collect()
+                                ),
+                                ..Default::default()
+                            }
+                        ),
+                    ]
+                    .into_iter()
+                    .collect()
+                ),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_unchecked_object_data_schema() {
+        let data_schema = UncheckedObjectSchema::<Nil, Nil, Nil> {
+            properties: Some(
+                [
+                    (
+                        "data1".to_string(),
+                        UncheckedDataSchema {
+                            titles: Some({
+                                let mut multilang = MultiLanguageBuilder::default();
+                                multilang.add("it", "title1").add("en", "title2");
+                                multilang
+                            }),
+                            descriptions: Some({
+                                let mut multilang = MultiLanguageBuilder::default();
+                                multilang
+                                    .add("it", "description1")
+                                    .add("en", "description2");
+                                multilang
+                            }),
+                            ..Default::default()
+                        },
+                    ),
+                    (
+                        "data2".to_string(),
+                        UncheckedDataSchema {
+                            titles: Some({
+                                let mut multilang = MultiLanguageBuilder::default();
+                                multilang.add("it", "title3").add("en", "title4");
+                                multilang
+                            }),
+                            descriptions: Some({
+                                let mut multilang = MultiLanguageBuilder::default();
+                                multilang
+                                    .add("i1t", "description3")
+                                    .add("en", "description4");
+                                multilang
+                            }),
+                            ..Default::default()
+                        },
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+            ),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            ObjectSchema::try_from(data_schema).unwrap_err(),
+            Error::InvalidLanguageTag("i1t".to_string()),
+        )
+    }
+
+    #[test]
+    fn valid_unchecked_data_schema() {
+        let data_schema = UncheckedDataSchema::<Nil, Nil, Nil> {
+            attype: Some(vec!["attype1".to_string(), "attype2".to_string()]),
+            title: Some("title".to_string()),
+            titles: Some({
+                let mut multilang = MultiLanguageBuilder::default();
+                multilang.add("it", "title1").add("en", "title2");
+                multilang
+            }),
+            description: Some("description".to_string()),
+            descriptions: Some({
+                let mut multilang = MultiLanguageBuilder::default();
+                multilang
+                    .add("it", "description1")
+                    .add("en", "description2");
+                multilang
+            }),
+            unit: Some("unit".to_string()),
+            read_only: true,
+            write_only: true,
+            format: Some("format".to_string()),
+            subtype: Some(UncheckedDataSchemaSubtype::Number(NumberSchema {
+                maximum: Some(5.),
+                ..Default::default()
+            })),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            DataSchema::try_from(data_schema).unwrap(),
+            DataSchema {
+                attype: Some(vec!["attype1".to_string(), "attype2".to_string()]),
+                title: Some("title".to_string()),
+                titles: Some(
+                    [
+                        ("it".parse().unwrap(), "title1".to_string()),
+                        ("en".parse().unwrap(), "title2".to_string())
+                    ]
+                    .into_iter()
+                    .collect()
+                ),
+                description: Some("description".to_string()),
+                descriptions: Some(
+                    [
+                        ("it".parse().unwrap(), "description1".to_string()),
+                        ("en".parse().unwrap(), "description2".to_string())
+                    ]
+                    .into_iter()
+                    .collect()
+                ),
+                unit: Some("unit".to_string()),
+                read_only: true,
+                write_only: true,
+                format: Some("format".to_string()),
+                subtype: Some(DataSchemaSubtype::Number(NumberSchema {
+                    maximum: Some(5.),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_unchecked_data_schema() {
+        let data_schema = UncheckedDataSchema::<Nil, Nil, Nil> {
+            attype: Some(vec!["attype1".to_string(), "attype2".to_string()]),
+            title: Some("title".to_string()),
+            titles: Some({
+                let mut multilang = MultiLanguageBuilder::default();
+                multilang.add("it", "title1").add("en", "title2");
+                multilang
+            }),
+            description: Some("description".to_string()),
+            descriptions: Some({
+                let mut multilang = MultiLanguageBuilder::default();
+                multilang
+                    .add("i1t", "description1")
+                    .add("en", "description2");
+                multilang
+            }),
+            unit: Some("unit".to_string()),
+            read_only: true,
+            write_only: true,
+            format: Some("format".to_string()),
+            subtype: Some(UncheckedDataSchemaSubtype::Number(NumberSchema {
+                maximum: Some(5.),
+                ..Default::default()
+            })),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            DataSchema::try_from(data_schema).unwrap_err(),
+            Error::InvalidLanguageTag("i1t".to_string()),
+        );
+    }
 }
