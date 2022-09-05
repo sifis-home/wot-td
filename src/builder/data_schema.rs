@@ -23,6 +23,7 @@ pub struct UncheckedDataSchema<DS, AS, OS> {
     description: Option<String>,
     descriptions: Option<MultiLanguageBuilder<String>>,
     constant: Option<Value>,
+    default: Option<Value>,
     unit: Option<String>,
     one_of: Option<Vec<Self>>,
     enumeration: Option<Vec<Value>>,
@@ -51,6 +52,7 @@ pub(crate) type UncheckedDataSchemaMap<Other> = HashMap<
 #[derive(Debug, PartialEq)]
 pub struct PartialDataSchemaBuilder<DS, AS, OS, Status> {
     constant: Option<Value>,
+    default: Option<Value>,
     unit: Option<String>,
     one_of: Vec<UncheckedDataSchema<DS, AS, OS>>,
     enumeration: Vec<Value>,
@@ -68,6 +70,7 @@ impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
     {
         PartialDataSchemaBuilder {
             constant: Default::default(),
+            default: Default::default(),
             unit: Default::default(),
             one_of: Default::default(),
             enumeration: Default::default(),
@@ -88,6 +91,7 @@ impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
     {
         let Self {
             constant,
+            default,
             unit,
             one_of: _,
             enumeration,
@@ -100,6 +104,7 @@ impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
         let other = other.ext_with(f);
         PartialDataSchemaBuilder {
             constant,
+            default,
             unit,
             one_of: Default::default(),
             enumeration,
@@ -122,6 +127,7 @@ impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
     pub fn finish_extend(self) -> PartialDataSchemaBuilder<DS, AS, OS, Extended> {
         let Self {
             constant,
+            default,
             unit,
             one_of,
             enumeration,
@@ -133,6 +139,7 @@ impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
         } = self;
         PartialDataSchemaBuilder {
             constant,
+            default,
             unit,
             one_of,
             enumeration,
@@ -152,6 +159,7 @@ where
     fn default() -> Self {
         Self {
             constant: Default::default(),
+            default: Default::default(),
             unit: Default::default(),
             one_of: Default::default(),
             enumeration: Default::default(),
@@ -167,6 +175,7 @@ where
 #[derive(Debug, Default, PartialEq)]
 pub struct PartialDataSchema<DS, AS, OS> {
     pub(super) constant: Option<Value>,
+    pub(super) default: Option<Value>,
     pub(super) unit: Option<String>,
     pub(super) one_of: Option<Vec<UncheckedDataSchema<DS, AS, OS>>>,
     pub(super) enumeration: Option<Vec<Value>>,
@@ -251,6 +260,7 @@ trait IntoDataSchema: Into<Self::Target> {
 pub trait BuildableDataSchema<DS, AS, OS, Status>: Sized {
     fn unit(self, value: impl Into<String>) -> Self;
     fn format(self, value: impl Into<String>) -> Self;
+    fn default_value(self, value: impl Into<Value>) -> Self;
 }
 
 pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, Extended> {
@@ -631,6 +641,11 @@ macro_rules! impl_delegate_buildable_data_schema {
             fn format(mut self, value: impl Into<String>) -> Self {
                 crate::builder::data_schema::buildable_data_schema_delegate!(self.$inner -> format(value))
             }
+
+            #[inline]
+            fn default_value(mut self, value: impl Into<Value>) -> Self {
+                crate::builder::data_schema::buildable_data_schema_delegate!(self.$inner -> default_value(value))
+            }
         }
 
         $(
@@ -653,6 +668,11 @@ macro_rules! impl_delegate_buildable_data_schema {
             #[inline]
             fn format(mut self, value: impl Into<String>) -> Self {
                 crate::builder::data_schema::buildable_data_schema_delegate!(self.$inner -> format(value))
+            }
+
+            #[inline]
+            fn default_value(mut self, value: impl Into<Value>) -> Self {
+                crate::builder::data_schema::buildable_data_schema_delegate!(self.$inner -> default_value(value))
             }
         }
 
@@ -691,6 +711,11 @@ impl<DS, AS, OS, Status> BuildableDataSchema<DS, AS, OS, Status>
     fn format(mut self, value: impl Into<String>) -> Self {
         buildable_data_schema_delegate!(self.partial-> format(value))
     }
+
+    #[inline]
+    fn default_value(mut self, value: impl Into<Value>) -> Self {
+        buildable_data_schema_delegate!(self.partial -> default_value(value))
+    }
 }
 
 pub(crate) use buildable_data_schema_delegate;
@@ -716,6 +741,11 @@ impl<DS, AS, OS, Status> BuildableDataSchema<DS, AS, OS, Status>
     for PartialDataSchemaBuilder<DS, AS, OS, Status>
 {
     trait_opt_field_builder!(unit: String, format: String);
+
+    fn default_value(mut self, value: impl Into<Value>) -> Self {
+        self.default = Some(value.into());
+        self
+    }
 }
 
 impl_delegate_buildable_hr_info!(
@@ -1132,6 +1162,7 @@ where
             partial:
                 PartialDataSchemaBuilder {
                     constant,
+                    default,
                     unit,
                     one_of: _,
                     enumeration: _,
@@ -1160,6 +1191,7 @@ where
             description,
             descriptions,
             constant,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1192,6 +1224,7 @@ where
         let StatelessDataSchemaBuilder { inner, ty } = builder;
         let PartialDataSchemaBuilder {
             constant,
+            default,
             unit,
             one_of: _,
             enumeration: _,
@@ -1206,6 +1239,7 @@ where
 
         PartialDataSchema {
             constant,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1234,6 +1268,7 @@ where
             partial:
                 PartialDataSchemaBuilder {
                     constant: _,
+                    default,
                     unit,
                     one_of: _,
                     enumeration: _,
@@ -1268,6 +1303,7 @@ where
             description,
             descriptions,
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1306,6 +1342,7 @@ where
         } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
+            default,
             unit,
             one_of: _,
             enumeration: _,
@@ -1326,6 +1363,7 @@ where
 
         PartialDataSchema {
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1353,6 +1391,7 @@ where
             partial:
                 PartialDataSchemaBuilder {
                     constant: _,
+                    default,
                     unit,
                     one_of: _,
                     enumeration: _,
@@ -1385,6 +1424,7 @@ where
             description,
             descriptions,
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1422,6 +1462,7 @@ where
         } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
+            default,
             unit,
             one_of: _,
             enumeration: _,
@@ -1440,6 +1481,7 @@ where
 
         PartialDataSchema {
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1466,6 +1508,7 @@ where
             partial:
                 PartialDataSchemaBuilder {
                     constant: _,
+                    default,
                     unit,
                     one_of: _,
                     enumeration: _,
@@ -1497,6 +1540,7 @@ where
             description,
             descriptions,
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1533,6 +1577,7 @@ where
         } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
+            default,
             unit,
             one_of: _,
             enumeration: _,
@@ -1550,6 +1595,7 @@ where
 
         PartialDataSchema {
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1577,6 +1623,7 @@ where
             partial:
                 PartialDataSchemaBuilder {
                     constant: _,
+                    default,
                     unit,
                     one_of: _,
                     enumeration: _,
@@ -1614,6 +1661,7 @@ where
             description,
             descriptions,
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1651,6 +1699,7 @@ where
         } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
+            default,
             unit,
             one_of: _,
             enumeration: _,
@@ -1674,6 +1723,7 @@ where
 
         PartialDataSchema {
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1696,6 +1746,7 @@ where
             partial:
                 PartialDataSchemaBuilder {
                     constant: _,
+                    default,
                     unit,
                     one_of: _,
                     enumeration: _,
@@ -1726,6 +1777,7 @@ where
             description,
             descriptions,
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1758,6 +1810,7 @@ where
         let StringDataSchemaBuilder { inner, max_length } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
+            default,
             unit,
             one_of: _,
             enumeration: _,
@@ -1774,6 +1827,7 @@ where
 
         PartialDataSchema {
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration: None,
@@ -1871,6 +1925,7 @@ where
             partial:
                 PartialDataSchemaBuilder {
                     constant: _,
+                    default,
                     unit,
                     one_of: _,
                     enumeration,
@@ -1898,6 +1953,7 @@ where
             description,
             descriptions,
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration,
@@ -1929,6 +1985,7 @@ where
     fn from(builder: EnumDataSchemaBuilder<T>) -> Self {
         let PartialDataSchemaBuilder {
             constant: _,
+            default,
             unit,
             one_of: _,
             enumeration,
@@ -1942,6 +1999,7 @@ where
         let enumeration = Some(enumeration);
         Self {
             constant: None,
+            default,
             unit,
             one_of: None,
             enumeration,
@@ -1963,6 +2021,7 @@ where
             partial:
                 PartialDataSchemaBuilder {
                     constant: _,
+                    default,
                     unit,
                     one_of,
                     enumeration: _,
@@ -1990,6 +2049,7 @@ where
             description,
             descriptions,
             constant: None,
+            default,
             unit,
             one_of,
             enumeration: None,
@@ -2021,6 +2081,7 @@ where
     fn from(builder: OneOfDataSchemaBuilder<T>) -> Self {
         let PartialDataSchemaBuilder {
             constant: _,
+            default,
             unit,
             one_of,
             enumeration: _,
@@ -2034,6 +2095,7 @@ where
         let one_of = Some(one_of);
         Self {
             constant: None,
+            default,
             unit,
             one_of,
             enumeration: None,
@@ -2145,6 +2207,7 @@ impl<DS, AS, OS> TryFrom<UncheckedDataSchema<DS, AS, OS>> for DataSchema<DS, AS,
             description,
             descriptions,
             constant,
+            default,
             unit,
             one_of,
             enumeration,
@@ -2176,6 +2239,7 @@ impl<DS, AS, OS> TryFrom<UncheckedDataSchema<DS, AS, OS>> for DataSchema<DS, AS,
             description,
             descriptions,
             constant,
+            default,
             unit,
             one_of,
             enumeration,
@@ -2297,6 +2361,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2317,6 +2382,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2342,6 +2408,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2362,6 +2429,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2387,6 +2455,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2407,6 +2476,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2434,6 +2504,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2459,6 +2530,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2489,6 +2561,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2512,6 +2585,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2541,6 +2615,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2564,6 +2639,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2592,6 +2668,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2616,6 +2693,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2649,6 +2727,7 @@ mod tests {
                 constant: Some(json!({
                     "hello": 42,
                 })),
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2672,6 +2751,7 @@ mod tests {
                 constant: Some(json!({
                     "hello": 42,
                 })),
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2701,6 +2781,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: Some(vec!["hello".into(), "world".into(), 42.into()]),
@@ -2724,6 +2805,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: Some(vec!["hello".into(), "world".into(), 42.into()]),
@@ -2752,6 +2834,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2774,6 +2857,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2797,6 +2881,7 @@ mod tests {
             DataSchemaBuilder {
                 partial: PartialDataSchemaBuilder {
                     constant: None,
+                    default: None,
                     unit: None,
                     one_of: vec![],
                     enumeration: vec![],
@@ -2821,6 +2906,7 @@ mod tests {
             data_schema_builder,
             PartialDataSchemaBuilder {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: vec![],
                 enumeration: vec![],
@@ -2849,6 +2935,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2871,6 +2958,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -2894,6 +2982,7 @@ mod tests {
             DataSchemaBuilder {
                 partial: PartialDataSchemaBuilder {
                     constant: None,
+                    default: None,
                     unit: None,
                     one_of: vec![],
                     enumeration: vec![],
@@ -2918,6 +3007,7 @@ mod tests {
             data_schema_builder,
             PartialDataSchemaBuilder {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: vec![],
                 enumeration: vec![],
@@ -2940,6 +3030,7 @@ mod tests {
             .titles(|b| b.add("en", "title_en").add("it", "title_it"))
             .description("description")
             .descriptions(|b| b.add("en", "description_en").add("it", "description_it"))
+            .default_value(["hello", "world"].as_slice())
             .unit("cm")
             .format("format")
             .try_into()
@@ -2963,6 +3054,7 @@ mod tests {
                         .collect()
                 ),
                 constant: None,
+                default: Some(json! { ["hello", "world"]}),
                 unit: Some("cm".to_string()),
                 one_of: None,
                 enumeration: None,
@@ -2986,6 +3078,7 @@ mod tests {
             .titles(|b| b.add("en", "title_en").add("it", "title_it"))
             .description("description")
             .descriptions(|b| b.add("en", "description_en").add("it", "description_it"))
+            .default_value(["hello", "world"].as_slice())
             .unit("cm")
             .format("format")
             .try_into()
@@ -3009,6 +3102,7 @@ mod tests {
                         .collect()
                 ),
                 constant: None,
+                default: Some(json! { ["hello", "world"]}),
                 unit: Some("cm".to_string()),
                 one_of: None,
                 enumeration: Some(vec!["variant1".into(), "variant2".into(), 3.into()]),
@@ -3027,6 +3121,7 @@ mod tests {
             .enumeration("hello")
             .enumeration("world")
             .title("title")
+            .default_value(["hello", "world"].as_slice())
             .read_only()
             .enumeration(42)
             .description("description")
@@ -3041,6 +3136,7 @@ mod tests {
                 description: Some("description".to_string()),
                 descriptions: None,
                 constant: None,
+                default: Some(json! { ["hello", "world"]}),
                 unit: None,
                 one_of: None,
                 enumeration: Some(vec!["hello".into(), "world".into(), 42.into()]),
@@ -3072,6 +3168,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -3087,6 +3184,7 @@ mod tests {
                             description: None,
                             descriptions: None,
                             constant: Some("hello".into()),
+                            default: None,
                             unit: None,
                             one_of: None,
                             enumeration: None,
@@ -3103,6 +3201,7 @@ mod tests {
                             description: None,
                             descriptions: None,
                             constant: None,
+                            default: None,
                             unit: None,
                             one_of: None,
                             enumeration: None,
@@ -3136,6 +3235,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -3151,6 +3251,7 @@ mod tests {
                             description: None,
                             descriptions: None,
                             constant: Some("hello".into()),
+                            default: None,
                             unit: None,
                             one_of: None,
                             enumeration: None,
@@ -3167,6 +3268,7 @@ mod tests {
                             description: None,
                             descriptions: None,
                             constant: None,
+                            default: None,
                             unit: None,
                             one_of: None,
                             enumeration: None,
@@ -3203,6 +3305,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -3221,6 +3324,7 @@ mod tests {
                                     description: None,
                                     descriptions: None,
                                     constant: None,
+                                    default: None,
                                     unit: None,
                                     one_of: None,
                                     enumeration: None,
@@ -3240,6 +3344,7 @@ mod tests {
                                     description: None,
                                     descriptions: None,
                                     constant: None,
+                                    default: None,
                                     unit: None,
                                     one_of: None,
                                     enumeration: None,
@@ -3278,6 +3383,7 @@ mod tests {
             data_schema,
             PartialDataSchema {
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -3296,6 +3402,7 @@ mod tests {
                                     description: None,
                                     descriptions: None,
                                     constant: None,
+                                    default: None,
                                     unit: None,
                                     one_of: None,
                                     enumeration: None,
@@ -3315,6 +3422,7 @@ mod tests {
                                     description: None,
                                     descriptions: None,
                                     constant: None,
+                                    default: None,
                                     unit: None,
                                     one_of: None,
                                     enumeration: None,
@@ -3360,6 +3468,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -3393,6 +3502,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -3425,6 +3535,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -3456,6 +3567,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: Some(vec![
                     DataSchema {
@@ -3465,6 +3577,7 @@ mod tests {
                         description: None,
                         descriptions: None,
                         constant: None,
+                        default: None,
                         unit: None,
                         one_of: None,
                         enumeration: None,
@@ -3485,6 +3598,7 @@ mod tests {
                         description: None,
                         descriptions: None,
                         constant: None,
+                        default: None,
                         unit: None,
                         one_of: None,
                         enumeration: None,
@@ -3504,6 +3618,7 @@ mod tests {
                         description: None,
                         descriptions: None,
                         constant: None,
+                        default: None,
                         unit: None,
                         one_of: None,
                         enumeration: None,
@@ -3544,6 +3659,7 @@ mod tests {
                 description: None,
                 descriptions: None,
                 constant: None,
+                default: None,
                 unit: None,
                 one_of: None,
                 enumeration: None,
@@ -3561,6 +3677,7 @@ mod tests {
                                 description: None,
                                 descriptions: None,
                                 constant: None,
+                                default: None,
                                 unit: None,
                                 one_of: Some(vec![
                                     DataSchema {
@@ -3570,6 +3687,7 @@ mod tests {
                                         description: None,
                                         descriptions: None,
                                         constant: None,
+                                        default: None,
                                         unit: None,
                                         one_of: None,
                                         enumeration: None,
@@ -3588,6 +3706,7 @@ mod tests {
                                         description: None,
                                         descriptions: None,
                                         constant: None,
+                                        default: None,
                                         unit: None,
                                         one_of: None,
                                         enumeration: None,
@@ -4001,6 +4120,7 @@ mod tests {
                 description: Default::default(),
                 descriptions: Default::default(),
                 constant: Default::default(),
+                default: Default::default(),
                 unit: Default::default(),
                 one_of: Default::default(),
                 enumeration: Default::default(),
@@ -4049,6 +4169,7 @@ mod tests {
                 description: Default::default(),
                 descriptions: Default::default(),
                 constant: Default::default(),
+                default: Default::default(),
                 unit: Default::default(),
                 one_of: Default::default(),
                 enumeration: Default::default(),
@@ -4124,6 +4245,7 @@ mod tests {
                                 description: Default::default(),
                                 descriptions: Default::default(),
                                 constant: Default::default(),
+                                default: Default::default(),
                                 unit: Default::default(),
                                 one_of: Default::default(),
                                 enumeration: Default::default(),
@@ -4142,6 +4264,7 @@ mod tests {
                 description: Default::default(),
                 descriptions: Default::default(),
                 constant: Default::default(),
+                default: Default::default(),
                 unit: Default::default(),
                 one_of: Default::default(),
                 enumeration: Default::default(),
