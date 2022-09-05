@@ -601,6 +601,8 @@ pub struct DataSchema<DS, AS, OS> {
     #[serde(rename = "const")]
     pub constant: Option<Value>,
 
+    pub default: Option<Value>,
+
     pub unit: Option<String>,
 
     pub one_of: Option<Vec<Self>>,

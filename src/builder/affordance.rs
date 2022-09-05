@@ -497,6 +497,11 @@ where
     fn format(mut self, value: impl Into<String>) -> Self {
         buildable_data_schema_delegate!(self.data_schema -> format(value))
     }
+
+    #[inline]
+    fn default_value(mut self, value: impl Into<Value>) -> Self {
+        buildable_data_schema_delegate!(self.data_schema -> default_value(value))
+    }
 }
 
 impl_delegate_buildable_hr_info!(
@@ -1859,6 +1864,7 @@ where
 
         let PartialDataSchema {
             constant,
+            default,
             unit,
             one_of,
             enumeration,
@@ -1915,6 +1921,7 @@ where
             description,
             descriptions,
             constant,
+            default,
             unit,
             one_of,
             enumeration,
@@ -2017,6 +2024,7 @@ where
 #[cfg(test)]
 mod test {
     use serde::{Deserialize, Serialize};
+    use serde_json::json;
 
     use crate::{
         builder::data_schema::{
@@ -2128,6 +2136,7 @@ mod test {
             (),
         >::default()
         .title("property")
+        .default_value(["hello", "world"].as_slice())
         .number()
         .observable(true)
         .form(|b| b.href("href"))
@@ -2164,6 +2173,7 @@ mod test {
                 data_schema: DataSchemaFromOther::<Nil> {
                     title: Some("property".to_owned()),
                     unit: Some("cm".to_owned()),
+                    default: Some(json! { ["hello", "world"] }),
                     read_only: true,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
                         minimum: Some(0.),
@@ -2627,6 +2637,7 @@ mod test {
                             description: Default::default(),
                             descriptions: Default::default(),
                             constant: Default::default(),
+                            default: Default::default(),
                             unit: Default::default(),
                             one_of: Default::default(),
                             enumeration: Default::default(),
@@ -2719,6 +2730,7 @@ mod test {
                                 description: Default::default(),
                                 descriptions: Default::default(),
                                 constant: Default::default(),
+                                default: Default::default(),
                                 unit: Default::default(),
                                 one_of: Default::default(),
                                 enumeration: Default::default(),
@@ -2748,6 +2760,7 @@ mod test {
                     description: Default::default(),
                     descriptions: Default::default(),
                     constant: Default::default(),
+                    default: Default::default(),
                     unit: Default::default(),
                     one_of: Default::default(),
                     enumeration: Default::default(),
@@ -2815,6 +2828,7 @@ mod test {
                                 description: Default::default(),
                                 descriptions: Default::default(),
                                 constant: Default::default(),
+                                default: Default::default(),
                                 unit: Default::default(),
                                 one_of: Default::default(),
                                 enumeration: Default::default(),
@@ -2848,6 +2862,7 @@ mod test {
                     description: Default::default(),
                     descriptions: Default::default(),
                     constant: Default::default(),
+                    default: Default::default(),
                     unit: Default::default(),
                     one_of: Default::default(),
                     enumeration: Default::default(),
@@ -2917,6 +2932,7 @@ mod test {
                                 description: Default::default(),
                                 descriptions: Default::default(),
                                 constant: Default::default(),
+                                default: Default::default(),
                                 unit: Default::default(),
                                 one_of: Default::default(),
                                 enumeration: Default::default(),
@@ -2950,6 +2966,7 @@ mod test {
                     description: Default::default(),
                     descriptions: Default::default(),
                     constant: Default::default(),
+                    default: Default::default(),
                     unit: Default::default(),
                     one_of: Default::default(),
                     enumeration: Default::default(),
