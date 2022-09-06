@@ -7,7 +7,12 @@
 //!
 //! [Interaction Affordance]: https://www.w3.org/TR/wot-thing-description/#interactionaffordance
 
-use std::{borrow::Cow, collections::HashMap, fmt};
+use std::{
+    borrow::Cow,
+    cmp::{self, Ordering},
+    collections::HashMap,
+    fmt,
+};
 
 use oxilangtag::LanguageTag;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -702,13 +707,168 @@ where
     }
 }
 
+/// A helper enum to represent an inclusive or exclusive maximum value.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub enum Maximum<T> {
+    /// An inclusive maximum value.
+    #[serde(rename = "maximum")]
+    Inclusive(T),
+
+    /// An exclusive maximum value.
+    #[serde(rename = "exclusiveMaximum")]
+    Exclusive(T),
+}
+
+/// A helper enum to represent an inclusive or exclusive minimum value.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub enum Minimum<T> {
+    /// An inclusive minimum value.
+    #[serde(rename = "minimum")]
+    Inclusive(T),
+
+    /// An exclusive minimum value.
+    #[serde(rename = "exclusiveMinimum")]
+    Exclusive(T),
+}
+
+impl<T> PartialOrd for Minimum<T>
+where
+    T: PartialOrd,
+{
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        match (self, other) {
+            (Minimum::Inclusive(a), Minimum::Inclusive(b))
+            | (Minimum::Exclusive(a), Minimum::Exclusive(b)) => a.partial_cmp(b),
+            (Minimum::Inclusive(a), Minimum::Exclusive(b)) => {
+                a.partial_cmp(b).and_then(|ord| match ord {
+                    Ordering::Less | Ordering::Equal => Some(Ordering::Less),
+                    Ordering::Greater => None,
+                })
+            }
+            (Minimum::Exclusive(a), Minimum::Inclusive(b)) => {
+                a.partial_cmp(b).and_then(|ord| match ord {
+                    Ordering::Less => None,
+                    Ordering::Equal | Ordering::Greater => Some(Ordering::Greater),
+                })
+            }
+        }
+    }
+}
+
+impl<T> PartialOrd for Maximum<T>
+where
+    T: PartialOrd,
+{
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (Maximum::Inclusive(a), Maximum::Inclusive(b))
+            | (Maximum::Exclusive(a), Maximum::Exclusive(b)) => a.partial_cmp(b),
+
+            (Maximum::Inclusive(a), Maximum::Exclusive(b)) => {
+                a.partial_cmp(b).and_then(|ord| match ord {
+                    Ordering::Less => None,
+                    Ordering::Equal | Ordering::Greater => Some(Ordering::Greater),
+                })
+            }
+
+            (Maximum::Exclusive(a), Maximum::Inclusive(b)) => {
+                a.partial_cmp(b).and_then(|ord| match ord {
+                    Ordering::Less | Ordering::Equal => Some(Ordering::Less),
+                    Ordering::Greater => None,
+                })
+            }
+        }
+    }
+}
+
+impl<T> PartialEq<Maximum<T>> for Minimum<T>
+where
+    T: PartialEq,
+{
+    #[inline]
+    fn eq(&self, other: &Maximum<T>) -> bool {
+        match (self, other) {
+            (Minimum::Inclusive(a), Maximum::Inclusive(b))
+            | (Minimum::Exclusive(a), Maximum::Exclusive(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl<T> PartialEq<Minimum<T>> for Maximum<T>
+where
+    T: PartialEq,
+{
+    #[inline]
+    fn eq(&self, other: &Minimum<T>) -> bool {
+        other == self
+    }
+}
+
+impl<T> PartialOrd<Maximum<T>> for Minimum<T>
+where
+    T: PartialOrd,
+{
+    #[inline]
+    fn partial_cmp(&self, other: &Maximum<T>) -> Option<cmp::Ordering> {
+        match (self, other) {
+            (Minimum::Inclusive(a), Maximum::Inclusive(b))
+            | (Minimum::Exclusive(a), Maximum::Exclusive(b)) => a.partial_cmp(b),
+
+            (Minimum::Exclusive(a), Maximum::Inclusive(b))
+            | (Minimum::Inclusive(a), Maximum::Exclusive(b)) => {
+                a.partial_cmp(b).and_then(|ord| match ord {
+                    Ordering::Less => None,
+                    Ordering::Equal | Ordering::Greater => Some(Ordering::Greater),
+                })
+            }
+        }
+    }
+}
+
+impl<T> PartialOrd<Minimum<T>> for Maximum<T>
+where
+    T: PartialOrd,
+{
+    #[inline]
+    fn partial_cmp(&self, other: &Minimum<T>) -> Option<Ordering> {
+        other.partial_cmp(self).map(Ordering::reverse)
+    }
+}
+
+macro_rules! impl_minmax_float {
+    (@ $ty:ident $float_type:ty) => {
+        impl $ty<$float_type> {
+            pub fn is_nan(&self) -> bool {
+                match self {
+                    Self::Inclusive(x) => x.is_nan(),
+                    Self::Exclusive(x) => x.is_nan(),
+                }
+            }
+        }
+    };
+
+    ($($float_type:ty),*) => {
+        $(
+            impl_minmax_float!(@ Minimum $float_type);
+            impl_minmax_float!(@ Maximum $float_type);
+        )*
+    };
+}
+
+impl_minmax_float!(f32, f64);
+
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NumberSchema {
-    pub maximum: Option<f64>,
+    #[serde(flatten)]
+    pub maximum: Option<Maximum<f64>>,
 
-    pub minimum: Option<f64>,
+    #[serde(flatten)]
+    pub minimum: Option<Minimum<f64>>,
 
     pub multiple_of: Option<f64>,
 }
@@ -717,9 +877,11 @@ pub struct NumberSchema {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 // FIXME: we should probably use a Decimal type
 pub struct IntegerSchema {
-    pub maximum: Option<usize>,
+    #[serde(flatten)]
+    pub maximum: Option<Maximum<usize>>,
 
-    pub minimum: Option<usize>,
+    #[serde(flatten)]
+    pub minimum: Option<Minimum<usize>>,
 }
 
 #[skip_serializing_none]
@@ -2432,5 +2594,288 @@ mod test {
             ComboSecurityScheme::AllOf(vec!["data1".to_string(), "data2".to_string()]),
         );
         assert_eq!(serde_json::to_value(combo).unwrap(), raw_data);
+    }
+
+    #[test]
+    fn minimum_partial_ord_trivial() {
+        assert_eq!(
+            Minimum::Inclusive(5).partial_cmp(&Minimum::Inclusive(5)),
+            Some(Ordering::Equal),
+        );
+        assert_eq!(
+            Minimum::Inclusive(5).partial_cmp(&Minimum::Inclusive(6)),
+            Some(Ordering::Less),
+        );
+        assert_eq!(
+            Minimum::Inclusive(6).partial_cmp(&Minimum::Inclusive(5)),
+            Some(Ordering::Greater),
+        );
+
+        assert_eq!(
+            Minimum::Exclusive(5).partial_cmp(&Minimum::Exclusive(5)),
+            Some(Ordering::Equal),
+        );
+        assert_eq!(
+            Minimum::Exclusive(5).partial_cmp(&Minimum::Exclusive(6)),
+            Some(Ordering::Less),
+        );
+        assert_eq!(
+            Minimum::Exclusive(6).partial_cmp(&Minimum::Exclusive(5)),
+            Some(Ordering::Greater),
+        );
+    }
+
+    #[test]
+    fn minimum_partial_ord_complex() {
+        assert_eq!(
+            Minimum::Inclusive(4).partial_cmp(&Minimum::Exclusive(5)),
+            Some(Ordering::Less),
+        );
+
+        assert_eq!(
+            Minimum::Inclusive(5).partial_cmp(&Minimum::Exclusive(5)),
+            Some(Ordering::Less),
+        );
+
+        assert_eq!(
+            Minimum::Inclusive(6).partial_cmp(&Minimum::Exclusive(5)),
+            None,
+        );
+
+        assert_eq!(
+            Minimum::Exclusive(4).partial_cmp(&Minimum::Inclusive(5)),
+            None,
+        );
+
+        assert_eq!(
+            Minimum::Exclusive(5).partial_cmp(&Minimum::Inclusive(5)),
+            Some(Ordering::Greater),
+        );
+
+        assert_eq!(
+            Minimum::Exclusive(6).partial_cmp(&Minimum::Inclusive(5)),
+            Some(Ordering::Greater),
+        );
+    }
+
+    #[test]
+    fn maximum_partial_ord_trivial() {
+        use std::cmp::Ordering;
+        assert_eq!(
+            Maximum::Inclusive(5).partial_cmp(&Maximum::Inclusive(5)),
+            Some(Ordering::Equal),
+        );
+        assert_eq!(
+            Maximum::Inclusive(5).partial_cmp(&Maximum::Inclusive(6)),
+            Some(Ordering::Less),
+        );
+        assert_eq!(
+            Maximum::Inclusive(6).partial_cmp(&Maximum::Inclusive(5)),
+            Some(Ordering::Greater),
+        );
+
+        assert_eq!(
+            Maximum::Exclusive(5).partial_cmp(&Maximum::Exclusive(5)),
+            Some(Ordering::Equal),
+        );
+        assert_eq!(
+            Maximum::Exclusive(5).partial_cmp(&Maximum::Exclusive(6)),
+            Some(Ordering::Less),
+        );
+        assert_eq!(
+            Maximum::Exclusive(6).partial_cmp(&Maximum::Exclusive(5)),
+            Some(Ordering::Greater),
+        );
+    }
+
+    #[test]
+    fn maximum_partial_ord_complex() {
+        assert_eq!(
+            Maximum::Inclusive(4).partial_cmp(&Maximum::Exclusive(5)),
+            None,
+        );
+
+        assert_eq!(
+            Maximum::Inclusive(5).partial_cmp(&Maximum::Exclusive(5)),
+            Some(Ordering::Greater),
+        );
+
+        assert_eq!(
+            Maximum::Inclusive(6).partial_cmp(&Maximum::Exclusive(5)),
+            Some(Ordering::Greater),
+        );
+
+        assert_eq!(
+            Maximum::Exclusive(4).partial_cmp(&Maximum::Inclusive(5)),
+            Some(Ordering::Less)
+        );
+
+        assert_eq!(
+            Maximum::Exclusive(5).partial_cmp(&Maximum::Inclusive(5)),
+            Some(Ordering::Less),
+        );
+
+        assert_eq!(
+            Maximum::Exclusive(6).partial_cmp(&Maximum::Inclusive(5)),
+            None
+        );
+    }
+
+    #[test]
+    fn minimum_maximum_mixed_partial_ord_trivial() {
+        assert_eq!(
+            Minimum::Inclusive(4).partial_cmp(&Maximum::Inclusive(5)),
+            Some(Ordering::Less),
+        );
+        assert_eq!(
+            Minimum::Inclusive(5).partial_cmp(&Maximum::Inclusive(5)),
+            Some(Ordering::Equal),
+        );
+        assert_eq!(
+            Minimum::Inclusive(6).partial_cmp(&Maximum::Inclusive(5)),
+            Some(Ordering::Greater),
+        );
+
+        assert_eq!(
+            Maximum::Inclusive(4).partial_cmp(&Minimum::Inclusive(5)),
+            Some(Ordering::Less),
+        );
+        assert_eq!(
+            Maximum::Inclusive(5).partial_cmp(&Minimum::Inclusive(5)),
+            Some(Ordering::Equal),
+        );
+        assert_eq!(
+            Maximum::Inclusive(6).partial_cmp(&Minimum::Inclusive(5)),
+            Some(Ordering::Greater),
+        );
+    }
+
+    #[test]
+    fn minimum_maximum_mixed_partial_ord_complex() {
+        assert_eq!(
+            Minimum::Inclusive(4).partial_cmp(&Maximum::Exclusive(5)),
+            None,
+        );
+        assert_eq!(
+            Minimum::Inclusive(5).partial_cmp(&Maximum::Exclusive(5)),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            Minimum::Inclusive(6).partial_cmp(&Maximum::Exclusive(5)),
+            Some(Ordering::Greater)
+        );
+
+        assert_eq!(
+            Minimum::Exclusive(4).partial_cmp(&Maximum::Inclusive(5)),
+            None,
+        );
+        assert_eq!(
+            Minimum::Exclusive(5).partial_cmp(&Maximum::Inclusive(5)),
+            Some(Ordering::Greater),
+        );
+        assert_eq!(
+            Minimum::Exclusive(6).partial_cmp(&Maximum::Inclusive(5)),
+            Some(Ordering::Greater),
+        );
+
+        assert_eq!(
+            Maximum::Inclusive(4).partial_cmp(&Minimum::Exclusive(5)),
+            Some(Ordering::Less),
+        );
+        assert_eq!(
+            Maximum::Inclusive(5).partial_cmp(&Minimum::Exclusive(5)),
+            Some(Ordering::Less),
+        );
+        assert_eq!(
+            Maximum::Inclusive(6).partial_cmp(&Minimum::Exclusive(5)),
+            None,
+        );
+
+        assert_eq!(
+            Maximum::Exclusive(4).partial_cmp(&Minimum::Inclusive(5)),
+            Some(Ordering::Less),
+        );
+        assert_eq!(
+            Maximum::Exclusive(5).partial_cmp(&Minimum::Inclusive(5)),
+            Some(Ordering::Less),
+        );
+        assert_eq!(
+            Maximum::Exclusive(6).partial_cmp(&Minimum::Inclusive(5)),
+            None,
+        );
+    }
+
+    #[test]
+    fn serde_number_schema() {
+        let data: NumberSchema = serde_json::from_value(json! {
+            {
+                "minimum": 0.5,
+                "maximum": 1.,
+                "multipleOf": 0.5,
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            data,
+            NumberSchema {
+                minimum: Some(Minimum::Inclusive(0.5)),
+                maximum: Some(Maximum::Inclusive(1.)),
+                multiple_of: Some(0.5),
+            },
+        );
+
+        let data: NumberSchema = serde_json::from_value(json! {
+            {
+                "exclusiveMinimum": 0.5,
+                "exclusiveMaximum": 1.,
+                "multipleOf": 0.5,
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            data,
+            NumberSchema {
+                minimum: Some(Minimum::Exclusive(0.5)),
+                maximum: Some(Maximum::Exclusive(1.)),
+                multiple_of: Some(0.5),
+            },
+        );
+    }
+
+    #[test]
+    fn serde_integer_schema() {
+        let data: IntegerSchema = serde_json::from_value(json! {
+            {
+                "minimum": 5,
+                "maximum": 10,
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            data,
+            IntegerSchema {
+                minimum: Some(Minimum::Inclusive(5)),
+                maximum: Some(Maximum::Inclusive(10)),
+            },
+        );
+
+        let data: IntegerSchema = serde_json::from_value(json! {
+            {
+                "exclusiveMinimum": 5,
+                "exclusiveMaximum": 10,
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            data,
+            IntegerSchema {
+                minimum: Some(Minimum::Exclusive(5)),
+                maximum: Some(Maximum::Exclusive(10)),
+            },
+        );
     }
 }

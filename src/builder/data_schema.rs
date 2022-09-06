@@ -1,10 +1,11 @@
-use std::{collections::HashMap, marker::PhantomData, ops::Not};
+use std::{cmp::Ordering, collections::HashMap, marker::PhantomData, ops::Not};
 
 use crate::{
     extend::{Extend, Extendable, ExtendableThing},
     thing::{
-        ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, NumberSchema, ObjectSchema,
-        StringSchema, UncheckedArraySchema, UncheckedDataSchemaSubtype, UncheckedObjectSchema,
+        ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, Maximum, Minimum, NumberSchema,
+        ObjectSchema, StringSchema, UncheckedArraySchema, UncheckedDataSchemaSubtype,
+        UncheckedObjectSchema,
     },
 };
 
@@ -334,15 +335,15 @@ pub struct ArrayDataSchemaBuilder<Inner, DS, AS, OS> {
 
 pub struct NumberDataSchemaBuilder<Inner> {
     inner: Inner,
-    maximum: Option<f64>,
-    minimum: Option<f64>,
+    maximum: Option<Maximum<f64>>,
+    minimum: Option<Minimum<f64>>,
     multiple_of: Option<f64>,
 }
 
 pub struct IntegerDataSchemaBuilder<Inner> {
     inner: Inner,
-    maximum: Option<usize>,
-    minimum: Option<usize>,
+    maximum: Option<Maximum<usize>>,
+    minimum: Option<Minimum<usize>>,
 }
 
 pub struct ObjectDataSchemaBuilder<Inner, DS, AS, OS> {
@@ -402,11 +403,22 @@ pub trait ArrayDataSchemaBuilderLike<DS, AS, OS> {
 }
 
 pub trait NumberDataSchemaBuilderLike<DS, AS, OS> {
-    opt_field_decl!(minimum: f64, maximum: f64, multiple_of: f64);
+    opt_field_decl!(
+        minimum: f64,
+        maximum: f64,
+        exclusive_minimum: f64,
+        exclusive_maximum: f64,
+        multiple_of: f64,
+    );
 }
 
 pub trait IntegerDataSchemaBuilderLike<DS, AS, OS> {
-    opt_field_decl!(minimum: usize, maximum: usize);
+    opt_field_decl!(
+        minimum: usize,
+        maximum: usize,
+        exclusive_minimum: usize,
+        exclusive_maximum: usize,
+    );
 }
 
 pub trait ObjectDataSchemaBuilderLike<DS, AS, OS> {
@@ -454,13 +466,51 @@ where
 impl<Inner: BuildableDataSchema<DS, AS, OS, Extended>, DS, AS, OS>
     NumberDataSchemaBuilderLike<DS, AS, OS> for NumberDataSchemaBuilder<Inner>
 {
-    opt_field_builder!(minimum: f64, maximum: f64, multiple_of: f64);
+    opt_field_builder!(multiple_of: f64);
+
+    fn minimum(mut self, value: f64) -> Self {
+        self.minimum = Some(Minimum::Inclusive(value));
+        self
+    }
+
+    fn exclusive_minimum(mut self, value: f64) -> Self {
+        self.minimum = Some(Minimum::Exclusive(value));
+        self
+    }
+
+    fn maximum(mut self, value: f64) -> Self {
+        self.maximum = Some(Maximum::Inclusive(value));
+        self
+    }
+
+    fn exclusive_maximum(mut self, value: f64) -> Self {
+        self.maximum = Some(Maximum::Exclusive(value));
+        self
+    }
 }
 
 impl<Inner: BuildableDataSchema<DS, AS, OS, Extended>, DS, AS, OS>
     IntegerDataSchemaBuilderLike<DS, AS, OS> for IntegerDataSchemaBuilder<Inner>
 {
-    opt_field_builder!(minimum: usize, maximum: usize);
+    fn minimum(mut self, value: usize) -> Self {
+        self.minimum = Some(Minimum::Inclusive(value));
+        self
+    }
+
+    fn exclusive_minimum(mut self, value: usize) -> Self {
+        self.minimum = Some(Minimum::Exclusive(value));
+        self
+    }
+
+    fn maximum(mut self, value: usize) -> Self {
+        self.maximum = Some(Maximum::Inclusive(value));
+        self
+    }
+
+    fn exclusive_maximum(mut self, value: usize) -> Self {
+        self.maximum = Some(Maximum::Exclusive(value));
+        self
+    }
 }
 
 impl<Inner, DS, AS, OS> ObjectDataSchemaBuilderLike<DS, AS, OS>
@@ -541,6 +591,18 @@ macro_rules! impl_inner_delegate_schema_builder_like_number {
         }
 
         #[inline]
+        fn exclusive_minimum(mut self, value: f64) -> Self {
+            self.$inner = self.$inner.exclusive_minimum(value);
+            self
+        }
+
+        #[inline]
+        fn exclusive_maximum(mut self, value: f64) -> Self {
+            self.$inner = self.$inner.exclusive_maximum(value);
+            self
+        }
+
+        #[inline]
         fn multiple_of(mut self, value: f64) -> Self {
             self.$inner = self.$inner.multiple_of(value);
             self
@@ -559,6 +621,18 @@ macro_rules! impl_inner_delegate_schema_builder_like_integer {
         #[inline]
         fn maximum(mut self, value: usize) -> Self {
             self.$inner = self.$inner.maximum(value);
+            self
+        }
+
+        #[inline]
+        fn exclusive_minimum(mut self, value: usize) -> Self {
+            self.$inner = self.$inner.exclusive_minimum(value);
+            self
+        }
+
+        #[inline]
+        fn exclusive_maximum(mut self, value: usize) -> Self {
+            self.$inner = self.$inner.exclusive_maximum(value);
             self
         }
     };
@@ -2140,7 +2214,11 @@ pub(super) fn check_data_schema_subtype<DS, AS, OS>(
             match subtype {
                 Array(array) => {
                     match (array.min_items, array.max_items) {
-                        (Some(min), Some(max)) if min > max => return Err(Error::InvalidMinMax),
+                        (Some(min), Some(max))
+                            if matches!(min.partial_cmp(&max), None | Some(Ordering::Greater)) =>
+                        {
+                            return Err(Error::InvalidMinMax)
+                        }
                         _ => {}
                     };
 
@@ -2150,8 +2228,13 @@ pub(super) fn check_data_schema_subtype<DS, AS, OS>(
                 }
                 Number(number) => {
                     match (number.minimum, number.maximum) {
-                        (Some(x), _) | (_, Some(x)) if x.is_nan() => return Err(Error::NanMinMax),
-                        (Some(min), Some(max)) if min > max => return Err(Error::InvalidMinMax),
+                        (Some(x), _) if x.is_nan() => return Err(Error::NanMinMax),
+                        (_, Some(x)) if x.is_nan() => return Err(Error::NanMinMax),
+                        (Some(min), Some(max))
+                            if matches!(min.partial_cmp(&max), None | Some(Ordering::Greater)) =>
+                        {
+                            return Err(Error::InvalidMinMax)
+                        }
                         _ => {}
                     }
 
@@ -2163,7 +2246,11 @@ pub(super) fn check_data_schema_subtype<DS, AS, OS>(
                     }
                 }
                 Integer(integer) => match (integer.minimum, integer.maximum) {
-                    (Some(min), Some(max)) if min > max => return Err(Error::InvalidMinMax),
+                    (Some(min), Some(max))
+                        if matches!(min.partial_cmp(&max), None | Some(Ordering::Greater)) =>
+                    {
+                        return Err(Error::InvalidMinMax)
+                    }
                     _ => {}
                 },
                 Object(UncheckedObjectSchema {
@@ -3455,7 +3542,7 @@ mod tests {
     fn integer_with_data() {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .integer()
-            .minimum(10)
+            .exclusive_minimum(10)
             .maximum(5)
             .try_into()
             .unwrap();
@@ -3476,8 +3563,38 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
-                    maximum: Some(5),
-                    minimum: Some(10),
+                    maximum: Some(Maximum::Inclusive(5)),
+                    minimum: Some(Minimum::Exclusive(10)),
+                })),
+                other: Nil,
+            },
+        );
+
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+            .integer()
+            .minimum(10)
+            .exclusive_maximum(5)
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            data_schema,
+            DataSchema {
+                attype: None,
+                title: None,
+                titles: None,
+                description: None,
+                descriptions: None,
+                constant: None,
+                default: None,
+                unit: None,
+                one_of: None,
+                enumeration: None,
+                read_only: false,
+                write_only: false,
+                format: None,
+                subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
+                    maximum: Some(Maximum::Exclusive(5)),
+                    minimum: Some(Minimum::Inclusive(10)),
                 })),
                 other: Nil,
             },
@@ -3488,7 +3605,7 @@ mod tests {
     fn number_with_data() {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .number()
-            .minimum(10.)
+            .exclusive_minimum(10.)
             .maximum(5.)
             .multiple_of(2.)
             .try_into()
@@ -3510,8 +3627,40 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                    maximum: Some(5.),
-                    minimum: Some(10.),
+                    maximum: Some(Maximum::Inclusive(5.)),
+                    minimum: Some(Minimum::Exclusive(10.)),
+                    multiple_of: Some(2.),
+                })),
+                other: Nil,
+            },
+        );
+
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+            .number()
+            .minimum(10.)
+            .exclusive_maximum(5.)
+            .multiple_of(2.)
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            data_schema,
+            DataSchema {
+                attype: None,
+                title: None,
+                titles: None,
+                description: None,
+                descriptions: None,
+                constant: None,
+                default: None,
+                unit: None,
+                one_of: None,
+                enumeration: None,
+                read_only: false,
+                write_only: false,
+                format: None,
+                subtype: Some(DataSchemaSubtype::Number(NumberSchema {
+                    maximum: Some(Maximum::Exclusive(5.)),
+                    minimum: Some(Minimum::Inclusive(10.)),
                     multiple_of: Some(2.),
                 })),
                 other: Nil,
@@ -3973,6 +4122,41 @@ mod tests {
                     b.finish_extend().integer().minimum(10).maximum(20)
                 })
             })
+            .into();
+
+        assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
+    }
+
+    #[test]
+    fn check_invalid_data_schema_with_complex_minmax() {
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+            .integer()
+            .exclusive_minimum(2)
+            .maximum(2)
+            .into();
+
+        assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
+
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+            .integer()
+            .minimum(2)
+            .exclusive_maximum(2)
+            .into();
+
+        assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
+
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+            .number()
+            .exclusive_minimum(2.)
+            .maximum(2.)
+            .into();
+
+        assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
+
+        let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+            .number()
+            .minimum(2.)
+            .exclusive_maximum(2.)
             .into();
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMinMax);
@@ -4591,7 +4775,7 @@ mod tests {
             write_only: true,
             format: Some("format".to_string()),
             subtype: Some(UncheckedDataSchemaSubtype::Number(NumberSchema {
-                maximum: Some(5.),
+                maximum: Some(Maximum::Inclusive(5.)),
                 ..Default::default()
             })),
             ..Default::default()
@@ -4624,7 +4808,7 @@ mod tests {
                 write_only: true,
                 format: Some("format".to_string()),
                 subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                    maximum: Some(5.),
+                    maximum: Some(Maximum::Inclusive(5.)),
                     ..Default::default()
                 })),
                 ..Default::default()
@@ -4655,7 +4839,7 @@ mod tests {
             write_only: true,
             format: Some("format".to_string()),
             subtype: Some(UncheckedDataSchemaSubtype::Number(NumberSchema {
-                maximum: Some(5.),
+                maximum: Some(Maximum::Inclusive(5.)),
                 ..Default::default()
             })),
             ..Default::default()
