@@ -2131,7 +2131,8 @@ mod tests {
         hlist::{Cons, Nil},
         thing::{
             ActionAffordance, DataSchema, DataSchemaSubtype, EventAffordance,
-            InteractionAffordance, NumberSchema, ObjectSchema, PropertyAffordance, StringSchema,
+            InteractionAffordance, Maximum, Minimum, NumberSchema, ObjectSchema,
+            PropertyAffordance, StringSchema,
         },
     };
 
@@ -3641,7 +3642,7 @@ mod tests {
                             "schema2".to_string(),
                             DataSchema {
                                 subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                                    minimum: Some(5.),
+                                    minimum: Some(Minimum::Inclusive(5.)),
                                     ..Default::default()
                                 })),
                                 ..Default::default()
@@ -4241,8 +4242,8 @@ mod tests {
                             input: Some(DataSchema {
                                 title: Some("input".to_string()),
                                 subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                                    minimum: Some(0.),
-                                    maximum: Some(5.),
+                                    minimum: Some(Minimum::Inclusive(0.)),
+                                    maximum: Some(Maximum::Inclusive(5.)),
                                     ..Default::default()
                                 })),
                                 other: Nil::cons(DataSchemaExtA { h: 25 })

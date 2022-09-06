@@ -2033,7 +2033,7 @@ mod test {
         hlist::{Cons, Nil},
         thing::{
             DataSchemaFromOther, DataSchemaSubtype, DefaultedFormOperations, FormOperation,
-            NumberSchema,
+            Minimum, NumberSchema,
         },
     };
 
@@ -2176,7 +2176,7 @@ mod test {
                     default: Some(json! { ["hello", "world"] }),
                     read_only: true,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        minimum: Some(0.),
+                        minimum: Some(Minimum::Inclusive(0.)),
                         ..Default::default()
                     })),
                     ..Default::default()
@@ -2313,7 +2313,7 @@ mod test {
                     unit: Some("cm".to_owned()),
                     read_only: true,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        minimum: Some(0.),
+                        minimum: Some(Minimum::Inclusive(0.)),
                         ..Default::default()
                     })),
                     ..Default::default()
@@ -2366,7 +2366,7 @@ mod test {
                     unit: Some("cm".to_owned()),
                     read_only: true,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        minimum: Some(0.),
+                        minimum: Some(Minimum::Inclusive(0.)),
                         ..Default::default()
                     })),
                     ..Default::default()
@@ -2375,7 +2375,7 @@ mod test {
                     unit: Some("cm".to_owned()),
                     read_only: true,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        minimum: Some(0.),
+                        minimum: Some(Minimum::Inclusive(0.)),
                         ..Default::default()
                     })),
                     ..Default::default()
@@ -2420,7 +2420,7 @@ mod test {
                     unit: Some("cm".to_owned()),
                     read_only: true,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        minimum: Some(0.),
+                        minimum: Some(Minimum::Inclusive(0.)),
                         ..Default::default()
                     })),
                     ..Default::default()
@@ -2469,7 +2469,7 @@ mod test {
                     unit: Some("cm".to_owned()),
                     read_only: true,
                     subtype: Some(DataSchemaSubtype::Number(NumberSchema {
-                        minimum: Some(0.),
+                        minimum: Some(Minimum::Inclusive(0.)),
                         ..Default::default()
                     })),
                     ..Default::default()
