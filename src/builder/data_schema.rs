@@ -355,7 +355,11 @@ pub struct ObjectDataSchemaBuilder<Inner, DS, AS, OS> {
 
 pub struct StringDataSchemaBuilder<Inner> {
     inner: Inner,
+    min_length: Option<u32>,
     max_length: Option<u32>,
+    pattern: Option<String>,
+    content_encoding: Option<String>,
+    content_media_type: Option<String>,
 }
 
 pub struct EnumDataSchemaBuilder<Inner> {
@@ -388,6 +392,14 @@ macro_rules! opt_field_decl {
     ($($field:ident : $ty:ty),* $(,)?) => {
         $(
             fn $field(self, value: $ty) -> Self;
+        )*
+    };
+}
+
+macro_rules! opt_field_into_decl {
+    ($($field:ident : $ty:ty),* $(,)?) => {
+        $(
+            fn $field(self, value: impl Into<$ty>) -> Self;
         )*
     };
 }
@@ -430,7 +442,13 @@ pub trait ObjectDataSchemaBuilderLike<DS, AS, OS> {
 }
 
 pub trait StringDataSchemaBuilderLike<DS, AS, OS> {
-    opt_field_decl!(max_length: u32);
+    opt_field_decl!(min_length: u32, max_length: u32);
+
+    opt_field_into_decl!(
+        pattern: String,
+        content_encoding: String,
+        content_media_type: String,
+    );
 }
 
 macro_rules! opt_field_builder {
@@ -438,6 +456,17 @@ macro_rules! opt_field_builder {
         $(
             fn $field(mut self, value: $ty) -> Self {
                 self.$field = Some(value);
+                self
+            }
+        )*
+    };
+}
+
+macro_rules! opt_field_into_builder {
+    ($($field:ident : $ty:ty),* $(,)?) => {
+        $(
+            fn $field(mut self, value: impl Into<$ty>) -> Self {
+                self.$field = Some(value.into());
                 self
             }
         )*
@@ -539,7 +568,13 @@ where
 impl<Inner: BuildableDataSchema<DS, AS, OS, Extended>, DS, AS, OS>
     StringDataSchemaBuilderLike<DS, AS, OS> for StringDataSchemaBuilder<Inner>
 {
-    opt_field_builder!(max_length: u32);
+    opt_field_builder!(min_length: u32, max_length: u32);
+
+    opt_field_into_builder!(
+        pattern: String,
+        content_encoding: String,
+        content_media_type: String,
+    );
 }
 
 macro_rules! impl_inner_delegate_schema_builder_like_array {
@@ -932,7 +967,11 @@ macro_rules! impl_specializable_data_schema {
                 fn string(self) -> Self::String {
                     StringDataSchemaBuilder {
                         inner: self,
+                        min_length: Default::default(),
                         max_length: Default::default(),
+                        pattern: Default::default(),
+                        content_encoding: Default::default(),
+                        content_media_type: Default::default(),
                     }
                 }
 
@@ -1815,7 +1854,15 @@ where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
     fn from(builder: StringDataSchemaBuilder<T>) -> Self {
-        let StringDataSchemaBuilder { inner, max_length } = builder;
+        let StringDataSchemaBuilder {
+            inner,
+            min_length,
+            max_length,
+            pattern,
+            content_encoding,
+            content_media_type,
+        } = builder;
+
         let DataSchemaBuilder {
             partial:
                 PartialDataSchemaBuilder {
@@ -1841,7 +1888,11 @@ where
         } = inner.into();
 
         let subtype = Some(UncheckedDataSchemaSubtype::String(StringSchema {
+            min_length,
             max_length,
+            pattern,
+            content_encoding,
+            content_media_type,
         }));
 
         UncheckedDataSchema {
@@ -1881,7 +1932,15 @@ where
     T: Into<PartialDataSchemaBuilder<DS, AS, OS, Extended>>,
 {
     fn from(builder: StringDataSchemaBuilder<T>) -> Self {
-        let StringDataSchemaBuilder { inner, max_length } = builder;
+        let StringDataSchemaBuilder {
+            inner,
+            min_length,
+            max_length,
+            pattern,
+            content_encoding,
+            content_media_type,
+        } = builder;
+
         let PartialDataSchemaBuilder {
             constant: _,
             default,
@@ -1896,7 +1955,11 @@ where
         } = inner.into();
 
         let subtype = Some(UncheckedDataSchemaSubtype::String(StringSchema {
+            min_length,
             max_length,
+            pattern,
+            content_encoding,
+            content_media_type,
         }));
 
         PartialDataSchema {
@@ -2549,7 +2612,13 @@ mod tests {
                 read_only: false,
                 write_only: false,
                 format: None,
-                subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
+                subtype: Some(DataSchemaSubtype::String(StringSchema {
+                    max_length: None,
+                    min_length: None,
+                    pattern: None,
+                    content_encoding: None,
+                    content_media_type: None,
+                })),
                 other: Nil,
             }
         );
@@ -2571,7 +2640,11 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(UncheckedDataSchemaSubtype::String(StringSchema {
-                    max_length: None
+                    min_length: None,
+                    max_length: None,
+                    pattern: None,
+                    content_encoding: None,
+                    content_media_type: None,
                 })),
                 other: Nil,
             }
@@ -3672,7 +3745,11 @@ mod tests {
     fn string_with_data() {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .string()
+            .min_length(5)
             .max_length(32)
+            .pattern("pattern")
+            .content_encoding("content encoding")
+            .content_media_type("content media type")
             .try_into()
             .unwrap();
         assert_eq!(
@@ -3692,7 +3769,11 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::String(StringSchema {
+                    min_length: Some(5),
                     max_length: Some(32),
+                    pattern: Some("pattern".to_string()),
+                    content_encoding: Some("content encoding".to_string()),
+                    content_media_type: Some("content media type".to_string()),
                 })),
                 other: Nil,
             },
@@ -3774,7 +3855,13 @@ mod tests {
                         read_only: false,
                         write_only: false,
                         format: None,
-                        subtype: Some(DataSchemaSubtype::String(StringSchema { max_length: None })),
+                        subtype: Some(DataSchemaSubtype::String(StringSchema {
+                            min_length: None,
+                            max_length: None,
+                            pattern: None,
+                            content_encoding: None,
+                            content_media_type: None,
+                        })),
                         other: Nil,
                     },
                 ]),
@@ -3844,7 +3931,11 @@ mod tests {
                                         write_only: false,
                                         format: None,
                                         subtype: Some(DataSchemaSubtype::String(StringSchema {
-                                            max_length: None
+                                            min_length: None,
+                                            max_length: None,
+                                            pattern: None,
+                                            content_encoding: None,
+                                            content_media_type: None,
                                         })),
                                         other: Nil,
                                     },
