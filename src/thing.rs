@@ -932,7 +932,14 @@ where
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StringSchema {
+    pub min_length: Option<u32>,
     pub max_length: Option<u32>,
+    // TODO: this should be a validated against EcmaScript dialect of regexes
+    pub pattern: Option<String>,
+    // TODO: this should be validated against RFC 2045
+    pub content_encoding: Option<String>,
+    // TODO: this should be validated against RFC 2046
+    pub content_media_type: Option<String>,
 }
 
 #[serde_as]
