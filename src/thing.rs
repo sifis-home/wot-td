@@ -1022,6 +1022,7 @@ pub enum SecurityAuthenticationLocation {
     Query,
     Body,
     Cookie,
+    Uri,
 }
 
 impl SecurityAuthenticationLocation {

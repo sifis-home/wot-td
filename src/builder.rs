@@ -141,6 +141,9 @@ pub enum Error {
 
     #[error("Invalid language tag \"{0}\"")]
     InvalidLanguageTag(String),
+
+    #[error("URI variable \"{0}\" in SecurityScheme conflicts with another URI variable with the same name")]
+    ConflictingSecuritySchemeUriVariable(String),
 }
 
 /// Context of a [`Form`]
