@@ -1167,6 +1167,8 @@ impl OAuth2SecurityScheme {
     }
 }
 
+#[serde_as]
+#[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Link {
     pub href: String,
@@ -1178,6 +1180,12 @@ pub struct Link {
 
     // FIXME: use AnyURI
     pub anchor: Option<String>,
+
+    pub sizes: Option<String>,
+
+    #[serde(default)]
+    #[serde_as(as = "Option<OneOrMany<_>>")]
+    pub hreflang: Option<Vec<LanguageTag<String>>>,
 }
 
 #[serde_as]
