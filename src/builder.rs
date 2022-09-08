@@ -64,7 +64,7 @@ pub struct ThingBuilder<Other: ExtendableThing, Status> {
     properties: Vec<AffordanceBuilder<UsablePropertyAffordanceBuilder<Other>>>,
     actions: Vec<AffordanceBuilder<UsableActionAffordanceBuilder<Other>>>,
     events: Vec<AffordanceBuilder<UsableEventAffordanceBuilder<Other>>>,
-    links: Option<Vec<Link>>,
+    links: Option<Vec<UncheckedLink>>,
     forms: Option<Vec<FormBuilder<Other, String, Other::Form>>>,
     uri_variables: Option<HashMap<String, UncheckedDataSchemaFromOther<Other>>>,
     security: Vec<String>,
@@ -141,6 +141,9 @@ pub enum Error {
 
     #[error("Invalid language tag \"{0}\"")]
     InvalidLanguageTag(String),
+
+    #[error("A sizes field can be used only when \"rel\" is \"icon\"")]
+    SizesWithRelNotIcon,
 }
 
 /// Context of a [`Form`]
@@ -596,6 +599,9 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             },
             &security_definitions,
         )?;
+        let links = links
+            .map(|links| links.into_iter().map(TryInto::try_into).collect())
+            .transpose()?;
 
         let titles = titles.map(|titles| titles.build()).transpose()?;
         let descriptions = descriptions
@@ -794,11 +800,13 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     pub fn link(mut self, href: impl Into<String>) -> Self {
         let href = href.into();
 
-        let link = Link {
+        let link = UncheckedLink {
             href,
             ty: Default::default(),
             rel: Default::default(),
             anchor: Default::default(),
+            sizes: Default::default(),
+            hreflang: Default::default(),
         };
 
         self.links.get_or_insert_with(Default::default).push(link);
@@ -815,13 +823,17 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             ty,
             rel,
             anchor,
+            sizes,
+            hreflang,
         } = f(LinkBuilder::new());
 
-        let link = Link {
+        let link = UncheckedLink {
             href,
             ty,
             rel,
             anchor,
+            sizes,
+            hreflang,
         };
 
         self.links.get_or_insert_with(Default::default).push(link);
@@ -1161,6 +1173,8 @@ pub struct LinkBuilder<Href> {
     ty: Option<String>,
     rel: Option<String>,
     anchor: Option<String>,
+    sizes: Option<String>,
+    hreflang: Vec<String>,
 }
 
 impl LinkBuilder<()> {
@@ -1170,6 +1184,8 @@ impl LinkBuilder<()> {
             ty: None,
             rel: None,
             anchor: None,
+            sizes: None,
+            hreflang: Vec::new(),
         }
     }
 
@@ -1180,6 +1196,8 @@ impl LinkBuilder<()> {
             ty,
             rel,
             anchor,
+            sizes,
+            hreflang,
         } = self;
 
         let href = value.into();
@@ -1188,12 +1206,20 @@ impl LinkBuilder<()> {
             ty,
             rel,
             anchor,
+            sizes,
+            hreflang,
         }
     }
 }
 
 impl<T> LinkBuilder<T> {
-    opt_field_builder!(ty: String, rel: String, anchor: String);
+    opt_field_builder!(ty: String, rel: String, anchor: String, sizes: String);
+
+    /// Appends an hreflang parameter that will be checked in the call to [`ThingBuilder::build`].
+    pub fn hreflang(mut self, value: impl Into<String>) -> Self {
+        self.hreflang.push(value.into());
+        self
+    }
 }
 
 /// Builder for the Security Scheme
@@ -2116,6 +2142,49 @@ impl TryFrom<UncheckedSecurityScheme> for SecurityScheme {
     }
 }
 
+pub struct UncheckedLink {
+    href: String,
+    ty: Option<String>,
+    rel: Option<String>,
+    anchor: Option<String>,
+    sizes: Option<String>,
+    hreflang: Vec<String>,
+}
+
+impl TryFrom<UncheckedLink> for Link {
+    type Error = Error;
+
+    fn try_from(link: UncheckedLink) -> Result<Self, Self::Error> {
+        let UncheckedLink {
+            href,
+            ty,
+            rel,
+            anchor,
+            sizes,
+            hreflang,
+        } = link;
+
+        if sizes.is_some() && rel.as_deref() != Some("icon") {
+            return Err(Error::SizesWithRelNotIcon);
+        }
+
+        let hreflang = hreflang
+            .into_iter()
+            .map(|lang| lang.parse().map_err(|_| Error::InvalidLanguageTag(lang)))
+            .collect::<Result<Vec<_>, _>>()?;
+        let hreflang = hreflang.is_empty().not().then_some(hreflang);
+
+        Ok(Self {
+            href,
+            ty,
+            rel,
+            anchor,
+            sizes,
+            hreflang,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde::{Deserialize, Serialize};
@@ -2380,12 +2449,16 @@ mod tests {
                         ty: Default::default(),
                         rel: Default::default(),
                         anchor: Default::default(),
+                        sizes: Default::default(),
+                        hreflang: Default::default(),
                     },
                     Link {
                         href: "href2".to_string(),
                         ty: Default::default(),
                         rel: Default::default(),
                         anchor: Default::default(),
+                        sizes: Default::default(),
+                        hreflang: Default::default(),
                     }
                 ]),
                 ..Default::default()
@@ -2396,7 +2469,15 @@ mod tests {
     #[test]
     fn link_with() {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
-            .link_with(|link| link.href("href1").ty("ty").rel("rel").anchor("anchor"))
+            .link_with(|link| {
+                link.href("href1")
+                    .ty("ty")
+                    .rel("icon")
+                    .anchor("anchor")
+                    .sizes("10x20 30x50")
+                    .hreflang("it")
+                    .hreflang("en")
+            })
             .link_with(|link| link.href("href2"))
             .build()
             .unwrap();
@@ -2410,19 +2491,48 @@ mod tests {
                     Link {
                         href: "href1".to_string(),
                         ty: Some("ty".to_string()),
-                        rel: Some("rel".to_string()),
+                        rel: Some("icon".to_string()),
                         anchor: Some("anchor".to_string()),
+                        sizes: Some("10x20 30x50".to_string()),
+                        hreflang: Some(vec!["it".parse().unwrap(), "en".parse().unwrap()]),
                     },
                     Link {
                         href: "href2".to_string(),
                         ty: Default::default(),
                         rel: Default::default(),
                         anchor: Default::default(),
+                        sizes: Default::default(),
+                        hreflang: Default::default(),
                     }
                 ]),
                 ..Default::default()
             }
         );
+    }
+
+    #[test]
+    fn invalid_link_sizes_without_type_icon() {
+        let error = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .link_with(|link| link.href("href1").rel("other").sizes("10x20 30x50"))
+            .build()
+            .unwrap_err();
+
+        assert_eq!(error, Error::SizesWithRelNotIcon);
+    }
+
+    #[test]
+    fn link_with_invalid_hreflangs() {
+        let error = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .link_with(|link| {
+                link.href("href1")
+                    .hreflang("it")
+                    .hreflang("i18")
+                    .hreflang("en")
+            })
+            .build()
+            .unwrap_err();
+
+        assert_eq!(error, Error::InvalidLanguageTag("i18".to_string()));
     }
 
     #[test]
