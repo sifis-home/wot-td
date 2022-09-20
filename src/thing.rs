@@ -1193,7 +1193,7 @@ pub struct Link {
 #[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Form<Other: ExtendableThing> {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "DefaultedFormOperations::is_default")]
     pub op: DefaultedFormOperations,
 
     // FIXME: use AnyURI
@@ -1303,6 +1303,13 @@ pub enum DefaultedFormOperations {
     #[default]
     Default,
     Custom(Vec<FormOperation>),
+}
+
+impl DefaultedFormOperations {
+    #[inline]
+    pub const fn is_default(&self) -> bool {
+        matches!(self, Self::Default)
+    }
 }
 
 impl Serialize for DefaultedFormOperations {
@@ -1885,7 +1892,6 @@ mod test {
                 },
                 "forms": [{
                     "href": "",
-                    "op": null,
                     "response": {
                         "contentType": "",
                         "g": 10,
@@ -2029,7 +2035,6 @@ mod test {
                 },
                 "forms": [{
                     "href": "",
-                    "op": null,
                     "response": {
                         "contentType": "",
                         "g": 10,
@@ -2243,7 +2248,6 @@ mod test {
                 },
                 "forms": [{
                     "href": "",
-                    "op": null,
                     "response": {
                         "contentType": "",
                         "g": 19,
@@ -2467,7 +2471,6 @@ mod test {
                                 "f": 42,
                                 "href": "",
                                 "htv:methodName": "PUT",
-                                "op": null,
                                 "p": 42,
                             }
                         ],
@@ -2488,7 +2491,6 @@ mod test {
                 },
                 "forms": [{
                     "href": "",
-                    "op": null,
                     "response": {
                         "contentType": "",
                         "g": 19,
@@ -2892,5 +2894,21 @@ mod test {
                 maximum: Some(Maximum::Exclusive(10)),
             },
         );
+    }
+
+    #[test]
+    fn form_almost_default_serialization() {
+        let form: Form<Nil> = Form {
+            href: "href".to_string(),
+            ..Default::default()
+        };
+
+        let form_json = serde_json::to_value(form).unwrap();
+        assert_eq!(
+            form_json,
+            json!({
+                "href": "href",
+            }),
+        )
     }
 }
