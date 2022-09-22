@@ -1058,15 +1058,9 @@ where
         OtherInteractionAffordance,
         OtherPropertyAffordance,
     >;
-    type ExtendableArray = PropertyAffordanceBuilder<
+    type Array = PropertyAffordanceBuilder<
         Other,
-        DataSchema::ExtendableArray,
-        OtherInteractionAffordance,
-        OtherPropertyAffordance,
-    >;
-    type ExtendedArray = PropertyAffordanceBuilder<
-        Other,
-        DataSchema::ExtendedArray,
+        DataSchema::Array,
         OtherInteractionAffordance,
         OtherPropertyAffordance,
     >;
@@ -1082,15 +1076,9 @@ where
         OtherInteractionAffordance,
         OtherPropertyAffordance,
     >;
-    type ExtendableObject = PropertyAffordanceBuilder<
+    type Object = PropertyAffordanceBuilder<
         Other,
-        DataSchema::ExtendableObject,
-        OtherInteractionAffordance,
-        OtherPropertyAffordance,
-    >;
-    type ExtendedObject = PropertyAffordanceBuilder<
-        Other,
-        DataSchema::ExtendedObject,
+        DataSchema::Object,
         OtherInteractionAffordance,
         OtherPropertyAffordance,
     >;
@@ -1108,13 +1096,13 @@ where
     >;
 
     impl_property_affordance_builder_delegator!(
-        array where AS: Default => Self::ExtendedArray,
-        array_ext<F>(f: F) where F: FnOnce(AS::Empty) -> AS, AS: Extendable => Self::ExtendableArray,
+        array where AS: Default => Self::Array,
+        array_ext<F>(f: F) where F: FnOnce(AS::Empty) -> AS, AS: Extendable => Self::Array,
         bool => Self::Stateless,
         number => Self::Number,
         integer => Self::Integer,
-        object where OS: Default => Self::ExtendedObject,
-        object_ext<F>(f: F) where F: FnOnce(OS::Empty) -> OS, OS: Extendable => Self::ExtendableObject,
+        object where OS: Default => Self::Object,
+        object_ext<F>(f: F) where F: FnOnce(OS::Empty) -> OS, OS: Extendable => Self::Object,
         string => Self::String,
         null => Self::Stateless,
         constant(value: impl Into<Value>) => Self::Constant,

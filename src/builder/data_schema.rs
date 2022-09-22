@@ -266,29 +266,27 @@ pub trait BuildableDataSchema<DS, AS, OS, Status>: Sized {
 
 pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, Extended> {
     type Stateless: BuildableDataSchema<DS, AS, OS, Extended>;
-    type ExtendableArray: BuildableDataSchema<DS, AS, OS, Extended>;
-    type ExtendedArray: BuildableDataSchema<DS, AS, OS, Extended>;
+    type Array: BuildableDataSchema<DS, AS, OS, Extended>;
     type Number: BuildableDataSchema<DS, AS, OS, Extended>;
     type Integer: BuildableDataSchema<DS, AS, OS, Extended>;
-    type ExtendableObject: BuildableDataSchema<DS, AS, OS, Extended>;
-    type ExtendedObject: BuildableDataSchema<DS, AS, OS, Extended>;
+    type Object: BuildableDataSchema<DS, AS, OS, Extended>;
     type String: BuildableDataSchema<DS, AS, OS, Extended>;
     type Constant: BuildableDataSchema<DS, AS, OS, Extended>;
 
-    fn array(self) -> Self::ExtendedArray
+    fn array(self) -> Self::Array
     where
         AS: Default;
-    fn array_ext<F>(self, f: F) -> Self::ExtendableArray
+    fn array_ext<F>(self, f: F) -> Self::Array
     where
         F: FnOnce(AS::Empty) -> AS,
         AS: Extendable;
     fn bool(self) -> Self::Stateless;
     fn number(self) -> Self::Number;
     fn integer(self) -> Self::Integer;
-    fn object(self) -> Self::ExtendedObject
+    fn object(self) -> Self::Object
     where
         OS: Default;
-    fn object_ext<F>(self, f: F) -> Self::ExtendableObject
+    fn object_ext<F>(self, f: F) -> Self::Object
     where
         F: FnOnce(OS::Empty) -> OS,
         OS: Extendable;
@@ -875,16 +873,14 @@ macro_rules! impl_specializable_data_schema {
         $(
             impl<DS, AS, OS> SpecializableDataSchema<DS, AS, OS> for $ty {
                 type Stateless = StatelessDataSchemaBuilder<Self>;
-                type ExtendableArray = ArrayDataSchemaBuilder<Self, DS, AS, OS>;
-                type ExtendedArray = ArrayDataSchemaBuilder<Self, DS, AS, OS>;
+                type Array = ArrayDataSchemaBuilder<Self, DS, AS, OS>;
                 type Number = NumberDataSchemaBuilder<Self>;
                 type Integer = IntegerDataSchemaBuilder<Self>;
-                type ExtendableObject = ObjectDataSchemaBuilder<Self, DS, AS, OS>;
-                type ExtendedObject = ObjectDataSchemaBuilder<Self, DS, AS, OS>;
+                type Object = ObjectDataSchemaBuilder<Self, DS, AS, OS>;
                 type String = StringDataSchemaBuilder<Self>;
                 type Constant = ReadOnly<StatelessDataSchemaBuilder<Self>>;
 
-                fn array(self) -> Self::ExtendedArray
+                fn array(self) -> Self::Array
                 where
                     AS: Default
                 {
@@ -897,7 +893,7 @@ macro_rules! impl_specializable_data_schema {
                     }
                 }
 
-                fn array_ext<F>(self, f: F) -> Self::ExtendableArray
+                fn array_ext<F>(self, f: F) -> Self::Array
                 where
                     F: FnOnce(AS::Empty) -> AS,
                     AS: Extendable,
@@ -937,7 +933,7 @@ macro_rules! impl_specializable_data_schema {
                     }
                 }
 
-                fn object(self) -> Self::ExtendedObject
+                fn object(self) -> Self::Object
                 where
                     OS: Default
                 {
@@ -949,7 +945,7 @@ macro_rules! impl_specializable_data_schema {
                     }
                 }
 
-                fn object_ext<F>(self, f: F) -> Self::ExtendableObject
+                fn object_ext<F>(self, f: F) -> Self::Object
                 where
                     F: FnOnce(OS::Empty) -> OS,
                     OS: Extendable,
