@@ -3,7 +3,7 @@
 //! A Thing Description, or `TD`, stores the semantic metadata and the interface descriptions of
 //! a physical or virtual entity, called `Thing`.
 //!
-//! Use [Thing::build] to create a new `Thing`, [serde_json] to serialize or deserialize it.
+//! Use [Thing::builder] to build a new `Thing`, [serde_json] to serialize or deserialize it.
 //!
 //! [Interaction Affordance]: https://www.w3.org/TR/wot-thing-description/#interactionaffordance
 
@@ -258,7 +258,7 @@ fn default_context() -> Value {
 impl Thing<Nil> {
     /// Shorthand for [ThingBuilder::new].
     #[inline]
-    pub fn build(title: impl Into<String>) -> ThingBuilder<Nil, ToExtend> {
+    pub fn builder(title: impl Into<String>) -> ThingBuilder<Nil, ToExtend> {
         ThingBuilder::new(title)
     }
 }

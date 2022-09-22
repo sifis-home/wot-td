@@ -4092,7 +4092,7 @@ mod tests {
             type ArraySchema = ();
         }
 
-        let thing = Thing::build("thing title")
+        let thing = Thing::builder("thing title")
             .ext(ThingA { a: 1, b: 2 })
             .id("id")
             .ext(ThingB {})
