@@ -1,3 +1,5 @@
+//! The builder elements related to data schemas.
+//!
 use std::{cmp::Ordering, collections::HashMap, marker::PhantomData, ops::Not};
 
 use crate::{
@@ -16,6 +18,10 @@ use super::{
     Error, Extended, MultiLanguageBuilder, ToExtend,
 };
 
+/// The _unchecked_ variant of a [`DataSchema`](crate::thing::DataSchema).
+///
+/// This can be transformed into a valid `DataSchema` by
+/// [`ThingBuilder::build`](crate::builder::ThingBuilder::build).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct UncheckedDataSchema<DS, AS, OS> {
     attype: Option<Vec<String>>,
@@ -50,6 +56,12 @@ pub(crate) type UncheckedDataSchemaMap<Other> = HashMap<
     >,
 >;
 
+/// _Partial_ variant of a [`DataSchemaBuilder`].
+///
+/// This variant is necessary for building a
+/// [`PropertyAffordance`](crate::thing::PropertyAffordance), which is composed of a set of _human
+/// readable_ fields shared between [`InteractionAffordance`](crate::thing::InteractionAffordance)
+/// and [`DataSchema`].
 #[derive(Debug, PartialEq)]
 pub struct PartialDataSchemaBuilder<DS, AS, OS, Status> {
     constant: Option<Value>,
@@ -60,6 +72,8 @@ pub struct PartialDataSchemaBuilder<DS, AS, OS, Status> {
     read_only: bool,
     write_only: bool,
     format: Option<String>,
+
+    /// Data schema extension.
     pub other: DS,
     _marker: PhantomData<Status>,
 }
@@ -85,6 +99,7 @@ impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
 }
 
 impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
+    /// Extends the data schema, passing a closure that returns `T`.
     pub fn ext_with<F, T>(self, f: F) -> PartialDataSchemaBuilder<DS::Target, AS, OS, ToExtend>
     where
         F: FnOnce() -> T,
@@ -117,6 +132,7 @@ impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
         }
     }
 
+    /// Extends the data schema with an additional element.
     #[inline]
     pub fn ext<T>(self, t: T) -> PartialDataSchemaBuilder<DS::Target, AS, OS, ToExtend>
     where
@@ -125,6 +141,7 @@ impl<DS, AS, OS> PartialDataSchemaBuilder<DS, AS, OS, ToExtend> {
         self.ext_with(|| t)
     }
 
+    /// Makes the builder unextendable and allows further customizations.
     pub fn finish_extend(self) -> PartialDataSchemaBuilder<DS, AS, OS, Extended> {
         let Self {
             constant,
@@ -173,6 +190,9 @@ where
     }
 }
 
+/// _Partial_ variant of a [`DataSchema`].
+///
+/// This variant does not include the _human readable_ fields.
 #[derive(Debug, Default, PartialEq)]
 pub struct PartialDataSchema<DS, AS, OS> {
     pub(super) constant: Option<Value>,
@@ -184,6 +204,8 @@ pub struct PartialDataSchema<DS, AS, OS> {
     pub(super) write_only: bool,
     pub(super) format: Option<String>,
     pub(super) subtype: Option<UncheckedDataSchemaSubtype<DS, AS, OS>>,
+
+    /// Data schema extension.
     pub other: DS,
 }
 
@@ -205,6 +227,7 @@ pub struct DataSchemaBuilder<DS, AS, OS, Status> {
 }
 
 impl<DS, AS, OS> DataSchemaBuilder<DS, AS, OS, ToExtend> {
+    /// Extends the data schema, passing a closure that returns `T`.
     pub fn ext_with<F, T>(self, f: F) -> DataSchemaBuilder<DS::Target, AS, OS, ToExtend>
     where
         F: FnOnce() -> T,
@@ -215,6 +238,7 @@ impl<DS, AS, OS> DataSchemaBuilder<DS, AS, OS, ToExtend> {
         DataSchemaBuilder { partial, info }
     }
 
+    /// Extends the data schema with an additional element.
     #[inline]
     pub fn ext<T>(self, t: T) -> DataSchemaBuilder<DS::Target, AS, OS, ToExtend>
     where
@@ -223,6 +247,7 @@ impl<DS, AS, OS> DataSchemaBuilder<DS, AS, OS, ToExtend> {
         self.ext_with(|| t)
     }
 
+    /// Makes the builder unextendable and allows further customizations.
     pub fn finish_extend(self) -> DataSchemaBuilder<DS, AS, OS, Extended> {
         let Self { partial, info } = self;
         let partial = partial.finish_extend();
@@ -258,54 +283,140 @@ trait IntoDataSchema: Into<Self::Target> {
     type Target: Sized;
 }
 
+/// An interface for a buildable version of a [`DataSchema`](crate::thing::DataSchema).
+///
+/// In order to model the specification, each type that can be created using a builder pattern and
+/// that _behaves_ like an `DataSchema` should implement this trait.
+///
+/// # Notes
+///
+/// This trait *should not* be implemented directly, even if it is not sealed.
 pub trait BuildableDataSchema<DS, AS, OS, Status>: Sized {
+    /// Sets the value of the `unit` field.
     fn unit(self, value: impl Into<String>) -> Self;
+
+    /// Sets the value of the `format` field.
     fn format(self, value: impl Into<String>) -> Self;
+
+    /// Sets the value of the `default` field.
     fn default_value(self, value: impl Into<Value>) -> Self;
 }
 
+/// An interface for a _specializable_ version of a [`DataSchema`](crate::thing::DataSchema).
+///
+/// A meaningful `DataSchema` should always contain a valid
+/// [`subtype`](crate::thing::DataSchema::subtype) field, unless `enumeration` or `one_of` fields
+/// are used. This trait allows to safely transform an _unspecialized_ `DataSchema` into a
+/// _specialized_ one.
+///
+/// # Notes
+///
+/// - This trait *should not* be implemented directly, even if it is not sealed.
+/// - This is going to break in future releases in order to have less, more expressive code.
 pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, Extended> {
+    /// A generic stateless specialized data schema builder.
     type Stateless: BuildableDataSchema<DS, AS, OS, Extended>;
+
+    /// The _array_ specialization of the data schema builder.
     type Array: BuildableDataSchema<DS, AS, OS, Extended>;
+
+    /// The _number_ specialization of the data schema builder.
     type Number: BuildableDataSchema<DS, AS, OS, Extended>;
+
+    /// The _integer_ specialization of the data schema builder.
     type Integer: BuildableDataSchema<DS, AS, OS, Extended>;
+
+    /// The _object_ specialization of the data schema builder.
     type Object: BuildableDataSchema<DS, AS, OS, Extended>;
+
+    /// The _string_ specialization of the data schema builder.
     type String: BuildableDataSchema<DS, AS, OS, Extended>;
+
+    /// The _constant_ specialization of the data schema builder.
     type Constant: BuildableDataSchema<DS, AS, OS, Extended>;
 
+    /// Specialize the builder into an _array_ data schema builder, initializing the array
+    /// extensions with default values.
     fn array(self) -> Self::Array
     where
         AS: Default;
+
+    /// Specialize the builder into an _array_ data schema builder, passing a function to
+    /// create the array extensions.
     fn array_ext<F>(self, f: F) -> Self::Array
     where
         F: FnOnce(AS::Empty) -> AS,
         AS: Extendable;
+
+    /// Specialize the builder into a _boolean_ data schema builder.
     fn bool(self) -> Self::Stateless;
+
+    /// Specialize the builder into a _number_ data schema builder.
     fn number(self) -> Self::Number;
+
+    /// Specialize the builder into an _integer_ data schema builder.
     fn integer(self) -> Self::Integer;
+    /// Specialize the builder into an _object_ data schema builder, initializing the object
+    /// extensions with default values.
     fn object(self) -> Self::Object
     where
         OS: Default;
+
+    /// Specialize the builder into an _object_ data schema builder, passing a function to create
+    /// the object extensions.
     fn object_ext<F>(self, f: F) -> Self::Object
     where
         F: FnOnce(OS::Empty) -> OS,
         OS: Extendable;
+
+    /// Specialize the builder into a _string_ data schema builder.
     fn string(self) -> Self::String;
+
+    /// Specialize the builder into a _null_ data schema builder.
     fn null(self) -> Self::Stateless;
+
+    /// Specialize the builder into a _constant_ data schema builder.
     fn constant(self, value: impl Into<Value>) -> Self::Constant;
 }
 
+/// An interface to specialize an _enumerable_ version of a
+/// [`DataSchema`](crate::thing::DataSchema).
+///
+/// An _unspecialized_ data schema can be _specialized_ into an _enumerable_ data schema, which
+/// then supports adding more variants to the enumeration. This trait allows this behavior, keeping
+/// it separated from [`SpecializableDataSchema`] that is not implemented for _specialized_ data
+/// schemas.
+///
+/// # Notes
+///
+/// - This trait *should not* be implemented directly, even if it is not sealed.
 pub trait EnumerableDataSchema<DS, AS, OS, Extended>:
     BuildableDataSchema<DS, AS, OS, Extended>
 {
+    /// The _enumeration_ specialization of the data schema builder.
     type Target: BuildableDataSchema<DS, AS, OS, Extended>;
 
+    /// Returns a _specialized_ enumeration data schema and adds a variant to the `enumeration`
+    /// field. It can be implemented for specialized _enumeration_ data schemas.
     fn enumeration(self, value: impl Into<Value>) -> Self::Target;
 }
 
+/// An interface to specialize a _union_ version of a [`DataSchema`](crate::thing::DataSchema).
+///
+/// An _unspecialized_ data schema can be _specialized_ into an _union_ data schema, which then
+/// supports adding more data schemas to the `one_of` fields. This trait allows this behavior,
+/// keeping it separated from [`SpecializableDataSchema`] that is not implemented for _specialized_
+/// data schemas.
+///
+/// # Notes
+///
+/// - This trait *should not* be implemented directly, even if it is not sealed.
 pub trait UnionDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, Extended> {
+    /// The _union_ specialization of the data schema builder.
     type Target: BuildableDataSchema<DS, AS, OS, Extended>;
 
+    /// Returns a _specialized_ union data schema and adds a data schema to the `one_of` field. It
+    /// can be implemented for specialized _one_of_ data schemas.
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
@@ -313,24 +424,44 @@ pub trait UnionDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, Extended>
         T: Into<UncheckedDataSchema<DS, AS, OS>>;
 }
 
+/// An interface to specialize a _read-only_/_write-only_ version of a
+/// [`DataSchema`](crate::thing::DataSchema).
+///
+/// Some specializations of `DataSchema` can be set as _read-only_ or _write-only_. When
+/// implemented, this allows a safe abstraction over these situations, avoiding conflicting states
+/// a compile-time.
+///
+/// # Notes
+///
+/// - This trait *should not* be implemented directly, even if it is not sealed.
 pub trait ReadableWriteableDataSchema<DS, AS, OS, Extended>:
     BuildableDataSchema<DS, AS, OS, Extended>
 {
+    /// The _read-only_ variant of the data schema builder.
     type ReadOnly: BuildableDataSchema<DS, AS, OS, Extended>;
+
+    /// The _write-only_ variant of the data schema builder.
     type WriteOnly: BuildableDataSchema<DS, AS, OS, Extended>;
 
+    /// Creates a _read-only_ variant of the data schema builder.
     fn read_only(self) -> Self::ReadOnly;
+
+    /// Creates a _write-only_ variant of the data schema builder.
     fn write_only(self) -> Self::WriteOnly;
 }
 
+/// The builder for an [`ArraySchema`](crate::thing::ArraySchema) builder.
 pub struct ArrayDataSchemaBuilder<Inner, DS, AS, OS> {
     inner: Inner,
     items: Vec<UncheckedDataSchema<DS, AS, OS>>,
     min_items: Option<u32>,
     max_items: Option<u32>,
+
+    /// Array data schema extension.
     pub other: AS,
 }
 
+/// The builder for an [`NumberSchema`](crate::thing::NumberSchema) builder.
 pub struct NumberDataSchemaBuilder<Inner> {
     inner: Inner,
     maximum: Option<Maximum<f64>>,
@@ -338,19 +469,24 @@ pub struct NumberDataSchemaBuilder<Inner> {
     multiple_of: Option<f64>,
 }
 
+/// The builder for an [`IntegerSchema`](crate::thing::IntegerSchema) builder.
 pub struct IntegerDataSchemaBuilder<Inner> {
     inner: Inner,
     maximum: Option<Maximum<usize>>,
     minimum: Option<Minimum<usize>>,
 }
 
+/// The builder for an [`ObjectSchema`](crate::thing::ObjectSchema) builder.
 pub struct ObjectDataSchemaBuilder<Inner, DS, AS, OS> {
     inner: Inner,
     properties: Vec<(String, UncheckedDataSchema<DS, AS, OS>)>,
     required: Vec<String>,
+
+    /// Object data schema extension.
     pub other: OS,
 }
 
+/// The builder for an [`StringSchema`](crate::thing::StringSchema) builder.
 pub struct StringDataSchemaBuilder<Inner> {
     inner: Inner,
     min_length: Option<u32>,
@@ -360,28 +496,39 @@ pub struct StringDataSchemaBuilder<Inner> {
     content_media_type: Option<String>,
 }
 
+/// A _typetag_ for a `DataSchema` builder that has the
+/// [`enumeration`](crate::thing::DataSchema::enumeration) field populated.
 pub struct EnumDataSchemaBuilder<Inner> {
     inner: Inner,
 }
 
+/// A _typetag_ for a `DataSchema` builder that has the
+/// [`one_of`](crate::thing::DataSchema::one_of) field populated.
 pub struct OneOfDataSchemaBuilder<Inner> {
     inner: Inner,
 }
 
+/// The type of a stateless `DataSchema` specialization.
 pub enum StatelessDataSchemaType {
+    /// A _boolean_ specialization.
     Boolean,
+
+    /// A _null_ specialization.
     Null,
 }
 
+/// A _typetag_ for a stateless specialized `DataSchema` builder.
 pub struct StatelessDataSchemaBuilder<Inner> {
     inner: Inner,
     ty: Option<StatelessDataSchemaType>,
 }
 
+/// A _typetag_ for a read-only `DataSchema` builder.
 pub struct ReadOnly<Inner> {
     inner: Inner,
 }
 
+/// A _typetag_ for a write-only `DataSchema` builder.
 pub struct WriteOnly<Inner> {
     inner: Inner,
 }
@@ -389,6 +536,7 @@ pub struct WriteOnly<Inner> {
 macro_rules! opt_field_decl {
     ($($field:ident : $ty:ty),* $(,)?) => {
         $(
+            #[doc = concat!("Sets the value of the `", stringify!($field), "` field.")]
             fn $field(self, value: $ty) -> Self;
         )*
     };
@@ -397,14 +545,17 @@ macro_rules! opt_field_decl {
 macro_rules! opt_field_into_decl {
     ($($field:ident : $ty:ty),* $(,)?) => {
         $(
+            #[doc = concat!("Sets the value of the `", stringify!($field), "` field.")]
             fn $field(self, value: impl Into<$ty>) -> Self;
         )*
     };
 }
 
+/// An interface for things behaving like an array data schema builder.
 pub trait ArrayDataSchemaBuilderLike<DS, AS, OS> {
     opt_field_decl!(min_items: u32, max_items: u32);
 
+    /// Append an element to the array.
     fn append<F, T>(self, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
@@ -412,6 +563,7 @@ pub trait ArrayDataSchemaBuilderLike<DS, AS, OS> {
         T: Into<UncheckedDataSchema<DS, AS, OS>>;
 }
 
+/// An interface for things behaving like a number data schema builder.
 pub trait NumberDataSchemaBuilderLike<DS, AS, OS> {
     opt_field_decl!(
         minimum: f64,
@@ -422,6 +574,7 @@ pub trait NumberDataSchemaBuilderLike<DS, AS, OS> {
     );
 }
 
+/// An interface for things behaving like an integer data schema builder.
 pub trait IntegerDataSchemaBuilderLike<DS, AS, OS> {
     opt_field_decl!(
         minimum: usize,
@@ -431,7 +584,14 @@ pub trait IntegerDataSchemaBuilderLike<DS, AS, OS> {
     );
 }
 
+/// An interface for things behaving like an object data schema builder.
 pub trait ObjectDataSchemaBuilderLike<DS, AS, OS> {
+    /// Add a new property to the object.
+    ///
+    /// The `name` corresponds to the _key_ of the object.
+    ///
+    /// If `required` is true, the `name` is added to the
+    /// [`required`](crate::thing::ObjectSchema::required) field.
     fn property<F, T>(self, name: impl Into<String>, required: bool, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
@@ -439,6 +599,7 @@ pub trait ObjectDataSchemaBuilderLike<DS, AS, OS> {
         T: Into<UncheckedDataSchema<DS, AS, OS>>;
 }
 
+/// An interface for things behaving like a string data schema builder.
 pub trait StringDataSchemaBuilderLike<DS, AS, OS> {
     opt_field_decl!(min_length: u32, max_length: u32);
 

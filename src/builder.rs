@@ -40,9 +40,11 @@ use self::{
     },
 };
 
+/// A _typetag_ for types that needs to be extended.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ToExtend;
 
+/// A _typetag_ for types that have been already extended.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Extended;
 
@@ -71,6 +73,8 @@ pub struct ThingBuilder<Other: ExtendableThing, Status> {
     security_definitions: Vec<(String, UncheckedSecurityScheme)>,
     profile: Vec<String>,
     schema_definitions: HashMap<String, UncheckedDataSchemaFromOther<Other>>,
+
+    /// Thing extension.
     pub other: Other,
     _marker: PhantomData<Status>,
 }
@@ -78,6 +82,7 @@ pub struct ThingBuilder<Other: ExtendableThing, Status> {
 macro_rules! opt_field_builder {
     ($($field:ident : $ty:ty),* $(,)?) => {
         $(
+            #[doc = concat!("Sets the value of the `", stringify!($field), "` field.")]
             pub fn $field(mut self, value: impl Into<$ty>) -> Self {
                 self.$field = Some(value.into());
                 self
@@ -104,7 +109,10 @@ pub enum Error {
     /// The Form can use only a specific set of operations depending on the context.
     #[error("Invalid Form operation {operation} in {context} context")]
     InvalidOpInForm {
+        /// The context of the invalid operation.
         context: FormContext,
+
+        /// The invalid operation for the `Form`.
         operation: FormOperation,
     },
 
@@ -123,25 +131,30 @@ pub enum Error {
     /// For each type of affordance, names must be unique
     #[error("Two affordances of type {ty} use the name \"{name}\"")]
     DuplicatedAffordance {
-        // The type of the affordance
+        /// The type of the affordance
         ty: AffordanceType,
 
-        // The duplicated name
+        /// The duplicated name
         name: String,
     },
 
+    /// Invalid `multiple_of` field, that must strictly greater than zero.
     #[error("\"multipleOf\" field must be strictly greater than 0")]
     InvalidMultipleOf,
 
+    /// A schema has been referenced using a specific name, but it is not been declared.
     #[error("Using the data schema \"{0}\", which is not declared in the schema definitions")]
     MissingSchemaDefinition(String),
 
+    /// Invalid URI variable, which cannot be an object or an array.
     #[error("An uriVariable cannot be an ObjectSchema or ArraySchema")]
     InvalidUriVariables,
 
+    /// Language tag is not conforming to [BCP47](https://www.rfc-editor.org/info/bcp47).
     #[error("Invalid language tag \"{0}\"")]
     InvalidLanguageTag(String),
 
+    /// A `Link` contains a `sizes` field but its `rel` field is not equal to `icon`.
     #[error("A sizes field can be used only when \"rel\" is \"icon\"")]
     SizesWithRelNotIcon,
 }
@@ -348,6 +361,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
         }
     }
 
+    /// Extends the Thing, passing a closure that returns `T`.
     pub fn ext_with<F, T>(self, f: F) -> ThingBuilder<Other::Target, ToExtend>
     where
         F: FnOnce() -> T,
@@ -901,6 +915,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         self
     }
 
+    /// Adds a new item to the `profile` field.
     pub fn profile(mut self, value: impl Into<String>) -> Self {
         self.profile.push(value.into());
         self
@@ -934,6 +949,10 @@ impl<Other> ThingBuilder<Other, Extended>
 where
     Other: ExtendableThing,
 {
+    /// Adds a new _URI variable_.
+    ///
+    /// It takes a function that accepts a `DataSchema` builder and must return a
+    /// type convertible into a `DataSchema`.
     pub fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -956,6 +975,10 @@ where
         self
     }
 
+    /// Adds a new property affordance.
+    ///
+    /// It takes a function that accepts a `PropertyAffordance` builder and must return a type
+    /// convertible into an _usable_ `PropertyAffordance` builder.
     pub fn property<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -985,6 +1008,10 @@ where
         self
     }
 
+    /// Adds a new action affordance.
+    ///
+    /// It takes a function that accepts a `ActionAffordance` builder and must return a type
+    /// convertible into an _usable_ `ActionAffordance` builder.
     pub fn action<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -1009,6 +1036,10 @@ where
         self
     }
 
+    /// Adds a new event affordance.
+    ///
+    /// It takes a function that accepts an `EventAffordance` builder and must return a type
+    /// convertible into an _usable_ `EventAffordance` builder.
     pub fn event<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -1033,6 +1064,10 @@ where
         self
     }
 
+    /// Adds a new schema definition.
+    ///
+    /// It takes the name for the schema definition and a function that takes a `DataSchema`
+    /// builder and must return a type convertible into an _unchecked_ `DataSchema`.
     pub fn schema_definition<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -1519,11 +1554,17 @@ impl<T> SecuritySchemeBuilder<T> {
         self
     }
 
+    /// Sets the key to be used for referring to the security scheme in the [`Thing::security`] and
+    /// [`Form::security`] fields.
+    ///
+    /// [`Thing::security`]: crate::thing::Thing::security
+    /// [`Form::security`]: crate::thing::Form::security
     pub fn with_key(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
     }
 
+    /// Makes the security scheme required.
     pub fn required(mut self) -> Self {
         self.required = true;
         self
@@ -1725,6 +1766,9 @@ impl SecuritySchemeBuilder<EmptyComboSecuritySchemeTag> {
 }
 
 impl<T> SecuritySchemeBuilder<(T, Vec<String>)> {
+    /// Extends the security scheme subtype with a variable amount of items.
+    ///
+    /// This is useful for _combo_ security schemes, which require a set of names as references.
     pub fn extend<I, U>(mut self, iter: I) -> Self
     where
         I: IntoIterator<Item = U>,
@@ -1734,6 +1778,9 @@ impl<T> SecuritySchemeBuilder<(T, Vec<String>)> {
         self
     }
 
+    /// Extends the security scheme subtype with an items.
+    ///
+    /// This is useful for _combo_ security schemes, which require a set of names as references.
     pub fn push(mut self, security_name: impl Into<String>) -> Self {
         self.subtype.1.push(security_name.into());
         self
@@ -1822,6 +1869,8 @@ pub struct FormBuilder<Other: ExtendableThing, Href, OtherForm> {
     scopes: Option<Vec<String>>,
     response: Option<ExpectedResponse<Other::ExpectedResponse>>,
     additional_responses: Vec<AdditionalExpectedResponse>,
+
+    /// Form builder extension.
     pub other: OtherForm,
     _marker: PhantomData<fn() -> Other>,
 }
@@ -1932,6 +1981,10 @@ where
         self
     }
 
+    /// Adds an additional response to the form builder.
+    ///
+    /// It takes a function that takes and returns a mutable reference to a builder for additional
+    /// expected response.
     pub fn additional_response<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut AdditionalExpectedResponseBuilder) -> &mut AdditionalExpectedResponseBuilder,
@@ -1954,6 +2007,7 @@ where
         self
     }
 
+    /// Extends the form, passing a closure that returns `T`.
     pub fn ext_with<F, T>(self, f: F) -> FormBuilder<Other, Href, OtherForm::Target>
     where
         OtherForm: Extend<T>,
@@ -1988,6 +2042,7 @@ where
         }
     }
 
+    /// Extends the form with an additional element.
     #[inline]
     pub fn ext<T>(self, t: T) -> FormBuilder<Other, Href, OtherForm::Target>
     where
@@ -2092,16 +2147,19 @@ impl AdditionalExpectedResponseBuilder {
         }
     }
 
+    /// Sets the `success` field to `true`.
     pub fn success(&mut self) -> &mut Self {
         self.success = true;
         self
     }
 
+    /// Sets the `content_type` field.
     pub fn content_type(&mut self, value: impl Into<String>) -> &mut Self {
         self.content_type = Some(value.into());
         self
     }
 
+    /// Sets the `schema` field.
     pub fn schema(&mut self, value: impl Into<String>) -> &mut Self {
         self.schema = Some(value.into());
         self
@@ -2142,6 +2200,10 @@ impl TryFrom<UncheckedSecurityScheme> for SecurityScheme {
     }
 }
 
+/// The _unchecked_ variant of [`Link`](crate::thing::Link).
+///
+/// The type needs to be _try-converted_ into `Link` in order to being used inside a
+/// [`Thing`](crate::thing::Thing).
 pub struct UncheckedLink {
     href: String,
     ty: Option<String>,

@@ -19,14 +19,49 @@ impl<T> ExtendablePiece for T where T: Serialize + for<'a> Deserialize<'a> {}
 /// The trait uses an associated type for each element of the ThingDescription, set it to `()` if
 /// the extension does not apply to that specific element.
 pub trait ExtendableThing {
+    /// The extension type for [`InteractionAffordance`].
+    ///
+    /// [`InteractionAffordance`]: crate::thing::InteractionAffordance
     type InteractionAffordance: ExtendablePiece;
+
+    /// The extension type for [`PropertyAffordance`].
+    ///
+    /// [`PropertyAffordance`]: crate::thing::PropertyAffordance
     type PropertyAffordance: ExtendablePiece;
+
+    /// The extension type for [`ActionAffordance`].
+    ///
+    /// [`ActionAffordance`]: crate::thing::ActionAffordance
     type ActionAffordance: ExtendablePiece;
+
+    /// The extension type for [`EventAffordance`].
+    ///
+    /// [`EventAffordance`]: crate::thing::EventAffordance
     type EventAffordance: ExtendablePiece;
+
+    /// The extension type for [`Form`].
+    ///
+    /// [`Form`]: crate::thing::Form
     type Form: ExtendablePiece;
+
+    /// The extension type for [`ExpectedResponse`].
+    ///
+    /// [`ExpectedResponse`]: crate::thing::ExpectedResponse
     type ExpectedResponse: ExtendablePiece;
+
+    /// The extension type for [`DataSchema`].
+    ///
+    /// [`DataSchema`]: crate::thing::DataSchema
     type DataSchema: ExtendablePiece;
+
+    /// The extension type for [`ObjectSchema`].
+    ///
+    /// [`ObjectSchema`]: crate::thing::ObjectSchema
     type ObjectSchema: ExtendablePiece;
+
+    /// The extension type for [`ArraySchema`].
+    ///
+    /// [`ArraySchema`]: crate::thing::ArraySchema
     type ArraySchema: ExtendablePiece;
 }
 
@@ -58,19 +93,34 @@ where
     type ArraySchema = Cons<T::ArraySchema, U::ArraySchema>;
 }
 
+/// A trait representing an object that can be created empty in order to extend a `Thing`.
+///
+/// This is separated from the [`Extend`] trait because it is not generic and it only contains an
+/// associate type.
 pub trait Extendable {
+    /// The empty extension type.
     type Empty;
 
     /// Create an empty extension
     fn empty() -> Self::Empty;
 }
 
+/// A generic trait to express an object to extend a `Thing`.
+///
+/// This trait represents an object that can be _extended_ with other typed expressions. It is used
+/// extensively for all the _extendable_ types of a `Thing`.
+///
+/// The generic type `T` is the type that can be _added_ to the implemented `struct`/`enum`.
+///
+/// The trait is generally used in combination with the [`Extendable`] trait.
 pub trait Extend<T>: Sized {
+    /// The new type obtained when extending `Self`.
     type Target;
 
     /// Extend the current extension with an additional element
     fn ext(self, t: T) -> Self::Target;
 
+    /// Extends the current type, passing a closure that returns `T`.
     fn ext_with<F>(self, f: F) -> Self::Target
     where
         F: FnOnce() -> T,

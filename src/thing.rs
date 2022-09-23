@@ -36,7 +36,12 @@ pub(crate) type DataSchemaMap<Other> = HashMap<
     >,
 >;
 
+/// The JSON-LD context for the version 1.0 of the [Thing
+/// description](https://www.w3.org/TR/wot-thing-description/)
 pub const TD_CONTEXT_10: &str = "https://www.w3.org/2019/wot/td/v1";
+
+/// The JSON-LD context for the version 1.1 of the [Thing
+/// description](https://www.w3.org/TR/wot-thing-description11/)
 pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
 
 /// An abstraction of a physical or a virtual entity
@@ -132,14 +137,30 @@ pub struct Thing<Other: ExtendableThing = Nil> {
     /// resources.
     pub security_definitions: HashMap<String, SecurityScheme>,
 
+    /// URI template variables
+    ///
+    /// A Map of URI template variables that can be used inside `Forms`. The Thing level
+    /// `uri_variables` can be used in Thing-level forms or in [`InteractionAffordance`]. The
+    /// individual variables `DataSchema` cannot be an [`ObjectSchema`] or an [`ArraySchema`]. If
+    /// the same variable is both declared in Thing-level `uri_variables` and in
+    /// [`InteractionAffordance`] level, the `InteractionAffordance` level variable takes
+    /// precedence.
     pub uri_variables: Option<DataSchemaMap<Other>>,
 
+    /// The WoT profile
+    ///
+    /// Indicates the WoT Profile mechanisms followed by this Thing Description and the
+    /// corresponding Thing implementation.
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub profile: Option<Vec<String>>,
 
+    /// A Map of named data schemas
+    ///
+    /// To be used in a schema name-value pair inside an [`AdditionalExpectedResponse`] object.
     pub schema_definitions: Option<DataSchemaMap<Other>>,
 
+    /// Thing extension
     #[serde(flatten)]
     pub other: Other,
 }
@@ -263,27 +284,46 @@ impl Thing<Nil> {
     }
 }
 
+/// Thing description Interaction Affordance
+///
+/// Metadata of a Thing that shows the possible choices to Consumers, thereby suggesting how
+/// Consumers may interact with the Thing. See [w3c
+/// documentation](https://www.w3.org/TR/wot-thing-description11/#interactionaffordance) for
+/// further details.
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InteractionAffordance<Other: ExtendableThing> {
+    /// JSON-LD keyword to label the object with semantic tags or types.
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
 
+    /// A human-readable title based on a default language.
     pub title: Option<String>,
 
+    /// Multi-language human-readable titles.
     pub titles: Option<MultiLanguage>,
 
+    /// Additional human-readable information based on a default language.
     pub description: Option<String>,
 
+    /// Additional human-readable information in different languages.
     pub descriptions: Option<MultiLanguage>,
 
+    /// Set of form hypermedia controls that describe how an operation can be performed.
     pub forms: Vec<Form<Other>>,
 
+    /// URI template variables
+    ///
+    /// A Map of URI template variables that can be used inside `Forms`. The individual variables
+    /// `DataSchema` cannot be an [`ObjectSchema`] or an [`ArraySchema`]. If the same variable is
+    /// both declared in [`Thing`]-level `uri_variables` and in `InteractionAffordance` level, the
+    /// `InteractionAffordance` level variable takes precedence.
     pub uri_variables: Option<DataSchemaMap<Other>>,
 
+    /// Interaction affordance extension
     #[serde(flatten)]
     pub other: Other::InteractionAffordance,
 }
@@ -349,17 +389,27 @@ where
     }
 }
 
+/// An affordance that exposes the state of a `Thing`
 #[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
 pub struct PropertyAffordance<Other: ExtendableThing> {
+    /// The interaction affordance.
     #[serde(flatten)]
     pub interaction: InteractionAffordance<Other>,
 
+    /// The data schema representing the property.
     #[serde(flatten)]
     pub data_schema: DataSchemaFromOther<Other>,
 
+    /// A hint that indicates whether Servients hosting the Thing and Intermediaries should provide
+    /// a Protocol Binding that supports the [`ObserveProperty`] and [`UnobserveProperty`]
+    /// operations for this property.
+    ///
+    /// [`ObserveProperty`]: FormOperation::ObserveProperty
+    /// [`UnobserveProperty`]: FormOperation::UnobserveProperty
     pub observable: Option<bool>,
 
+    /// Property affordance extension.
     #[serde(flatten)]
     pub other: Other::PropertyAffordance,
 }
@@ -413,24 +463,43 @@ where
     }
 }
 
+/// An affordance that allows to inkvoke a function of the `Thing`.
 #[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
 pub struct ActionAffordance<Other: ExtendableThing> {
+    /// The interaction affordance.
     #[serde(flatten)]
     pub interaction: InteractionAffordance<Other>,
 
+    /// The input data schema of the action.
     pub input: Option<DataSchemaFromOther<Other>>,
 
+    /// The output data schema of the action.
     pub output: Option<DataSchemaFromOther<Other>>,
 
+    /// Whether the action is safe or not.
+    ///
+    /// In case it is `true`, when the action is invoked there is no internal state that is being
+    /// changed.
     #[serde(default)]
     pub safe: bool,
 
+    /// Whether the action is idempotent or not.
+    ///
+    /// In case it is `true`, the action can be called repeatedly with the same result based on the
+    /// same input.
     #[serde(default)]
     pub idempotent: bool,
 
+    /// Whether the action is synchronous or not.
+    ///
+    /// A synchronous action means that the response of action contains all the information about
+    /// the result of the action and no further querying about the status of the action is needed.
+    ///
+    /// If this is `None`, no claim on the synchronicity of the action can be made.
     pub synchronous: Option<bool>,
 
+    /// Action affordance extension
     #[serde(flatten)]
     pub other: Other::ActionAffordance,
 }
@@ -493,20 +562,27 @@ where
     }
 }
 
+/// An affordance that describes an event source.
 #[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
 pub struct EventAffordance<Other: ExtendableThing> {
+    /// The interaction affordance.
     #[serde(flatten)]
     pub interaction: InteractionAffordance<Other>,
 
+    /// Data that needs to be passed upon subscription.
     pub subscription: Option<DataSchemaFromOther<Other>>,
 
+    /// Data schema of the messages pushed by the `Thing`.
     pub data: Option<DataSchemaFromOther<Other>>,
 
+    /// Data schema of the responsed messages sent by the consumer in a response to a data message.
     pub data_response: Option<DataSchemaFromOther<Other>>,
 
+    /// Data that needs to be passed to cancel a subscription.
     pub cancellation: Option<DataSchemaFromOther<Other>>,
 
+    /// Event affordance extension.
     #[serde(flatten)]
     pub other: Other::EventAffordance,
 }
@@ -566,10 +642,13 @@ where
     }
 }
 
+/// Metadata of a `Thing` that provides version information about the _Thing Description_ document.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct VersionInfo {
+    /// The version indicator of this _Thing Description_ instance.
     pub instance: String,
 
+    /// The version indicator of the underlying _Thing Model_.
     pub model: Option<String>,
 }
 
@@ -586,46 +665,62 @@ where
     }
 }
 
+/// Metadata that describes the data format used.
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSchema<DS, AS, OS> {
+    /// JSON-LD keyword to label the object with semantic tags or types.
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
 
+    /// Human-readable title to be displayed
     pub title: Option<String>,
 
+    /// Multi-language translations of the title
     pub titles: Option<MultiLanguage>,
 
+    /// Human-readable additional information
     pub description: Option<String>,
 
+    /// Multi-language translations of the description
     pub descriptions: Option<MultiLanguage>,
 
+    /// A constant value for the data schema.
     #[serde(rename = "const")]
     pub constant: Option<Value>,
 
+    /// A default value for the data schema.
     pub default: Option<Value>,
 
+    /// Unit information used for the data schema (e.g. Km, g, m/s^2)
     pub unit: Option<String>,
 
+    /// Used to ensure that the data is valid against one of the specified schemas.
     pub one_of: Option<Vec<Self>>,
 
+    /// A restricted set of values.
     #[serde(rename = "enum")]
     pub enumeration: Option<Vec<Value>>,
 
+    /// Indicates if the property interaction value is read only.
     #[serde(default)]
     pub read_only: bool,
 
+    /// Indicates if the property interaction value is write only.
     #[serde(default)]
     pub write_only: bool,
 
+    /// Allows validation based on a format pattern such as "date-time", "email", "uri".
     pub format: Option<String>,
 
+    /// The JSON-based subtype of the data schema.
     #[serde(flatten)]
     pub subtype: Option<DataSchemaSubtype<DS, AS, OS>>,
 
+    /// Data schema extension.
     #[serde(flatten)]
     pub other: DS,
 }
@@ -636,15 +731,29 @@ pub(crate) type DataSchemaFromOther<Other> = DataSchema<
     <Other as ExtendableThing>::ObjectSchema,
 >;
 
+/// A JSON-based data schema subtype.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum DataSchemaSubtype<DS, AS, OS> {
+    /// A JSON array metadata.
     Array(ArraySchema<DS, AS, OS>),
+
+    /// A boolean.
     Boolean,
+
+    /// A number metadata.
     Number(NumberSchema),
+
+    /// An integer metadata.
     Integer(IntegerSchema),
+
+    /// A JSON object metadata.
     Object(ObjectSchema<DS, AS, OS>),
+
+    /// A string metadata.
     String(StringSchema),
+
+    /// A JSON null.
     Null,
 }
 
@@ -665,6 +774,7 @@ impl<DS, AS, OS> Default for DataSchemaSubtype<DS, AS, OS> {
     }
 }
 
+/// A JSON array metadata.
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -673,14 +783,18 @@ impl<DS, AS, OS> Default for DataSchemaSubtype<DS, AS, OS> {
     serialize = "DS: Serialize, AS: Serialize, OS: Serialize"
 ))]
 pub struct ArraySchema<DS, AS, OS> {
+    /// The characteristics of the JSON array.
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub items: Option<Vec<DataSchema<DS, AS, OS>>>,
 
+    /// The minimum number of items that have to be in the JSON array.
     pub min_items: Option<u32>,
 
+    /// The maximum number of items that have to be in the JSON array.
     pub max_items: Option<u32>,
 
+    /// Array schema extension.
     #[serde(flatten)]
     pub other: AS,
 }
@@ -841,6 +955,7 @@ where
 macro_rules! impl_minmax_float {
     (@ $ty:ident $float_type:ty) => {
         impl $ty<$float_type> {
+            /// Returns `true` if value is `NaN`.
             pub fn is_nan(&self) -> bool {
                 match self {
                     Self::Inclusive(x) => x.is_nan(),
@@ -860,37 +975,48 @@ macro_rules! impl_minmax_float {
 
 impl_minmax_float!(f32, f64);
 
+/// A number metadata.
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NumberSchema {
+    /// The higher limit of the value.
     #[serde(flatten)]
     pub maximum: Option<Maximum<f64>>,
 
+    /// The lower limit of the value.
     #[serde(flatten)]
     pub minimum: Option<Minimum<f64>>,
 
+    /// It adds the requirement that the numeric value must be a multiple of this.
     pub multiple_of: Option<f64>,
 }
 
+/// An integer metadata.
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 // FIXME: we should probably use a Decimal type
 pub struct IntegerSchema {
+    /// The higher limit of the value.
     #[serde(flatten)]
     pub maximum: Option<Maximum<usize>>,
 
+    /// The lower limit of the value.
     #[serde(flatten)]
     pub minimum: Option<Minimum<usize>>,
 }
 
+/// A JSON object metadata.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct ObjectSchema<DS, AS, OS> {
+    /// Data schema nested definitions.
     pub properties: Option<HashMap<String, DataSchema<DS, AS, OS>>>,
 
+    /// Defines which members of the object type are mandatory.
     pub required: Option<Vec<String>>,
 
+    /// Object schema extension.
     #[serde(flatten)]
     pub other: OS,
 }
@@ -928,66 +1054,117 @@ where
     }
 }
 
+/// A string metadata
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StringSchema {
+    /// The minimum length of a string.
     pub min_length: Option<u32>,
+
+    /// The maximum length of a string.
     pub max_length: Option<u32>,
+
+    /// A regular expression to express constraints of the string value. The regular expression
+    /// must follow the [ECMA-262](https://www.w3.org/TR/wot-thing-description11/#bib-ecma-262)
+    /// dialect.
     // TODO: this should be a validated against EcmaScript dialect of regexes
     pub pattern: Option<String>,
+
+    /// The encoding used to store the contents, as specified in [RFC
+    /// 2045](https://www.rfc-editor.org/rfc/rfc2045).
     // TODO: this should be validated against RFC 2045
     pub content_encoding: Option<String>,
+
+    /// the MIME type of the contents of a string value, as described in [RFC
+    /// 2046](https://www.rfc-editor.org/rfc/rfc2046).
     // TODO: this should be validated against RFC 2046
     pub content_media_type: Option<String>,
 }
 
+/// The configuration of a security mechanism.
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct SecurityScheme {
+    /// JSON-LD keyword to label the object with semantic tags or types.
     #[serde(rename = "@type", default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub attype: Option<Vec<String>>,
 
+    /// Human-readable additional information
     pub description: Option<String>,
 
+    /// Multi-language translations of the description
     pub descriptions: Option<MultiLanguage>,
 
+    /// URI of the proxy server this security configuration provides access to. If `None`, the
+    /// corresponding security configuration is for the endpoint.
     // FIXME: use AnyURI
     pub proxy: Option<String>,
 
+    /// The security scheme subtype.
     #[serde(flatten)]
     pub subtype: SecuritySchemeSubtype,
 }
 
+/// A pre-defined security scheme subtype.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(tag = "scheme", rename_all = "lowercase")]
 pub enum KnownSecuritySchemeSubtype {
+    /// No authentication or other mechanism required to access the resource.
     #[default]
     NoSec,
+
+    /// The security parameters are going to be negotiated by the underlying protocols at runtime.
     Auto,
+
+    /// A combination of security schemes.
     Combo(ComboSecurityScheme),
+
+    /// Basic Authentication ([RFC7617](https://httpwg.org/specs/rfc7617.html)) security
+    /// configuration
     Basic(BasicSecurityScheme),
+
+    /// Digest Access Authentication ([RFC7616](https://httpwg.org/specs/rfc7616.html)) security
+    /// configuration
     Digest(DigestSecurityScheme),
+
+    /// Bearer Token ([RFC6750](https://www.rfc-editor.org/rfc/rfc6750)) security configuration
     Bearer(BearerSecurityScheme),
+
+    /// Pre-shared key authentication security configuration.
     Psk(PskSecurityScheme),
+
+    /// OAuth 2.0 authentication security configuration for systems conformant with
+    /// [RFC6749](https://www.rfc-editor.org/rfc/rfc6749),
+    /// [RFC8252](https://www.rfc-editor.org/rfc/rfc8252) and (for the device flow)
+    /// [RFC8628](https://www.rfc-editor.org/rfc/rfc8628)
     OAuth2(OAuth2SecurityScheme),
+
+    /// API key authentication security configuration.
     ApiKey(ApiKeySecurityScheme),
 }
 
+/// Custom security scheme subtype
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct UnknownSecuritySchemeSubtype {
+    /// The name of the security scheme.
     pub scheme: String,
+
+    /// The inner data of the security scheme.
     #[serde(flatten)]
     pub data: Value,
 }
 
-// TODO
+/// A security scheme subtype.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum SecuritySchemeSubtype {
+    /// Pre-defined security scheme subtype.
     Known(KnownSecuritySchemeSubtype),
+
+    /// Custom security scheme subtype
     Unknown(UnknownSecuritySchemeSubtype),
 }
 
@@ -997,19 +1174,29 @@ impl Default for SecuritySchemeSubtype {
     }
 }
 
+/// A combination of security schemes.
 #[serde_as]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ComboSecurityScheme {
+    /// Two or more strings identifying other named security scheme definitions, any one of which,
+    /// when satisfied, will allow access.
     OneOf(#[serde_as(as = "OneOrMany<_>")] Vec<String>),
+
+    /// Two or more strings identifying other named security scheme definitions, all of which must
+    /// be satisfied for access.
     AllOf(#[serde_as(as = "OneOrMany<_>")] Vec<String>),
 }
 
+/// Basic Authentication ([RFC7617](https://httpwg.org/specs/rfc7617.html)) security configuration
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct BasicSecurityScheme {
+    /// The location of security authentication information.
     #[serde(rename = "in", default = "SecurityAuthenticationLocation::header")]
     pub location: SecurityAuthenticationLocation,
+
+    /// Name for query, header, cookie, or uri parameters.
     pub name: Option<String>,
 }
 
@@ -1022,13 +1209,27 @@ impl Default for BasicSecurityScheme {
     }
 }
 
+/// The location of security authentication information.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SecurityAuthenticationLocation {
+    /// The parameter will be given in a header provided by the protocol, with the name of the
+    /// header provided by the value of `name`.
     Header,
+
+    /// The parameter will be appended to the URI as a query parameter, with the name of the query
+    /// parameter provided by `name`.
     Query,
+
+    /// The parameter will be provided in the body of the request payload, with the data schema
+    /// element used provided by `name`.
     Body,
+
+    /// The parameter is stored in a cookie identified by the value of `name`.
     Cookie,
+
+    /// The parameter is embedded in the URI itself, which is encoded in the relevant interaction
+    /// using a URI template variable defined by the value of `name`.
     Uri,
 }
 
@@ -1042,14 +1243,18 @@ impl SecurityAuthenticationLocation {
     }
 }
 
+/// Digest Access Authentication ([RFC7616](https://httpwg.org/specs/rfc7616.html)) security configuration
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct DigestSecurityScheme {
+    /// Quality of protection.
     pub qop: QualityOfProtection,
 
+    /// The location of security authentication information.
     #[serde(rename = "in", default = "SecurityAuthenticationLocation::header")]
     pub location: SecurityAuthenticationLocation,
 
+    /// Name for query, header, cookie, or uri parameters.
     pub name: Option<String>,
 }
 
@@ -1063,20 +1268,27 @@ impl Default for DigestSecurityScheme {
     }
 }
 
+/// Quality of protection, as defined in [RFC2617](https://www.rfc-editor.org/rfc/rfc2617).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum QualityOfProtection {
+    /// Protection by authentication.
     #[default]
     Auth,
+
+    /// Protection by authentication with integrity protection.
     AuthInt,
 }
 
+/// API key authentication security configuration.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct ApiKeySecurityScheme {
+    /// The location of security authentication information.
     #[serde(rename = "in", default = "SecurityAuthenticationLocation::query")]
     pub location: SecurityAuthenticationLocation,
 
+    /// Name for query, header, cookie, or uri parameters.
     pub name: Option<String>,
 }
 
@@ -1089,21 +1301,27 @@ impl Default for ApiKeySecurityScheme {
     }
 }
 
+/// Pre-shared key authentication security configuration.
 #[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct BearerSecurityScheme {
+    /// URI of the authorization server.
     // FIXME: use AnyURI
     pub authorization: Option<String>,
 
+    /// Encoding, encryption, or digest algorithm.
     #[serde(default = "BearerSecurityScheme::default_alg")]
     pub alg: Cow<'static, str>,
 
+    /// Format of security authentication information.
     #[serde(default = "BearerSecurityScheme::default_format")]
     pub format: Cow<'static, str>,
 
+    /// The location of security authentication information.
     #[serde(rename = "in", default = "SecurityAuthenticationLocation::header")]
     pub location: SecurityAuthenticationLocation,
 
+    /// Name for query, header, cookie, or uri parameters.
     pub name: Option<String>,
 }
 
@@ -1129,33 +1347,50 @@ impl BearerSecurityScheme {
     }
 }
 
+/// Pre-shared key authentication security configuration.
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct PskSecurityScheme {
+    /// Identifier providing information useful for selection or confirmation.
     pub identity: Option<String>,
 }
 
+/// OAuth 2.0 authentication security configuration for systems conformant with
+/// [RFC6749](https://www.rfc-editor.org/rfc/rfc6749),
+/// [RFC8252](https://www.rfc-editor.org/rfc/rfc8252) and (for the device flow)
+/// [RFC8628](https://www.rfc-editor.org/rfc/rfc8628)
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct OAuth2SecurityScheme {
+    /// URI of the authorization server. In the case of the device flow, the URI provided for the
+    /// authorization value refers to the device authorization endpoint
+    /// ([RFC8628](https://www.rfc-editor.org/rfc/rfc8628)).
     // FIXME: use AnyURI
     pub authorization: Option<String>,
 
+    /// URI of the token server.
     // FIXME: use AnyURI
     pub token: Option<String>,
 
+    /// URI of the refresh server.
     // FIXME: use AnyURI
     pub refresh: Option<String>,
 
+    /// Set of authorization scope identifiers.
+    ///
+    /// These are provided in tokens returned by an authorization server and associated with forms
+    /// in order to identify what resources a client may access and how.
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub scopes: Option<Vec<String>>,
 
+    /// Authorization flow.
     pub flow: String,
 }
 
 impl OAuth2SecurityScheme {
+    /// Creates a new default value with the given `flow`.
     pub fn new(flow: impl Into<String>) -> Self {
         let flow = flow.into();
         Self {
@@ -1168,61 +1403,103 @@ impl OAuth2SecurityScheme {
     }
 }
 
+/// A link to an arbitrary resource.
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Link {
+    /// Target IRI of a link or submission target of a form.
     pub href: String,
 
+    /// Target attribute providing a hint indicating what the media type
+    /// ([RFC2046](https://www.rfc-editor.org/rfc/rfc2046)) of the result of dereferencing the link
+    /// should be.
     #[serde(rename = "type")]
     pub ty: Option<String>,
 
+    /// A link relation type identifies the semantics of a link.
     pub rel: Option<String>,
 
+    /// Overrides the link context with the given URI or IRI.
+    ///
+    /// By default the link context is the Thing itself identified by its `id`.
     // FIXME: use AnyURI
     pub anchor: Option<String>,
 
+    /// One or more sizes for the referenced icon.
+    ///
+    /// This is only applicable for relation type "icon". The value pattern follows {Height}x{Width} (e.g., "16x16", "16x16 32x32").
     pub sizes: Option<String>,
 
+    /// The language of a linked document.
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub hreflang: Option<Vec<LanguageTag<String>>>,
 }
 
+/// The representation of an operation over a Thing.
 #[serde_as]
 #[skip_serializing_none]
 #[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Form<Other: ExtendableThing> {
+    /// The semantic intention of performing the operation(s) described by the form.
     #[serde(default, skip_serializing_if = "DefaultedFormOperations::is_default")]
     pub op: DefaultedFormOperations,
 
+    /// Target IRI of a link or submission target of a form.
     // FIXME: use AnyURI
     pub href: String,
 
+    /// A content type.
+    ///
+    /// It is based on a media type (e.g., text/plain) and potential parameters (e.g.,
+    /// charset=utf-8) for the media type ([RFC2046](https://www.rfc-editor.org/rfc/rfc2046)).
     pub content_type: Option<String>,
 
+    /// Content coding values indicate an encoding transformation that has been or can be applied
+    /// to a representation.
+    ///
+    /// Content codings are primarily used to allow a representation to be compressed or otherwise
+    /// usefully transformed without losing the identity of its underlying media type and without
+    /// loss of information.
+    ///
+    /// Examples of content coding include "gzip", "deflate", etc. .
     // TODO: check if the subset of possible values is limited by the [IANA HTTP content coding
     // registry](https://www.iana.org/assignments/http-parameters/http-parameters.xhtml#content-coding).
     pub content_coding: Option<String>,
 
+    /// The mechanism by which an interaction will be accomplished for a given protocol when there
+    /// are multiple options.
     pub subprotocol: Option<String>,
 
+    /// Set of security definition names, chosen from those defined in
+    /// [`security_definitions`](Thing::security_definitions). These must all be satisfied for
+    /// access to resources.
     // FIXME: use variant names of KnownSecuritySchemeSubtype + "other" string variant
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub security: Option<Vec<String>>,
 
+    /// Set of authorization scope identifiers.
+    ///
+    /// The values associated with a form should be chosen from those defined in an
+    /// [`OAuth2SecurityScheme`] active on that form.
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub scopes: Option<Vec<String>>,
 
+    /// The expected response from the call to the resource.
+    ///
+    /// The response name contains metadata that is only valid for the primary response messages
     pub response: Option<ExpectedResponse<Other::ExpectedResponse>>,
 
+    /// Additional expected responses.
     #[serde(default)]
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub additional_responses: Option<Vec<AdditionalExpectedResponse>>,
 
+    /// Form extension.
     #[serde(flatten)]
     pub other: Other::Form,
 }
@@ -1249,26 +1526,70 @@ where
     }
 }
 
+/// The semantic intention of an operation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FormOperation {
+    /// Read a property.
     ReadProperty,
+
+    /// Update a property.
     WriteProperty,
+
+    /// Observe a property.
+    ///
+    /// Identifies an operation to be notified with new data when the property is updated.
     ObserveProperty,
+
+    /// Unobserve a property.
+    ///
+    /// Stops the notification from a previously observed property.
     UnobserveProperty,
+
+    /// Perform an action.
     InvokeAction,
+
+    /// Get the status of an action.
     QueryAction,
+
+    /// Cancel an ongoing action.
     CancelAction,
+
+    /// Subscribe to an event.
+    ///
+    /// Identifies an operation to be notified when an event occurs.
     SubscribeEvent,
+
+    /// Unsubscribe from an event.
+    ///
+    /// Stops the notification from a previously subscribed event.
     UnsubscribeEvent,
+
+    /// Read all the properties in a single interaction.
     ReadAllProperties,
+
+    /// Update all the properties in a single interaction.
     WriteAllProperties,
+
+    /// Read multiple selected properties in a single interaction.
     ReadMultipleProperties,
+
+    /// Update multiple selected properties in a single interaction.
     WriteMultipleProperties,
+
+    /// Observe all the properties in a single interaction.
     ObserveAllProperties,
+
+    /// Unobserve all the properties in a single interaction.
     UnobserveAllProperties,
+
+    /// Subscribe to all events in a single interaction.
     SubscribeAllEvents,
+
+    /// Unsubscribe from all events in a single interaction.
     UnsubscribeAllEvents,
+
+    /// Get the status of all actions in a single interaction.
     QueryAllActions,
 }
 
@@ -1299,14 +1620,24 @@ impl fmt::Display for FormOperation {
     }
 }
 
+/// A default or custom set of Form operations.
+///
+/// A `Form` has a different default `op` field depending on its context. With this, it is possible
+/// to specify a _default_ operation independently from the context.
+///
+/// Note: an instance of this enum should not be serialized if it is a `Default` value.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum DefaultedFormOperations {
+    /// The default operation depending on the context.
     #[default]
     Default,
+
+    /// A custom set of operations.
     Custom(Vec<FormOperation>),
 }
 
 impl DefaultedFormOperations {
+    /// Returns `true` if the operation is a [`Default`](DefaultedFormOperations::Default) value.
     #[inline]
     pub const fn is_default(&self) -> bool {
         matches!(self, Self::Default)
@@ -1339,24 +1670,40 @@ where
     }
 }
 
+/// The expected response message for the primary response.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExpectedResponse<Other> {
+    /// A content type.
+    ///
+    /// It is based on a media type (e.g., text/plain) and potential parameters (e.g.,
+    /// charset=utf-8) for the media type ([RFC2046](https://www.rfc-editor.org/rfc/rfc2046)).
     pub content_type: String,
 
+    /// Expected response extension.
     #[serde(flatten)]
     pub other: Other,
 }
 
+/// The expected response message for additional responses.
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdditionalExpectedResponse {
+    /// It is `true` if an additional response should not be considered an error.
     #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub success: bool,
 
+    /// A content type.
+    ///
+    /// It is based on a media type (e.g., text/plain) and potential parameters (e.g.,
+    /// charset=utf-8) for the media type ([RFC2046](https://www.rfc-editor.org/rfc/rfc2046)).
     pub content_type: Option<String>,
 
+    /// The output data schema for an additional response if it differs from the default output data schema.
+    ///
+    /// It is the name of a previous definition given in the
+    /// [`schema_definitions`](Thing::schema_definitions).
     pub schema: Option<String>,
 }
 
