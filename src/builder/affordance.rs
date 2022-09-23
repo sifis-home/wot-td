@@ -1,3 +1,5 @@
+//! The builder elements related to affordances.
+
 use std::{collections::HashMap, ops::Not};
 
 use serde_json::Value;
@@ -28,7 +30,12 @@ use super::{
     AffordanceType, Error, Extended, FormBuilder, MultiLanguageBuilder, ToExtend,
 };
 
+/// A conversion into an _usable_ form of a value.
+///
+/// This is extremely handy to convert between the same kind with different generics. [`From`] and
+/// [`Into`] cannot be used directly because of some blanket implementations that cause conflicts.
 pub trait IntoUsable<T>: Sized {
+    /// Converts `self` into an _usable_ value with a different type.
     fn into_usable(self) -> T;
 }
 
@@ -37,7 +44,19 @@ pub(super) struct AffordanceBuilder<Affordance> {
     pub(super) affordance: Affordance,
 }
 
+/// An interface for a buildable version of an [`InteractionAffordance`](crate::thing::InteractionAffordance).
+///
+/// In order to model the specification, each type that can be created using a builder pattern and
+/// that _behaves_ like an `InteractionAffordance` should implement this trait.
+///
+/// # Notes
+///
+/// This trait *should not* be implemented directly, even if it is not sealed.
 pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
+    /// Adds a new `Form`.
+    ///
+    /// It takes a function that accepts an _incomplete_ [`FormBuilder`] and must return a
+    /// _complete_ one.
     fn form<F>(self, f: F) -> Self
     where
         F: FnOnce(
@@ -45,6 +64,10 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
         ) -> FormBuilder<Other, String, Other::Form>,
         Other::Form: Extendable;
 
+    /// Adds a new _URI variable_.
+    ///
+    /// It takes a function that accepts a `DataSchema` builder and must return a
+    /// type convertible into a `DataSchema`.
     fn uri_variable<F, T>(self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -59,9 +82,15 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
         Other::DataSchema: Extendable;
 }
 
+/// _Partial_ variant of an [`InteractionAffordanceBuilder`].
+///
+/// This variant is necessary for building a [`PropertyAffordance`], which is composed of a set of
+/// _human readable_ fields shared between [`InteractionAffordance`] and [`DataSchema`].
 pub struct PartialInteractionAffordanceBuilder<Other: ExtendableThing, OtherInteractionAffordance> {
     pub(super) forms: Vec<FormBuilder<Other, String, Other::Form>>,
     pub(super) uri_variables: HashMap<String, UncheckedDataSchemaFromOther<Other>>,
+
+    /// Partial interaction affordance extension.
     pub other: OtherInteractionAffordance,
 }
 
@@ -98,6 +127,7 @@ where
 impl<Other: ExtendableThing, OtherInteractionAffordance>
     PartialInteractionAffordanceBuilder<Other, OtherInteractionAffordance>
 {
+    /// Extends the current type, passing a closure that returns `T`.
     pub fn ext_with<F, T>(
         self,
         f: F,
@@ -119,6 +149,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance>
         }
     }
 
+    /// Extend the current extension with an additional element
     #[inline]
     pub fn ext<T>(
         self,
@@ -156,6 +187,7 @@ where
     }
 }
 
+/// A builder for [`InteractionAffordance`].
 #[derive(Default)]
 pub struct InteractionAffordanceBuilder<Other: ExtendableThing, OtherInteractionAffordance> {
     pub(super) partial: PartialInteractionAffordanceBuilder<Other, OtherInteractionAffordance>,
@@ -165,6 +197,7 @@ pub struct InteractionAffordanceBuilder<Other: ExtendableThing, OtherInteraction
 impl<Other: ExtendableThing, OtherInteractionAffordance>
     InteractionAffordanceBuilder<Other, OtherInteractionAffordance>
 {
+    /// Extends the current type, passing a closure that returns `T`.
     pub fn ext_with<F, T>(
         self,
         f: F,
@@ -178,6 +211,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance>
         InteractionAffordanceBuilder { partial, info }
     }
 
+    /// Extend the current extension with an additional element
     #[inline]
     pub fn ext<T>(
         self,
@@ -279,6 +313,7 @@ impl_buildable_interaction_affordance!(
     EventAffordanceBuilder<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance> on interaction.partial,
 );
 
+/// A builder for [`PropertyAffordance`]
 pub struct PropertyAffordanceBuilder<
     Other: ExtendableThing,
     DataSchema,
@@ -289,6 +324,8 @@ pub struct PropertyAffordanceBuilder<
     pub(super) info: HumanReadableInfo,
     pub(super) data_schema: DataSchema,
     pub(super) observable: Option<bool>,
+
+    /// Property affordance extension.
     pub other: OtherPropertyAffordance,
 }
 
@@ -316,6 +353,7 @@ where
     }
 }
 
+/// Builder for [`ActionAffordance`].
 pub struct ActionAffordanceBuilder<
     Other: ExtendableThing,
     OtherInteractionAffordance,
@@ -327,6 +365,8 @@ pub struct ActionAffordanceBuilder<
     pub(super) safe: bool,
     pub(super) idempotent: bool,
     pub(super) synchronous: Option<bool>,
+
+    /// Action affordance extension.
     pub other: OtherActionAffordance,
 }
 
@@ -373,6 +413,7 @@ where
     }
 }
 
+/// Builder for [`EventAffordance`].
 #[derive(Default)]
 pub struct EventAffordanceBuilder<
     Other: ExtendableThing,
@@ -384,6 +425,8 @@ pub struct EventAffordanceBuilder<
     pub(super) data: Option<UncheckedDataSchemaFromOther<Other>>,
     pub(super) cancellation: Option<UncheckedDataSchemaFromOther<Other>>,
     pub(super) data_response: Option<UncheckedDataSchemaFromOther<Other>>,
+
+    /// Event affordance extension.
     pub other: OtherEventAffordance,
 }
 
@@ -543,6 +586,7 @@ where
 impl<Other: ExtendableThing, DS, OtherInteractionAffordance, OtherPropertyAffordance>
     PropertyAffordanceBuilder<Other, DS, OtherInteractionAffordance, OtherPropertyAffordance>
 {
+    /// Extends the interaction affordance, passing a closure that returns `T`.
     pub fn ext_interaction_with<F, T>(
         self,
         f: F,
@@ -573,6 +617,7 @@ impl<Other: ExtendableThing, DS, OtherInteractionAffordance, OtherPropertyAfford
         }
     }
 
+    /// Extends the interaction affordance with an additional element.
     #[inline]
     pub fn ext_interaction<T>(
         self,
@@ -589,6 +634,7 @@ impl<Other: ExtendableThing, DS, OtherInteractionAffordance, OtherPropertyAfford
         self.ext_interaction_with(|| t)
     }
 
+    /// Extends the property affordance, passing a closure that returns `T`.
     pub fn ext_with<F, T>(
         self,
         f: F,
@@ -619,6 +665,7 @@ impl<Other: ExtendableThing, DS, OtherInteractionAffordance, OtherPropertyAfford
         }
     }
 
+    /// Extends the property affordance with an additional element.
     #[inline]
     pub fn ext<T>(
         self,
@@ -646,6 +693,7 @@ impl<Other, OtherInteractionAffordance, OtherPropertyAffordance, DS, AS, OS>
 where
     Other: ExtendableThing,
 {
+    /// Extends the data schema, passing a closure that returns `T`.
     pub fn ext_data_schema_with<F, T>(
         self,
         f: F,
@@ -676,6 +724,7 @@ where
         }
     }
 
+    /// Extends the data schema with an additional element.
     #[inline]
     pub fn ext_data_schema<T>(
         self,
@@ -692,6 +741,7 @@ where
         self.ext_data_schema_with(|| t)
     }
 
+    /// Makes the builder unextendable and allows further customizations.
     pub fn finish_extend_data_schema(
         self,
     ) -> PropertyAffordanceBuilder<
@@ -728,6 +778,7 @@ impl<Other, OtherInteractionAffordance, OtherPropertyAffordance, DS, AS, OS>
 where
     Other: ExtendableThing,
 {
+    /// Extends the data schema, passing a closure that returns `T`.
     pub fn ext_data_schema_with<F, T>(
         self,
         f: F,
@@ -758,6 +809,7 @@ where
         }
     }
 
+    /// Extends the data schema with an additional element.
     #[inline]
     pub fn ext_data_schema<T>(
         self,
@@ -774,6 +826,7 @@ where
         self.ext_data_schema_with(|| t)
     }
 
+    /// Makes the builder unextendable and allows further customizations.
     pub fn finish_extend_data_schema(
         self,
     ) -> PropertyAffordanceBuilder<
@@ -835,6 +888,7 @@ where
 impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
     ActionAffordanceBuilder<Other, OtherInteractionAffordance, OtherActionAffordance>
 {
+    /// Extends the interaction affordance, passing a closure that returns `T`.
     pub fn ext_interaction_with<F, T>(
         self,
         f: F,
@@ -864,6 +918,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
         }
     }
 
+    /// Extends the interaction affordance with an additional element.
     #[inline]
     pub fn ext_interaction<T>(
         self,
@@ -875,6 +930,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
         self.ext_interaction_with(|| t)
     }
 
+    /// Extends the action affordance, passing a closure that returns `T`.
     pub fn ext_with<F, T>(
         self,
         f: F,
@@ -904,6 +960,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
         }
     }
 
+    /// Extends the action affordance with an additional element.
     #[inline]
     pub fn ext<T>(
         self,
@@ -919,6 +976,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
 impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     EventAffordanceBuilder<Other, OtherInteractionAffordance, OtherEventAffordance>
 {
+    /// Extends the interaction affordance, passing a closure that returns `T`.
     pub fn ext_interaction_with<F, T>(
         self,
         f: F,
@@ -946,6 +1004,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
         }
     }
 
+    /// Extends the interaction affordance with an additional element.
     #[inline]
     pub fn ext_interaction<T>(
         self,
@@ -957,6 +1016,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
         self.ext_interaction_with(|| t)
     }
 
+    /// Extends the event affordance, passing a closure that returns `T`.
     pub fn ext_with<F, T>(
         self,
         f: F,
@@ -984,6 +1044,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
         }
     }
 
+    /// Extends the event affordance with an additional element.
     #[inline]
     pub fn ext<T>(
         self,
@@ -1004,6 +1065,7 @@ impl<Other: ExtendableThing, DataSchema, OtherInteractionAffordance, OtherProper
         OtherPropertyAffordance,
     >
 {
+    /// Sets the value of the `observable` field.
     pub fn observable(mut self, value: bool) -> Self {
         self.observable = Some(value);
         self
@@ -1297,6 +1359,10 @@ where
 impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
     ActionAffordanceBuilder<Other, OtherInteractionAffordance, OtherActionAffordance>
 {
+    /// Adds a new _input_ schema.
+    ///
+    /// It takes a function that accepts a `DataSchema` builder and must return a
+    /// type convertible into a `DataSchema`.
     pub fn input<F, T>(
         self,
         f: F,
@@ -1339,6 +1405,10 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
 impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
     ActionAffordanceBuilder<Other, OtherInteractionAffordance, OtherActionAffordance>
 {
+    /// Adds a new _output_ schema.
+    ///
+    /// It takes a function that accepts a `DataSchema` builder and must return a
+    /// type convertible into a `DataSchema`.
     pub fn output<F, T>(
         self,
         f: F,
@@ -1381,16 +1451,19 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
 impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
     ActionAffordanceBuilder<Other, OtherInteractionAffordance, OtherActionAffordance>
 {
+    /// Sets the value of the `safe` field to `true`.
     pub fn safe(mut self) -> Self {
         self.safe = true;
         self
     }
 
+    /// Sets the value of the `idempotent` field to `true`.
     pub fn idempotent(mut self) -> Self {
         self.idempotent = true;
         self
     }
 
+    /// Sets the value of the `synchronous` field.
     pub fn synchronous(mut self, value: bool) -> Self {
         self.synchronous = Some(value);
         self
@@ -1400,6 +1473,10 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
 impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     EventAffordanceBuilder<Other, OtherInteractionAffordance, OtherEventAffordance>
 {
+    /// Adds a new _subscription_ schema.
+    ///
+    /// It takes a function that accepts a `DataSchema` builder and must return a
+    /// type convertible into a `DataSchema`.
     pub fn subscription<F, T>(
         self,
         f: F,
@@ -1440,6 +1517,10 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
 impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     EventAffordanceBuilder<Other, OtherInteractionAffordance, OtherEventAffordance>
 {
+    /// Adds a new _data_ schema.
+    ///
+    /// It takes a function that accepts a `DataSchema` builder and must return a
+    /// type convertible into a `DataSchema`.
     pub fn data<F, T>(
         self,
         f: F,
@@ -1480,6 +1561,10 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
 impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     EventAffordanceBuilder<Other, OtherInteractionAffordance, OtherEventAffordance>
 {
+    /// Adds a new _cancellation_ schema.
+    ///
+    /// It takes a function that accepts a `DataSchema` builder and must return a
+    /// type convertible into a `DataSchema`.
     pub fn cancellation<F, T>(
         self,
         f: F,
@@ -1520,6 +1605,10 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
 impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     EventAffordanceBuilder<Other, OtherInteractionAffordance, OtherEventAffordance>
 {
+    /// Adds a new _data response_ schema.
+    ///
+    /// It takes a function that accepts a `DataSchema` builder and must return a
+    /// type convertible into a `DataSchema`.
     pub fn data_response<F, T>(
         self,
         f: F,

@@ -11,14 +11,21 @@ pub struct Nil;
 /// List type.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cons<T, U = Nil> {
+    /// The _head_ of the list.
+    ///
+    /// This generally consists of some content appended to the heterogeneous list.
     #[serde(flatten)]
     pub head: T,
+
+    /// The _tail_ of the list.
+    ///
+    /// This generally consists of `Nil` or `Cons` containing the rest of the items.
     #[serde(flatten)]
     pub tail: U,
 }
 
 impl Nil {
-    /// Prepend a new `head` the heterogenous list.
+    /// Prepend a new `head` the heterogeneous list.
     #[inline]
     pub fn cons<T>(value: T) -> Cons<T, Nil> {
         Cons {
@@ -29,7 +36,7 @@ impl Nil {
 }
 
 impl<T, U> Cons<T, U> {
-    /// Prepend a new `head` the heterogenous list.
+    /// Prepend a new `head` the heterogeneous list.
     #[inline]
     pub fn cons<V>(self, value: V) -> Cons<V, Self> {
         Cons {
@@ -46,7 +53,9 @@ impl<T, U> Cons<T, U> {
     }
 }
 
+/// A conversion from an heterogenous list of values into an heterogenous list of references.
 pub trait HListRef {
+    /// The heterogenous list of references.
     type Target;
 
     /// Create a heterogeneous list of references.
@@ -78,7 +87,10 @@ impl<'a> HListRef for &'a Nil {
     }
 }
 
+/// A conversion from an heterogenous list of values into an heterogenous list of mutable
+/// references.
 pub trait HListMut {
+    /// The heterogenous list of mutable references.
     type Target;
 
     // This is ignored because `HListMut` must be implemented for mutable references only,
@@ -123,9 +135,18 @@ impl<'a> HListMut for &'a mut Nil {
     }
 }
 
+/// An interface for non-empty heterogenous lists.
 pub trait NonEmptyHList {
+    /// The _initial_ part of the list.
+    ///
+    /// This type consists of an heterogenous list containing all the elements of the list except
+    /// for the last one.
     type Init;
+
+    /// The last element of the list.
     type Last;
+
+    /// An heterogenous list with all the elements placed in reverse order.
     type Reversed;
 
     /// Split the last element of an heterogeneous list
