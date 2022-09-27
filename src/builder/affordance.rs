@@ -86,7 +86,10 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
 ///
 /// This variant is necessary for building a [`PropertyAffordance`], which is composed of a set of
 /// _human readable_ fields shared between [`InteractionAffordance`] and [`DataSchema`].
-pub struct PartialInteractionAffordanceBuilder<Other: ExtendableThing, OtherInteractionAffordance> {
+pub(crate) struct PartialInteractionAffordanceBuilder<
+    Other: ExtendableThing,
+    OtherInteractionAffordance,
+> {
     pub(super) forms: Vec<FormBuilder<Other, String, Other::Form>>,
     pub(super) uri_variables: HashMap<String, UncheckedDataSchemaFromOther<Other>>,
 
@@ -128,7 +131,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance>
     PartialInteractionAffordanceBuilder<Other, OtherInteractionAffordance>
 {
     /// Extends the current type, passing a closure that returns `T`.
-    pub fn ext_with<F, T>(
+    fn ext_with<F, T>(
         self,
         f: F,
     ) -> PartialInteractionAffordanceBuilder<Other, OtherInteractionAffordance::Target>
@@ -147,18 +150,6 @@ impl<Other: ExtendableThing, OtherInteractionAffordance>
             uri_variables,
             other,
         }
-    }
-
-    /// Extend the current extension with an additional element
-    #[inline]
-    pub fn ext<T>(
-        self,
-        t: T,
-    ) -> PartialInteractionAffordanceBuilder<Other, OtherInteractionAffordance::Target>
-    where
-        OtherInteractionAffordance: Extend<T>,
-    {
-        self.ext_with(|| t)
     }
 }
 
