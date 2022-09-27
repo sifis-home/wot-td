@@ -180,7 +180,7 @@ where
 
 /// A builder for [`InteractionAffordance`].
 #[derive(Default)]
-pub struct InteractionAffordanceBuilder<Other: ExtendableThing, OtherInteractionAffordance> {
+pub(crate) struct InteractionAffordanceBuilder<Other: ExtendableThing, OtherInteractionAffordance> {
     pub(super) partial: PartialInteractionAffordanceBuilder<Other, OtherInteractionAffordance>,
     pub(super) info: HumanReadableInfo,
 }
@@ -189,7 +189,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance>
     InteractionAffordanceBuilder<Other, OtherInteractionAffordance>
 {
     /// Extends the current type, passing a closure that returns `T`.
-    pub fn ext_with<F, T>(
+    pub(crate) fn ext_with<F, T>(
         self,
         f: F,
     ) -> InteractionAffordanceBuilder<Other, OtherInteractionAffordance::Target>
@@ -203,8 +203,9 @@ impl<Other: ExtendableThing, OtherInteractionAffordance>
     }
 
     /// Extend the current extension with an additional element
+    #[cfg(test)]
     #[inline]
-    pub fn ext<T>(
+    pub(crate) fn ext<T>(
         self,
         t: T,
     ) -> InteractionAffordanceBuilder<Other, OtherInteractionAffordance::Target>
