@@ -1691,7 +1691,7 @@ pub struct ExpectedResponse<Other> {
 #[serde(rename_all = "camelCase")]
 pub struct AdditionalExpectedResponse {
     /// It is `true` if an additional response should not be considered an error.
-    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
+    #[serde(default = "bool_false", skip_serializing_if = "is_false")]
     pub success: bool,
 
     /// A content type.
@@ -1707,12 +1707,12 @@ pub struct AdditionalExpectedResponse {
     pub schema: Option<String>,
 }
 
-const fn bool_true() -> bool {
-    true
+const fn bool_false() -> bool {
+    false
 }
 
-const fn is_true(b: &bool) -> bool {
-    *b
+const fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 #[cfg(test)]
@@ -2886,7 +2886,7 @@ mod test {
         assert_eq!(
             response,
             AdditionalExpectedResponse {
-                success: true,
+                success: false,
                 content_type: None,
                 schema: None,
             },
@@ -2898,7 +2898,7 @@ mod test {
     #[test]
     fn serde_full_additional_expected_response() {
         let raw_data = json!({
-            "success": false,
+            "success": true,
             "contentType": "application/json",
             "schema": "test",
         });
@@ -2909,7 +2909,7 @@ mod test {
         assert_eq!(
             response,
             AdditionalExpectedResponse {
-                success: false,
+                success: true,
                 content_type: Some("application/json".to_string()),
                 schema: Some("test".to_string()),
             },
