@@ -204,7 +204,7 @@
 
 pub mod affordance;
 pub mod data_schema;
-pub mod human_readable_info;
+mod human_readable_info;
 
 use std::{borrow::Cow, collections::HashMap, fmt, marker::PhantomData, ops::Not};
 
@@ -213,7 +213,6 @@ use serde_json::Value;
 use time::OffsetDateTime;
 
 use crate::{
-    builder::data_schema::uri_variables_contains_arrays_objects,
     extend::{Extend, Extendable, ExtendableThing},
     thing::{
         AdditionalExpectedResponse, ApiKeySecurityScheme, BasicSecurityScheme,
@@ -227,16 +226,19 @@ use crate::{
 
 use self::{
     affordance::{
-        ActionAffordanceBuilder, AffordanceBuilder, BuildableAffordance,
-        CheckableInteractionAffordanceBuilder, EventAffordanceBuilder, IntoUsable,
-        PropertyAffordanceBuilder, UsableActionAffordanceBuilder, UsableEventAffordanceBuilder,
+        AffordanceBuilder, BuildableAffordance, CheckableInteractionAffordanceBuilder, IntoUsable,
+        UsableActionAffordanceBuilder, UsableEventAffordanceBuilder,
         UsablePropertyAffordanceBuilder,
     },
     data_schema::{
-        CheckableDataSchema, DataSchemaBuilder, PartialDataSchemaBuilder,
+        uri_variables_contains_arrays_objects, CheckableDataSchema, PartialDataSchemaBuilder,
         UncheckedDataSchemaFromOther,
     },
 };
+
+pub use self::{affordance::*, data_schema::*};
+
+pub use self::human_readable_info::*;
 
 /// A _typetag_ for types that needs to be extended.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
