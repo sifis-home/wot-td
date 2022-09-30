@@ -2,7 +2,205 @@
 //!
 //! The main entry point is [ThingBuilder].
 //!
-//! TODO: Write an example usage
+//! # Usage
+//!
+//! The basic usage consists of calling [`Thing::builder`] or [`ThingBuilder::new`], and then using
+//! a build pattern for all the parts that need to be customized:
+//!
+//! ```
+//! # use wot_td::{builder::data_schema::SpecializableDataSchema, thing::Thing};
+//! #
+//! let thing = Thing::builder("Thing name")
+//!     .id("thing-id-1234")
+//!     .finish_extend()
+//!     .property("first-property", |prop_builder| {
+//!         prop_builder
+//!             .finish_extend_data_schema()
+//!             .observable(true)
+//!             .bool()
+//!     })
+//!     .build()
+//!     .unwrap();
+//! # drop(thing);
+//! ```
+//!
+//! It is worth noting the usage of `.finish_*` methods, which makes the relative builder
+//! _unextendable_ and fully customizable. Some builders are extendable by defaults and some of
+//! these require a _finish_ method to be called.
+//!
+//! # Extendability
+//!
+//! Many parts of a Thing can be _extended_ with arbitrary content. This is necessary to grant the
+//! flexibility of the Web of Things Description specification without losing type safety.
+//!
+//! In order to extend a `Thing`, a new struct has to be created and the
+//! [`ExtendableThing`](crate::extend::ExtendableThing) needs to be implemented:
+//!
+//! ```
+//! # use serde::{Deserialize, Serialize};
+//! # use wot_td::{extend::ExtendableThing};
+//! #
+//! #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+//! struct ThingExtension {
+//!     a_field: String,
+//!     another_field: u32,
+//! }
+//!
+//! impl ExtendableThing for ThingExtension {
+//!     type InteractionAffordance = ();
+//!     type PropertyAffordance = ();
+//!     type ActionAffordance = ();
+//!     type EventAffordance = ();
+//!     type Form = ();
+//!     type ExpectedResponse = ();
+//!     type DataSchema = ();
+//!     type ObjectSchema = ();
+//!     type ArraySchema = ();
+//! }
+//! ```
+//!
+//! In this example we are just extending the _base_ structure of the `Thing`, which is expressed
+//! by the associated types set to the unit type. Also notice that both `Serialize` and
+//! `Deserialize` traits are required by the `ExtendableThing` trait.
+//!
+//! This extension can be used in the `ThingBuilder`, and the serialized data contains all the
+//! extension fields:
+//!
+//! ```
+//! # use serde::{Deserialize, Serialize};
+//! # use serde_json::json;
+//! # use wot_td::{extend::ExtendableThing, thing::Thing};
+//! #
+//! # #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+//! # struct ThingExtension {
+//! #     a_field: String,
+//! #     another_field: u32,
+//! # }
+//! #
+//! # impl ExtendableThing for ThingExtension {
+//! #     type InteractionAffordance = ();
+//! #     type PropertyAffordance = ();
+//! #     type ActionAffordance = ();
+//! #     type EventAffordance = ();
+//! #     type Form = ();
+//! #     type ExpectedResponse = ();
+//! #     type DataSchema = ();
+//! #     type ObjectSchema = ();
+//! #     type ArraySchema = ();
+//! # }
+//! #
+//! let thing = Thing::builder("Thing name")
+//!     .ext(ThingExtension {
+//!         a_field: "hello world".to_string(),
+//!         another_field: 42,
+//!     })
+//!     .finish_extend()
+//!     .build()
+//!     .unwrap();
+//!
+//! assert_eq!(
+//!     serde_json::to_value(thing).unwrap(),
+//!     json!({
+//!         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+//!         "title": "Thing name",
+//!         "a_field": "hello world",
+//!         "another_field": 42,
+//!         "security": [],
+//!         "securityDefinitions": {},
+//!     })
+//! );
+//! ```
+//!
+//! All the associated types can be set in order to extend the relative _piece_ of the thing.
+//! Moreover, an arbitrary number of extension can be used as well.
+//!
+//! ```
+//! # use serde::{Deserialize, Serialize};
+//! # use serde_json::json;
+//! # use wot_td::{
+//! #     extend::ExtendableThing,
+//! #     thing::{FormOperation, Thing},
+//! # };
+//! #
+//! #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+//! struct ThingExtension {
+//!     a_field: String,
+//!     another_field: u32,
+//! }
+//!
+//! #[derive(Debug, PartialEq, Serialize, Deserialize)]
+//! struct FormExtension {
+//!     form_field: f32,
+//! }
+//!
+//! impl ExtendableThing for ThingExtension {
+//!     type Form = FormExtension;
+//!     /* Other types set to `()` */
+//! #   type InteractionAffordance = ();
+//! #   type PropertyAffordance = ();
+//! #   type ActionAffordance = ();
+//! #   type EventAffordance = ();
+//! #   type ExpectedResponse = ();
+//! #   type DataSchema = ();
+//! #   type ObjectSchema = ();
+//! #   type ArraySchema = ();
+//! }
+//!
+//! #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+//! struct AnotherExtension {
+//!     another_field_again: Vec<String>,
+//! }
+//!
+//! impl ExtendableThing for AnotherExtension {
+//!     /* Types set to `()` */
+//! #   type InteractionAffordance = ();
+//! #   type PropertyAffordance = ();
+//! #   type ActionAffordance = ();
+//! #   type EventAffordance = ();
+//! #   type Form = ();
+//! #   type ExpectedResponse = ();
+//! #   type DataSchema = ();
+//! #   type ObjectSchema = ();
+//! #   type ArraySchema = ();
+//! }
+//!
+//! let thing = Thing::builder("Thing name")
+//!     .ext(ThingExtension {
+//!         a_field: "hello world".to_string(),
+//!         another_field: 42,
+//!     })
+//!     .ext(AnotherExtension {
+//!         another_field_again: vec!["field1".to_string(), "field2".to_string()],
+//!     })
+//!     .finish_extend()
+//!     .form(|form_builder| {
+//!         form_builder
+//!             .ext(FormExtension { form_field: 23. })
+//!             .ext(())
+//!             .href("test_href")
+//!             .op(FormOperation::QueryAllActions)
+//!     })
+//!     .build()
+//!     .unwrap();
+//!
+//! assert_eq!(
+//!     serde_json::to_value(thing).unwrap(),
+//!     json!({
+//!         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+//!         "title": "Thing name",
+//!         "a_field": "hello world",
+//!         "another_field": 42,
+//!         "another_field_again": ["field1", "field2"],
+//!         "forms": [{
+//!             "href": "test_href",
+//!             "form_field": 23.0,
+//!             "op": ["queryallactions"],
+//!         }],
+//!         "security": [],
+//!         "securityDefinitions": {},
+//!     })
+//! );
+//! ```
 
 pub mod affordance;
 pub mod data_schema;
@@ -49,6 +247,10 @@ pub struct ToExtend;
 pub struct Extended;
 
 /// A builder for a [Thing]
+///
+/// A `ThingBuilder` can be created using [`ThingBuilder::new`] or [`Thing::builder`], and after
+/// all the customization, [`ThingBuilder::build`] needs to be called in order to create a
+/// [`Thing`].
 #[must_use]
 pub struct ThingBuilder<Other: ExtendableThing, Status> {
     context: Vec<Context>,
@@ -305,6 +507,25 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
     /// From this point is not possible to add further extensions to the builder.
     ///
     /// See [ThingBuilder::ext].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wot_td::{builder::data_schema::SpecializableDataSchema, thing::Thing};
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .id("thing-id-1234")
+    ///     .finish_extend()
+    ///     .property("first-property", |prop_builder| {
+    ///         prop_builder
+    ///             .finish_extend_data_schema()
+    ///             .observable(true)
+    ///             .bool()
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    /// # drop(thing);
+    /// ```
     pub fn finish_extend(self) -> ThingBuilder<Other, Extended> {
         let Self {
             context,
@@ -362,6 +583,53 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
     }
 
     /// Extends the Thing, passing a closure that returns `T`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{extend::ExtendableThing, thing::Thing};
+    /// #
+    /// # #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// # struct ThingExtension {
+    /// #     a_field: String,
+    /// #     another_field: u32,
+    /// # }
+    /// #
+    /// # impl ExtendableThing for ThingExtension {
+    /// #     type InteractionAffordance = ();
+    /// #     type PropertyAffordance = ();
+    /// #     type ActionAffordance = ();
+    /// #     type EventAffordance = ();
+    /// #     type Form = ();
+    /// #     type ExpectedResponse = ();
+    /// #     type DataSchema = ();
+    /// #     type ObjectSchema = ();
+    /// #     type ArraySchema = ();
+    /// # }
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext_with(|| ThingExtension {
+    ///         a_field: "hello world".to_string(),
+    ///         another_field: 42,
+    ///     })
+    ///     .finish_extend()
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "a_field": "hello world",
+    ///         "another_field": 42,
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     pub fn ext_with<F, T>(self, f: F) -> ThingBuilder<Other::Target, ToExtend>
     where
         F: FnOnce() -> T,
@@ -425,6 +693,53 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
     }
 
     /// Extend the [ThingBuilder] with a [ExtendableThing]
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{extend::ExtendableThing, thing::Thing};
+    /// #
+    /// # #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// # struct ThingExtension {
+    /// #     a_field: String,
+    /// #     another_field: u32,
+    /// # }
+    /// #
+    /// # impl ExtendableThing for ThingExtension {
+    /// #     type InteractionAffordance = ();
+    /// #     type PropertyAffordance = ();
+    /// #     type ActionAffordance = ();
+    /// #     type EventAffordance = ();
+    /// #     type Form = ();
+    /// #     type ExpectedResponse = ();
+    /// #     type DataSchema = ();
+    /// #     type ObjectSchema = ();
+    /// #     type ArraySchema = ();
+    /// # }
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {
+    ///         a_field: "hello world".to_string(),
+    ///         another_field: 42,
+    ///     })
+    ///     .finish_extend()
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "a_field": "hello world",
+    ///         "another_field": 42,
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     #[inline]
     pub fn ext<T>(self, t: T) -> ThingBuilder<Other::Target, ToExtend>
     where
@@ -768,6 +1083,37 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     }
 
     /// Add a new JSON-LD @context with a custom namespace
+    ///
+    /// # Example
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::thing::Thing;
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .context_map(|builder| {
+    ///         builder
+    ///             .context("custom_context1", "hello")
+    ///             .context("custom_context2", "world")
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": [
+    ///             "https://www.w3.org/2019/wot/td/v1.1",
+    ///             {
+    ///                 "custom_context1": "hello",
+    ///                 "custom_context2": "world",
+    ///             }
+    ///         ],
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     }),
+    /// );
+    /// ```
     pub fn context_map<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut ContextMapBuilder) -> &mut ContextMapBuilder,
@@ -788,6 +1134,50 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     }
 
     /// Set multi-language titles
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::thing::Thing;
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .titles(|builder| {
+    ///         builder
+    ///             .add("en", "English title")
+    ///             .add("it", "Italian title")
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "titles": {
+    ///             "en": "English title",
+    ///             "it": "Italian title",
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
+    ///
+    /// Creating a title using an invalid language tag is going to return an error when
+    /// `Thing::build` is called:
+    ///
+    /// ```
+    /// # use wot_td::{builder::Error, thing::Thing};
+    /// #
+    /// let error = Thing::builder("Thing name")
+    ///     .titles(|builder| builder.add("e!n", "Invalid title"))
+    ///     .build()
+    ///     .unwrap_err();
+    ///
+    /// assert_eq!(error, Error::InvalidLanguageTag("e!n".to_string()));
+    /// ```
     pub fn titles<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
@@ -800,6 +1190,8 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     }
 
     /// Set multi-language descriptions
+    ///
+    /// See [`ThingBuilder::titles`] for examples.
     pub fn descriptions<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
@@ -828,6 +1220,38 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     }
 
     /// Add an additional link to the Thing Description, with specified optional fields.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::thing::Thing;
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .link_with(|builder| {
+    ///         builder
+    ///             .href("https://localhost")
+    ///             .rel("icon")
+    ///             .sizes("16x16 24x24 32x32")
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "links": [{
+    ///             "href": "https://localhost",
+    ///             "rel": "icon",
+    ///             "sizes": "16x16 24x24 32x32",
+    ///         }],
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     pub fn link_with<F>(mut self, f: F) -> Self
     where
         F: FnOnce(LinkBuilder<()>) -> LinkBuilder<String>,
@@ -855,6 +1279,44 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     }
 
     /// Add a security definition and, eventually, a required security
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::thing::Thing;
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .security(|builder| {
+    ///         builder
+    ///             .basic()
+    ///             .with_key("my_basic_sec")
+    ///             .name("basic_sec_name")
+    ///     })
+    ///     .security(|builder| builder.apikey())
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "security": [],
+    ///         "securityDefinitions": {
+    ///             "my_basic_sec": {
+    ///                 "scheme": "basic",
+    ///                 "name": "basic_sec_name",
+    ///                 "in": "header",
+    ///             },
+    ///             "apikey": {
+    ///                 "scheme": "apikey",
+    ///                 "in": "query",
+    ///             }
+    ///         },
+    ///     })
+    /// );
+    /// ```
     pub fn security<F, T>(mut self, f: F) -> Self
     where
         F: FnOnce(SecuritySchemeBuilder<()>) -> SecuritySchemeBuilder<T>,
@@ -929,9 +1391,93 @@ where
 {
     /// Add a Thing-level form
     ///
-    /// NOTE:
-    ///     - It must explicitly state its operation
-    ///     - It must use an `all` operation
+    /// # Notes
+    ///
+    /// - It must explicitly state its operation
+    /// - It must use an `all` operation
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::thing::{FormOperation, Thing};
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     // Needs to _finish_ extending the thing before calling `.form`
+    ///     .finish_extend()
+    ///     .form(|builder| {
+    ///         builder
+    ///             .href("form_href")
+    ///             .op(FormOperation::ReadAllProperties)
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "forms": [
+    ///             {
+    ///                 "href": "form_href",
+    ///                 "op": ["readallproperties"],
+    ///             }
+    ///         ],
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
+    ///
+    /// Thing-level forms must explicitly specify the operation, otherwise `ThingBuilder::build`
+    /// returns an error:
+    ///
+    /// ```
+    /// # use wot_td::{builder::Error, thing::Thing};
+    /// #
+    /// let error = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .form(|builder| builder.href("form_href"))
+    ///     .build()
+    ///     .unwrap_err();
+    ///
+    /// assert_eq!(error, Error::MissingOpInForm);
+    /// ```
+    ///
+    /// Furthermore, Thing-level form operations must be one or more of the following
+    /// [`FormOperation`]s:
+    ///
+    /// - `ReadAllProperties`
+    /// - `WriteAllProperties`
+    /// - `ObserveAllProperties`
+    /// - `UnobserveAllProperties`
+    /// - `SubscribeAllEvents`
+    /// - `UnsubscribeAllEvents`
+    /// - `QueryAllActions`
+    ///
+    /// If any other `FormOperation` is specified, `ThingBuilder::build` returns an error:
+    ///
+    /// ```
+    /// # use wot_td::{
+    /// #     builder::{Error, FormContext},
+    /// #     thing::{FormOperation, Thing},
+    /// # };
+    /// #
+    /// let error = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .form(|builder| builder.href("form_href").op(FormOperation::ReadProperty))
+    ///     .build()
+    ///     .unwrap_err();
+    ///
+    /// assert_eq!(
+    ///     error,
+    ///     Error::InvalidOpInForm {
+    ///         context: FormContext::Thing,
+    ///         operation: FormOperation::ReadProperty,
+    ///     }
+    /// );
+    /// ```
     pub fn form<F>(mut self, f: F) -> Self
     where
         F: FnOnce(
@@ -953,6 +1499,38 @@ where
     ///
     /// It takes a function that accepts a `DataSchema` builder and must return a
     /// type convertible into a `DataSchema`.
+    ///
+    /// See [`DataSchemaBuilder`] for more information about how the underlying builder works.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{builder::data_schema::SpecializableDataSchema, thing::Thing};
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .uri_variable("var", |builder| builder.finish_extend().number())
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "uriVariables": {
+    ///             "var": {
+    ///                 "type": "number",
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             },
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     pub fn uri_variable<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -979,6 +1557,9 @@ where
     ///
     /// It takes a function that accepts a `PropertyAffordance` builder and must return a type
     /// convertible into an _usable_ `PropertyAffordance` builder.
+    ///
+    /// See [`PropertyAffordanceBuilder`] for more information about how the underlying builder
+    /// works.
     pub fn property<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -1012,6 +1593,9 @@ where
     ///
     /// It takes a function that accepts a `ActionAffordance` builder and must return a type
     /// convertible into an _usable_ `ActionAffordance` builder.
+    ///
+    /// See [`ActionAffordanceBuilder`] for more information about how the underlying builder
+    /// works.
     pub fn action<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -1040,6 +1624,8 @@ where
     ///
     /// It takes a function that accepts an `EventAffordance` builder and must return a type
     /// convertible into an _usable_ `EventAffordance` builder.
+    ///
+    /// See [`EventAffordanceBuilder`] for more information about how the underlying builder works.
     pub fn event<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -1068,6 +1654,8 @@ where
     ///
     /// It takes the name for the schema definition and a function that takes a `DataSchema`
     /// builder and must return a type convertible into an _unchecked_ `DataSchema`.
+    ///
+    /// See [`DataSchemaBuilder`] for more information about how the underlying builder works.
     pub fn schema_definition<F, T>(mut self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -1544,6 +2132,8 @@ impl<T> SecuritySchemeBuilder<T> {
     }
 
     /// Multi-language descriptions
+    ///
+    /// See [`ThingBuilder::titles`] for examples.
     pub fn descriptions<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
@@ -1695,6 +2285,58 @@ where
 
 impl SecuritySchemeBuilder<EmptyComboSecuritySchemeTag> {
     /// Require all the specified schema definitions for the security combo.
+    ///
+    /// # Examples
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::thing::Thing;
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .security(|builder| builder.combo().all_of(["basic", "nosec"]))
+    ///     .security(|builder| builder.basic())
+    ///     .security(|builder| builder.no_sec())
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "security": [],
+    ///         "securityDefinitions": {
+    ///             "combo": {
+    ///                 "scheme": "combo",
+    ///                 "allOf": ["basic", "nosec"],
+    ///             },
+    ///             "basic": {
+    ///                 "scheme": "basic",
+    ///                 "in": "header",
+    ///             },
+    ///             "nosec": {
+    ///                 "scheme": "nosec",
+    ///             },
+    ///         },
+    ///     })
+    /// );
+    /// ```
+    ///
+    /// If one the _security identifier_ specified in `.all_of` does not exist across other
+    /// security definitions, `Thing::build` returns an error:
+    ///
+    /// ```
+    /// # use wot_td::{builder::Error, thing::Thing};
+    /// #
+    /// let error = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .security(|builder| builder.combo().all_of(["basic", "nosec"]))
+    ///     .security(|builder| builder.no_sec())
+    ///     .build()
+    ///     .unwrap_err();
+    ///
+    /// assert_eq!(error, Error::MissingSchemaDefinition("basic".to_string()));
+    /// ```
     pub fn all_of<I, T>(
         self,
         iter: I,
@@ -1727,6 +2369,58 @@ impl SecuritySchemeBuilder<EmptyComboSecuritySchemeTag> {
     }
 
     /// Require one of the specified schema definitions for the security combo.
+    ///
+    /// # Examples
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::thing::Thing;
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .security(|builder| builder.combo().one_of(["basic", "nosec"]))
+    ///     .security(|builder| builder.basic())
+    ///     .security(|builder| builder.no_sec())
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "security": [],
+    ///         "securityDefinitions": {
+    ///             "combo": {
+    ///                 "scheme": "combo",
+    ///                 "oneOf": ["basic", "nosec"],
+    ///             },
+    ///             "basic": {
+    ///                 "scheme": "basic",
+    ///                 "in": "header",
+    ///             },
+    ///             "nosec": {
+    ///                 "scheme": "nosec",
+    ///             },
+    ///         },
+    ///     })
+    /// );
+    /// ```
+    ///
+    /// If one the _security identifier_ specified in `.one_of` does not exist across other
+    /// security definitions, `Thing::build` returns an error:
+    ///
+    /// ```
+    /// # use wot_td::{builder::Error, thing::Thing};
+    /// #
+    /// let error = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .security(|builder| builder.combo().one_of(["basic", "nosec"]))
+    ///     .security(|builder| builder.no_sec())
+    ///     .build()
+    ///     .unwrap_err();
+    ///
+    /// assert_eq!(error, Error::MissingSchemaDefinition("basic".to_string()));
+    /// ```
     pub fn one_of<I, T>(
         self,
         iter: I,
@@ -1985,6 +2679,58 @@ where
     ///
     /// It takes a function that takes and returns a mutable reference to a builder for additional
     /// expected response.
+    ///
+    /// # Example
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema,
+    /// #     thing::{FormOperation, Thing},
+    /// # };
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .form(|form_builder| {
+    ///         form_builder
+    ///             .href("form_href")
+    ///             .op(FormOperation::ReadAllProperties)
+    ///             .additional_response(|builder| {
+    ///                 builder
+    ///                     .content_type("application/xml")
+    ///                     .success()
+    ///                     .schema("xml_response")
+    ///             })
+    ///     })
+    ///     .schema_definition("xml_response", |b| b.finish_extend().object())
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "forms": [{
+    ///             "href": "form_href",
+    ///             "op": ["readallproperties"],
+    ///             "additionalResponses": {
+    ///                 "contentType": "application/xml",
+    ///                 "success": true,
+    ///                 "schema": "xml_response",
+    ///             }
+    ///         }],
+    ///         "schemaDefinitions": {
+    ///             "xml_response": {
+    ///                 "type": "object",
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     pub fn additional_response<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut AdditionalExpectedResponseBuilder) -> &mut AdditionalExpectedResponseBuilder,
@@ -2008,6 +2754,10 @@ where
     }
 
     /// Extends the form, passing a closure that returns `T`.
+    ///
+    /// See module level documentation of [`builder`] for more information.
+    ///
+    /// [`builder`]: crate::builder
     pub fn ext_with<F, T>(self, f: F) -> FormBuilder<Other, Href, OtherForm::Target>
     where
         OtherForm: Extend<T>,
@@ -2043,6 +2793,10 @@ where
     }
 
     /// Extends the form with an additional element.
+    ///
+    /// See module level documentation of [`builder`] for more information.
+    ///
+    /// [`builder`]: crate::builder
     #[inline]
     pub fn ext<T>(self, t: T) -> FormBuilder<Other, Href, OtherForm::Target>
     where

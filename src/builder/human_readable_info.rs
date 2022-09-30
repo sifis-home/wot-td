@@ -27,23 +27,35 @@ pub trait BuildableHumanReadableInfo {
     ///
     /// It can be called as many times as needed to add multiple @types.
     fn attype(self, value: impl Into<String>) -> Self;
+
     /// Set the title
     ///
     /// Calling it multiple times overwrites the field.
     fn title(self, value: impl Into<String>) -> Self;
+
     /// Set the translations of the title
     ///
     /// Calling it multiple times overwrites the field.
+    ///
+    /// See [`ThingBuilder::titles`] for examples.
+    ///
+    /// [`ThingBuilder::titles`]: crate::builder::ThingBuilder::titles
     fn titles<F>(self, f: F) -> Self
     where
         F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>;
+
     /// Set the description
     ///
     /// Calling it multiple times overwrites the field.
     fn description(self, value: impl Into<String>) -> Self;
+
     /// Set the translations of the description
     ///
     /// Calling it multiple times overwrites the field.
+    ///
+    /// See [`ThingBuilder::titles`] for examples.
+    ///
+    /// [`ThingBuilder::titles`]: crate::builder::ThingBuilder::titles
     fn descriptions<F>(self, f: F) -> Self
     where
         F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>;
