@@ -84,3 +84,5 @@ pub mod builder;
 pub mod extend;
 pub mod hlist;
 pub mod thing;
+
+pub use crate::thing::Thing;
