@@ -206,7 +206,7 @@ pub mod affordance;
 pub mod data_schema;
 mod human_readable_info;
 
-use std::{borrow::Cow, collections::HashMap, fmt, marker::PhantomData, ops::Not};
+use std::{collections::HashMap, fmt, marker::PhantomData, ops::Not};
 
 use oxilangtag::LanguageTag;
 use serde_json::Value;
@@ -215,12 +215,10 @@ use time::OffsetDateTime;
 use crate::{
     extend::{Extend, Extendable, ExtendableThing},
     thing::{
-        AdditionalExpectedResponse, ApiKeySecurityScheme, BasicSecurityScheme,
-        BearerSecurityScheme, ComboSecurityScheme, DataSchemaFromOther, DefaultedFormOperations,
-        DigestSecurityScheme, ExpectedResponse, Form, FormOperation, KnownSecuritySchemeSubtype,
-        Link, OAuth2SecurityScheme, PskSecurityScheme, QualityOfProtection,
-        SecurityAuthenticationLocation, SecurityScheme, SecuritySchemeSubtype, Thing,
-        UnknownSecuritySchemeSubtype, VersionInfo, TD_CONTEXT_11,
+        AdditionalExpectedResponse, ComboSecurityScheme, DataSchemaFromOther,
+        DefaultedFormOperations, ExpectedResponse, Form, FormOperation, KnownSecuritySchemeSubtype,
+        Link, SecurityScheme, SecuritySchemeSubtype, Thing, UnknownSecuritySchemeSubtype,
+        VersionInfo, TD_CONTEXT_11,
     },
 };
 
@@ -1852,323 +1850,343 @@ impl<T> LinkBuilder<T> {
     }
 }
 
-/// Builder for the Security Scheme
-pub struct SecuritySchemeBuilder<S> {
-    attype: Option<Vec<String>>,
-    description: Option<String>,
-    descriptions: Option<MultiLanguageBuilder<String>>,
-    proxy: Option<String>,
-    name: Option<String>,
-    subtype: S,
-    required: bool,
-}
+/// The builder elements related to security
+pub mod security {
+    use std::borrow::Cow;
 
-/// Placeholder Type for the NoSecurity Scheme
-pub struct SecuritySchemeNoSecTag;
+    use serde_json::Value;
 
-/// Placeholder Type for the Auto Security Scheme
-pub struct SecuritySchemeAutoTag;
+    use crate::thing::{
+        ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme, ComboSecurityScheme,
+        DigestSecurityScheme, KnownSecuritySchemeSubtype, OAuth2SecurityScheme, PskSecurityScheme,
+        QualityOfProtection, SecurityAuthenticationLocation, SecuritySchemeSubtype,
+        UnknownSecuritySchemeSubtype,
+    };
 
-/// Placeholder Type for the Combo Security Scheme without `allOf` or `oneOf`
-pub struct EmptyComboSecuritySchemeTag;
+    use crate::builder::MultiLanguageBuilder;
 
-/// Placeholder Type for the Combo Security Scheme using `allOf`
-#[derive(Debug, Default, PartialEq, Eq)]
-pub struct AllOfComboSecuritySchemeTag;
+    /// Builder for the Security Scheme
+    pub struct SecuritySchemeBuilder<S> {
+        pub(crate) attype: Option<Vec<String>>,
+        pub(crate) description: Option<String>,
+        pub(crate) descriptions: Option<MultiLanguageBuilder<String>>,
+        pub(crate) proxy: Option<String>,
+        pub(crate) name: Option<String>,
+        pub(crate) subtype: S,
+        pub(crate) required: bool,
+    }
 
-/// Placeholder Type for the Combo Security Scheme using `oneOf`
-#[derive(Debug, Default, PartialEq, Eq)]
-pub struct OneOfComboSecuritySchemeTag;
+    /// Placeholder Type for the NoSecurity Scheme
+    pub struct SecuritySchemeNoSecTag;
 
-/// Builder for the Security Scheme Subtype
-pub trait BuildableSecuritySchemeSubtype {
-    /// Consume the builder and produce the SecuritySchemeSubtype
-    fn build(self) -> SecuritySchemeSubtype;
-}
+    /// Placeholder Type for the Auto Security Scheme
+    pub struct SecuritySchemeAutoTag;
 
-impl SecuritySchemeBuilder<()> {
-    /// Default no-security scheme
-    pub fn no_sec(self) -> SecuritySchemeBuilder<SecuritySchemeNoSecTag> {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
+    /// Placeholder Type for the Combo Security Scheme without `allOf` or `oneOf`
+    pub struct EmptyComboSecuritySchemeTag;
 
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: SecuritySchemeNoSecTag,
-            required,
+    /// Placeholder Type for the Combo Security Scheme using `allOf`
+    #[derive(Debug, Default, PartialEq, Eq)]
+    pub struct AllOfComboSecuritySchemeTag;
+
+    /// Placeholder Type for the Combo Security Scheme using `oneOf`
+    #[derive(Debug, Default, PartialEq, Eq)]
+    pub struct OneOfComboSecuritySchemeTag;
+
+    /// Builder for the Security Scheme Subtype
+    pub trait BuildableSecuritySchemeSubtype {
+        /// Consume the builder and produce the SecuritySchemeSubtype
+        fn build(self) -> SecuritySchemeSubtype;
+    }
+
+    impl SecuritySchemeBuilder<()> {
+        /// Default no-security scheme
+        pub fn no_sec(self) -> SecuritySchemeBuilder<SecuritySchemeNoSecTag> {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: SecuritySchemeNoSecTag,
+                required,
+            }
+        }
+
+        /// Auto security scheme
+        pub fn auto(self) -> SecuritySchemeBuilder<SecuritySchemeAutoTag> {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: SecuritySchemeAutoTag,
+                required,
+            }
+        }
+
+        /// Combo security scheme
+        pub fn combo(self) -> SecuritySchemeBuilder<EmptyComboSecuritySchemeTag> {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: EmptyComboSecuritySchemeTag,
+                required,
+            }
+        }
+
+        /// Basic Authentication RFC7617
+        pub fn basic(self) -> SecuritySchemeBuilder<BasicSecurityScheme> {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: BasicSecurityScheme::default(),
+                required,
+            }
+        }
+
+        /// Digest Assess Authentication RFC7616
+        pub fn digest(self) -> SecuritySchemeBuilder<DigestSecurityScheme> {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: DigestSecurityScheme::default(),
+                required,
+            }
+        }
+
+        /// Bearer Token RFC6750
+        pub fn bearer(self) -> SecuritySchemeBuilder<BearerSecurityScheme> {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: BearerSecurityScheme::default(),
+                required,
+            }
+        }
+
+        /// Pre-shared key authentication
+        pub fn psk(self) -> SecuritySchemeBuilder<PskSecurityScheme> {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: PskSecurityScheme::default(),
+                required,
+            }
+        }
+
+        /// OAuth2 authentication RFC6749 and RFC8252
+        pub fn oauth2(
+            self,
+            flow: impl Into<String>,
+        ) -> SecuritySchemeBuilder<OAuth2SecurityScheme> {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: OAuth2SecurityScheme::new(flow),
+                required,
+            }
+        }
+
+        /// API key authentication
+        pub fn apikey(self) -> SecuritySchemeBuilder<ApiKeySecurityScheme> {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: ApiKeySecurityScheme::default(),
+                required,
+            }
+        }
+
+        /// Security scheme defined by an additional Vocabulary
+        ///
+        /// NOTE: Its definition MUST be in the Thing @context.
+        pub fn custom(
+            self,
+            scheme: impl Into<String>,
+        ) -> SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+
+            let scheme = scheme.into();
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: UnknownSecuritySchemeSubtype {
+                    scheme,
+                    data: Value::Null,
+                },
+                required,
+            }
         }
     }
 
-    /// Auto security scheme
-    pub fn auto(self) -> SecuritySchemeBuilder<SecuritySchemeAutoTag> {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
+    impl<T> SecuritySchemeBuilder<T> {
+        opt_field_builder!(description: String, proxy: String);
 
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: SecuritySchemeAutoTag,
-            required,
+        /// JSON-LD @type
+        pub fn attype(mut self, ty: impl Into<String>) -> Self {
+            self.attype
+                .get_or_insert_with(Default::default)
+                .push(ty.into());
+            self
+        }
+
+        /// Multi-language descriptions
+        ///
+        /// See [`ThingBuilder::titles`] for examples.
+        ///
+        /// [`ThingBuilder::titles`]: crate::builder::ThingBuilder::titles
+        pub fn descriptions<F>(mut self, f: F) -> Self
+        where
+            F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
+        {
+            let mut builder = MultiLanguageBuilder::default();
+            f(&mut builder);
+            self.descriptions = Some(builder);
+            self
+        }
+
+        /// Sets the key to be used for referring to the security scheme in the [`Thing::security`] and
+        /// [`Form::security`] fields.
+        ///
+        /// [`Thing::security`]: crate::thing::Thing::security
+        /// [`Form::security`]: crate::thing::Form::security
+        pub fn with_key(mut self, name: impl Into<String>) -> Self {
+            self.name = Some(name.into());
+            self
+        }
+
+        /// Makes the security scheme required.
+        pub fn required(mut self) -> Self {
+            self.required = true;
+            self
         }
     }
 
-    /// Combo security scheme
-    pub fn combo(self) -> SecuritySchemeBuilder<EmptyComboSecuritySchemeTag> {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
-
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: EmptyComboSecuritySchemeTag,
-            required,
-        }
-    }
-
-    /// Basic Authentication RFC7617
-    pub fn basic(self) -> SecuritySchemeBuilder<BasicSecurityScheme> {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
-
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: BasicSecurityScheme::default(),
-            required,
-        }
-    }
-
-    /// Digest Assess Authentication RFC7616
-    pub fn digest(self) -> SecuritySchemeBuilder<DigestSecurityScheme> {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
-
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: DigestSecurityScheme::default(),
-            required,
-        }
-    }
-
-    /// Bearer Token RFC6750
-    pub fn bearer(self) -> SecuritySchemeBuilder<BearerSecurityScheme> {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
-
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: BearerSecurityScheme::default(),
-            required,
-        }
-    }
-
-    /// Pre-shared key authentication
-    pub fn psk(self) -> SecuritySchemeBuilder<PskSecurityScheme> {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
-
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: PskSecurityScheme::default(),
-            required,
-        }
-    }
-
-    /// OAuth2 authentication RFC6749 and RFC8252
-    pub fn oauth2(self, flow: impl Into<String>) -> SecuritySchemeBuilder<OAuth2SecurityScheme> {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
-
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: OAuth2SecurityScheme::new(flow),
-            required,
-        }
-    }
-
-    /// API key authentication
-    pub fn apikey(self) -> SecuritySchemeBuilder<ApiKeySecurityScheme> {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
-
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: ApiKeySecurityScheme::default(),
-            required,
-        }
-    }
-
-    /// Security scheme defined by an additional Vocabulary
-    ///
-    /// NOTE: Its definition MUST be in the Thing @context.
-    pub fn custom(
-        self,
-        scheme: impl Into<String>,
-    ) -> SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
-
-        let scheme = scheme.into();
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: UnknownSecuritySchemeSubtype {
-                scheme,
-                data: Value::Null,
-            },
-            required,
-        }
-    }
-}
-
-impl<T> SecuritySchemeBuilder<T> {
-    opt_field_builder!(description: String, proxy: String);
-
-    /// JSON-LD @type
-    pub fn attype(mut self, ty: impl Into<String>) -> Self {
-        self.attype
-            .get_or_insert_with(Default::default)
-            .push(ty.into());
-        self
-    }
-
-    /// Multi-language descriptions
-    ///
-    /// See [`ThingBuilder::titles`] for examples.
-    pub fn descriptions<F>(mut self, f: F) -> Self
-    where
-        F: FnOnce(&mut MultiLanguageBuilder<String>) -> &mut MultiLanguageBuilder<String>,
-    {
-        let mut builder = MultiLanguageBuilder::default();
-        f(&mut builder);
-        self.descriptions = Some(builder);
-        self
-    }
-
-    /// Sets the key to be used for referring to the security scheme in the [`Thing::security`] and
-    /// [`Form::security`] fields.
-    ///
-    /// [`Thing::security`]: crate::thing::Thing::security
-    /// [`Form::security`]: crate::thing::Form::security
-    pub fn with_key(mut self, name: impl Into<String>) -> Self {
-        self.name = Some(name.into());
-        self
-    }
-
-    /// Makes the security scheme required.
-    pub fn required(mut self) -> Self {
-        self.required = true;
-        self
-    }
-}
-
-macro_rules! impl_buildable_known_security_scheme_subtype {
+    macro_rules! impl_buildable_known_security_scheme_subtype {
     ($($variant:ident => $ty:ty),* $(,)?) => {
         $(
             impl BuildableSecuritySchemeSubtype for $ty {
@@ -2180,384 +2198,387 @@ macro_rules! impl_buildable_known_security_scheme_subtype {
     };
 }
 
-impl_buildable_known_security_scheme_subtype! (
-    Basic => BasicSecurityScheme,
-    Digest => DigestSecurityScheme,
-    Bearer => BearerSecurityScheme,
-    Psk => PskSecurityScheme,
-    OAuth2 => OAuth2SecurityScheme,
-    ApiKey => ApiKeySecurityScheme,
-);
+    impl_buildable_known_security_scheme_subtype! (
+        Basic => BasicSecurityScheme,
+        Digest => DigestSecurityScheme,
+        Bearer => BearerSecurityScheme,
+        Psk => PskSecurityScheme,
+        OAuth2 => OAuth2SecurityScheme,
+        ApiKey => ApiKeySecurityScheme,
+    );
 
-impl BuildableSecuritySchemeSubtype for SecuritySchemeNoSecTag {
-    fn build(self) -> SecuritySchemeSubtype {
-        SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::NoSec)
-    }
-}
-
-impl BuildableSecuritySchemeSubtype for SecuritySchemeAutoTag {
-    fn build(self) -> SecuritySchemeSubtype {
-        SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Auto)
-    }
-}
-
-impl BuildableSecuritySchemeSubtype for (AllOfComboSecuritySchemeTag, Vec<String>) {
-    fn build(self) -> SecuritySchemeSubtype {
-        SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Combo(
-            ComboSecurityScheme::AllOf(self.1),
-        ))
-    }
-}
-
-impl BuildableSecuritySchemeSubtype for (OneOfComboSecuritySchemeTag, Vec<String>) {
-    fn build(self) -> SecuritySchemeSubtype {
-        SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Combo(
-            ComboSecurityScheme::OneOf(self.1),
-        ))
-    }
-}
-
-impl BuildableSecuritySchemeSubtype for UnknownSecuritySchemeSubtype {
-    fn build(self) -> SecuritySchemeSubtype {
-        SecuritySchemeSubtype::Unknown(self)
-    }
-}
-
-/// Accessor for the Name and Location fields
-///
-/// All the Security Schemes but NoSec have the `name` and location (`in`) fields.
-pub trait HasNameLocation {
-    /// Specifies the location of security authentication information
-    fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation;
-    /// Name for query, header, or cookie parameters
-    fn name_mut(&mut self) -> &mut Option<String>;
-}
-
-impl HasNameLocation for BasicSecurityScheme {
-    fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation {
-        &mut self.location
-    }
-
-    fn name_mut(&mut self) -> &mut Option<String> {
-        &mut self.name
-    }
-}
-
-impl HasNameLocation for DigestSecurityScheme {
-    fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation {
-        &mut self.location
-    }
-
-    fn name_mut(&mut self) -> &mut Option<String> {
-        &mut self.name
-    }
-}
-
-impl HasNameLocation for ApiKeySecurityScheme {
-    fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation {
-        &mut self.location
-    }
-
-    fn name_mut(&mut self) -> &mut Option<String> {
-        &mut self.name
-    }
-}
-
-impl HasNameLocation for BearerSecurityScheme {
-    fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation {
-        &mut self.location
-    }
-
-    fn name_mut(&mut self) -> &mut Option<String> {
-        &mut self.name
-    }
-}
-
-impl<T> SecuritySchemeBuilder<T>
-where
-    T: HasNameLocation,
-{
-    /// Name for query, header or cookie parameter
-    pub fn name(mut self, value: impl Into<String>) -> Self {
-        *self.subtype.name_mut() = Some(value.into());
-        self
-    }
-
-    /// Location of the security authentication information
-    pub fn location(mut self, value: SecurityAuthenticationLocation) -> Self {
-        *self.subtype.location_mut() = value;
-        self
-    }
-}
-
-impl SecuritySchemeBuilder<EmptyComboSecuritySchemeTag> {
-    /// Require all the specified schema definitions for the security combo.
-    ///
-    /// # Examples
-    /// ```
-    /// # use serde_json::json;
-    /// # use wot_td::thing::Thing;
-    /// #
-    /// let thing = Thing::builder("Thing name")
-    ///     .finish_extend()
-    ///     .security(|builder| builder.combo().all_of(["basic", "nosec"]))
-    ///     .security(|builder| builder.basic())
-    ///     .security(|builder| builder.no_sec())
-    ///     .build()
-    ///     .unwrap();
-    ///
-    /// assert_eq!(
-    ///     serde_json::to_value(thing).unwrap(),
-    ///     json!({
-    ///         "title": "Thing name",
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
-    ///         "security": [],
-    ///         "securityDefinitions": {
-    ///             "combo": {
-    ///                 "scheme": "combo",
-    ///                 "allOf": ["basic", "nosec"],
-    ///             },
-    ///             "basic": {
-    ///                 "scheme": "basic",
-    ///                 "in": "header",
-    ///             },
-    ///             "nosec": {
-    ///                 "scheme": "nosec",
-    ///             },
-    ///         },
-    ///     })
-    /// );
-    /// ```
-    ///
-    /// If one the _security identifier_ specified in `.all_of` does not exist across other
-    /// security definitions, `Thing::build` returns an error:
-    ///
-    /// ```
-    /// # use wot_td::{builder::Error, thing::Thing};
-    /// #
-    /// let error = Thing::builder("Thing name")
-    ///     .finish_extend()
-    ///     .security(|builder| builder.combo().all_of(["basic", "nosec"]))
-    ///     .security(|builder| builder.no_sec())
-    ///     .build()
-    ///     .unwrap_err();
-    ///
-    /// assert_eq!(error, Error::MissingSchemaDefinition("basic".to_string()));
-    /// ```
-    pub fn all_of<I, T>(
-        self,
-        iter: I,
-    ) -> SecuritySchemeBuilder<(AllOfComboSecuritySchemeTag, Vec<String>)>
-    where
-        I: IntoIterator<Item = T>,
-        T: Into<String>,
-    {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
-        let subtype = (AllOfComboSecuritySchemeTag, Vec::new());
-
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype,
-            required,
+    impl BuildableSecuritySchemeSubtype for SecuritySchemeNoSecTag {
+        fn build(self) -> SecuritySchemeSubtype {
+            SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::NoSec)
         }
-        .extend(iter)
     }
 
-    /// Require one of the specified schema definitions for the security combo.
-    ///
-    /// # Examples
-    /// ```
-    /// # use serde_json::json;
-    /// # use wot_td::thing::Thing;
-    /// #
-    /// let thing = Thing::builder("Thing name")
-    ///     .finish_extend()
-    ///     .security(|builder| builder.combo().one_of(["basic", "nosec"]))
-    ///     .security(|builder| builder.basic())
-    ///     .security(|builder| builder.no_sec())
-    ///     .build()
-    ///     .unwrap();
-    ///
-    /// assert_eq!(
-    ///     serde_json::to_value(thing).unwrap(),
-    ///     json!({
-    ///         "title": "Thing name",
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
-    ///         "security": [],
-    ///         "securityDefinitions": {
-    ///             "combo": {
-    ///                 "scheme": "combo",
-    ///                 "oneOf": ["basic", "nosec"],
-    ///             },
-    ///             "basic": {
-    ///                 "scheme": "basic",
-    ///                 "in": "header",
-    ///             },
-    ///             "nosec": {
-    ///                 "scheme": "nosec",
-    ///             },
-    ///         },
-    ///     })
-    /// );
-    /// ```
-    ///
-    /// If one the _security identifier_ specified in `.one_of` does not exist across other
-    /// security definitions, `Thing::build` returns an error:
-    ///
-    /// ```
-    /// # use wot_td::{builder::Error, thing::Thing};
-    /// #
-    /// let error = Thing::builder("Thing name")
-    ///     .finish_extend()
-    ///     .security(|builder| builder.combo().one_of(["basic", "nosec"]))
-    ///     .security(|builder| builder.no_sec())
-    ///     .build()
-    ///     .unwrap_err();
-    ///
-    /// assert_eq!(error, Error::MissingSchemaDefinition("basic".to_string()));
-    /// ```
-    pub fn one_of<I, T>(
-        self,
-        iter: I,
-    ) -> SecuritySchemeBuilder<(OneOfComboSecuritySchemeTag, Vec<String>)>
-    where
-        I: IntoIterator<Item = T>,
-        T: Into<String>,
-    {
-        let Self {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype: _,
-            required,
-        } = self;
-        let subtype = (OneOfComboSecuritySchemeTag, Vec::new());
-
-        SecuritySchemeBuilder {
-            attype,
-            description,
-            descriptions,
-            proxy,
-            name,
-            subtype,
-            required,
+    impl BuildableSecuritySchemeSubtype for SecuritySchemeAutoTag {
+        fn build(self) -> SecuritySchemeSubtype {
+            SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Auto)
         }
-        .extend(iter)
     }
 
-    /// Name for query, header or cookie parameter
-    pub fn name(mut self, value: impl Into<String>) -> Self {
-        self.name = Some(value.into());
-        self
+    impl BuildableSecuritySchemeSubtype for (AllOfComboSecuritySchemeTag, Vec<String>) {
+        fn build(self) -> SecuritySchemeSubtype {
+            SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Combo(
+                ComboSecurityScheme::AllOf(self.1),
+            ))
+        }
     }
-}
 
-impl<T> SecuritySchemeBuilder<(T, Vec<String>)> {
-    /// Extends the security scheme subtype with a variable amount of items.
+    impl BuildableSecuritySchemeSubtype for (OneOfComboSecuritySchemeTag, Vec<String>) {
+        fn build(self) -> SecuritySchemeSubtype {
+            SecuritySchemeSubtype::Known(KnownSecuritySchemeSubtype::Combo(
+                ComboSecurityScheme::OneOf(self.1),
+            ))
+        }
+    }
+
+    impl BuildableSecuritySchemeSubtype for UnknownSecuritySchemeSubtype {
+        fn build(self) -> SecuritySchemeSubtype {
+            SecuritySchemeSubtype::Unknown(self)
+        }
+    }
+
+    /// Accessor for the Name and Location fields
     ///
-    /// This is useful for _combo_ security schemes, which require a set of names as references.
-    pub fn extend<I, U>(mut self, iter: I) -> Self
+    /// All the Security Schemes but NoSec have the `name` and location (`in`) fields.
+    pub trait HasNameLocation {
+        /// Specifies the location of security authentication information
+        fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation;
+        /// Name for query, header, or cookie parameters
+        fn name_mut(&mut self) -> &mut Option<String>;
+    }
+
+    impl HasNameLocation for BasicSecurityScheme {
+        fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation {
+            &mut self.location
+        }
+
+        fn name_mut(&mut self) -> &mut Option<String> {
+            &mut self.name
+        }
+    }
+
+    impl HasNameLocation for DigestSecurityScheme {
+        fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation {
+            &mut self.location
+        }
+
+        fn name_mut(&mut self) -> &mut Option<String> {
+            &mut self.name
+        }
+    }
+
+    impl HasNameLocation for ApiKeySecurityScheme {
+        fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation {
+            &mut self.location
+        }
+
+        fn name_mut(&mut self) -> &mut Option<String> {
+            &mut self.name
+        }
+    }
+
+    impl HasNameLocation for BearerSecurityScheme {
+        fn location_mut(&mut self) -> &mut SecurityAuthenticationLocation {
+            &mut self.location
+        }
+
+        fn name_mut(&mut self) -> &mut Option<String> {
+            &mut self.name
+        }
+    }
+
+    impl<T> SecuritySchemeBuilder<T>
     where
-        I: IntoIterator<Item = U>,
-        U: Into<String>,
+        T: HasNameLocation,
     {
-        self.subtype.1.extend(iter.into_iter().map(Into::into));
-        self
+        /// Name for query, header or cookie parameter
+        pub fn name(mut self, value: impl Into<String>) -> Self {
+            *self.subtype.name_mut() = Some(value.into());
+            self
+        }
+
+        /// Location of the security authentication information
+        pub fn location(mut self, value: SecurityAuthenticationLocation) -> Self {
+            *self.subtype.location_mut() = value;
+            self
+        }
     }
 
-    /// Extends the security scheme subtype with an items.
-    ///
-    /// This is useful for _combo_ security schemes, which require a set of names as references.
-    pub fn push(mut self, security_name: impl Into<String>) -> Self {
-        self.subtype.1.push(security_name.into());
-        self
+    impl SecuritySchemeBuilder<EmptyComboSecuritySchemeTag> {
+        /// Require all the specified schema definitions for the security combo.
+        ///
+        /// # Examples
+        /// ```
+        /// # use serde_json::json;
+        /// # use wot_td::thing::Thing;
+        /// #
+        /// let thing = Thing::builder("Thing name")
+        ///     .finish_extend()
+        ///     .security(|builder| builder.combo().all_of(["basic", "nosec"]))
+        ///     .security(|builder| builder.basic())
+        ///     .security(|builder| builder.no_sec())
+        ///     .build()
+        ///     .unwrap();
+        ///
+        /// assert_eq!(
+        ///     serde_json::to_value(thing).unwrap(),
+        ///     json!({
+        ///         "title": "Thing name",
+        ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+        ///         "security": [],
+        ///         "securityDefinitions": {
+        ///             "combo": {
+        ///                 "scheme": "combo",
+        ///                 "allOf": ["basic", "nosec"],
+        ///             },
+        ///             "basic": {
+        ///                 "scheme": "basic",
+        ///                 "in": "header",
+        ///             },
+        ///             "nosec": {
+        ///                 "scheme": "nosec",
+        ///             },
+        ///         },
+        ///     })
+        /// );
+        /// ```
+        ///
+        /// If one the _security identifier_ specified in `.all_of` does not exist across other
+        /// security definitions, `Thing::build` returns an error:
+        ///
+        /// ```
+        /// # use wot_td::{builder::Error, thing::Thing};
+        /// #
+        /// let error = Thing::builder("Thing name")
+        ///     .finish_extend()
+        ///     .security(|builder| builder.combo().all_of(["basic", "nosec"]))
+        ///     .security(|builder| builder.no_sec())
+        ///     .build()
+        ///     .unwrap_err();
+        ///
+        /// assert_eq!(error, Error::MissingSchemaDefinition("basic".to_string()));
+        /// ```
+        pub fn all_of<I, T>(
+            self,
+            iter: I,
+        ) -> SecuritySchemeBuilder<(AllOfComboSecuritySchemeTag, Vec<String>)>
+        where
+            I: IntoIterator<Item = T>,
+            T: Into<String>,
+        {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+            let subtype = (AllOfComboSecuritySchemeTag, Vec::new());
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype,
+                required,
+            }
+            .extend(iter)
+        }
+
+        /// Require one of the specified schema definitions for the security combo.
+        ///
+        /// # Examples
+        /// ```
+        /// # use serde_json::json;
+        /// # use wot_td::thing::Thing;
+        /// #
+        /// let thing = Thing::builder("Thing name")
+        ///     .finish_extend()
+        ///     .security(|builder| builder.combo().one_of(["basic", "nosec"]))
+        ///     .security(|builder| builder.basic())
+        ///     .security(|builder| builder.no_sec())
+        ///     .build()
+        ///     .unwrap();
+        ///
+        /// assert_eq!(
+        ///     serde_json::to_value(thing).unwrap(),
+        ///     json!({
+        ///         "title": "Thing name",
+        ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+        ///         "security": [],
+        ///         "securityDefinitions": {
+        ///             "combo": {
+        ///                 "scheme": "combo",
+        ///                 "oneOf": ["basic", "nosec"],
+        ///             },
+        ///             "basic": {
+        ///                 "scheme": "basic",
+        ///                 "in": "header",
+        ///             },
+        ///             "nosec": {
+        ///                 "scheme": "nosec",
+        ///             },
+        ///         },
+        ///     })
+        /// );
+        /// ```
+        ///
+        /// If one the _security identifier_ specified in `.one_of` does not exist across other
+        /// security definitions, `Thing::build` returns an error:
+        ///
+        /// ```
+        /// # use wot_td::{builder::Error, thing::Thing};
+        /// #
+        /// let error = Thing::builder("Thing name")
+        ///     .finish_extend()
+        ///     .security(|builder| builder.combo().one_of(["basic", "nosec"]))
+        ///     .security(|builder| builder.no_sec())
+        ///     .build()
+        ///     .unwrap_err();
+        ///
+        /// assert_eq!(error, Error::MissingSchemaDefinition("basic".to_string()));
+        /// ```
+        pub fn one_of<I, T>(
+            self,
+            iter: I,
+        ) -> SecuritySchemeBuilder<(OneOfComboSecuritySchemeTag, Vec<String>)>
+        where
+            I: IntoIterator<Item = T>,
+            T: Into<String>,
+        {
+            let Self {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype: _,
+                required,
+            } = self;
+            let subtype = (OneOfComboSecuritySchemeTag, Vec::new());
+
+            SecuritySchemeBuilder {
+                attype,
+                description,
+                descriptions,
+                proxy,
+                name,
+                subtype,
+                required,
+            }
+            .extend(iter)
+        }
+
+        /// Name for query, header or cookie parameter
+        pub fn name(mut self, value: impl Into<String>) -> Self {
+            self.name = Some(value.into());
+            self
+        }
     }
 
-    /// Name for query, header or cookie parameter
-    pub fn name(mut self, value: impl Into<String>) -> Self {
-        self.name = Some(value.into());
-        self
+    impl<T> SecuritySchemeBuilder<(T, Vec<String>)> {
+        /// Extends the security scheme subtype with a variable amount of items.
+        ///
+        /// This is useful for _combo_ security schemes, which require a set of names as references.
+        pub fn extend<I, U>(mut self, iter: I) -> Self
+        where
+            I: IntoIterator<Item = U>,
+            U: Into<String>,
+        {
+            self.subtype.1.extend(iter.into_iter().map(Into::into));
+            self
+        }
+
+        /// Extends the security scheme subtype with an items.
+        ///
+        /// This is useful for _combo_ security schemes, which require a set of names as references.
+        pub fn push(mut self, security_name: impl Into<String>) -> Self {
+            self.subtype.1.push(security_name.into());
+            self
+        }
+
+        /// Name for query, header or cookie parameter
+        pub fn name(mut self, value: impl Into<String>) -> Self {
+            self.name = Some(value.into());
+            self
+        }
+    }
+
+    impl SecuritySchemeBuilder<DigestSecurityScheme> {
+        /// Quality of protection
+        pub fn qop(mut self, value: QualityOfProtection) -> Self {
+            self.subtype.qop = value;
+            self
+        }
+    }
+
+    impl SecuritySchemeBuilder<BearerSecurityScheme> {
+        /// URI of the authorization server
+        pub fn authorization(mut self, value: impl Into<String>) -> Self {
+            self.subtype.authorization = Some(value.into());
+            self
+        }
+
+        /// Encoding, encryption or digest algorithm
+        pub fn alg(mut self, value: impl Into<Cow<'static, str>>) -> Self {
+            self.subtype.alg = value.into();
+            self
+        }
+
+        /// Format of the security authentication information
+        pub fn format(mut self, value: impl Into<Cow<'static, str>>) -> Self {
+            self.subtype.format = value.into();
+            self
+        }
+    }
+
+    impl SecuritySchemeBuilder<OAuth2SecurityScheme> {
+        /// URI of the authorization server
+        pub fn authorization(mut self, value: impl Into<String>) -> Self {
+            self.subtype.authorization = Some(value.into());
+            self
+        }
+
+        /// URI of the token server
+        pub fn token(mut self, value: impl Into<String>) -> Self {
+            self.subtype.token = Some(value.into());
+            self
+        }
+
+        /// URI of the refresh server
+        pub fn refresh(mut self, value: impl Into<String>) -> Self {
+            self.subtype.refresh = Some(value.into());
+            self
+        }
+
+        /// Authorization scope identifier
+        pub fn scope(mut self, value: impl Into<String>) -> Self {
+            self.subtype
+                .scopes
+                .get_or_insert_with(Default::default)
+                .push(value.into());
+            self
+        }
+    }
+
+    impl SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
+        /// JSON Value to be merged into the Scheme
+        pub fn data(mut self, value: impl Into<Value>) -> Self {
+            self.subtype.data = value.into();
+            self
+        }
     }
 }
 
-impl SecuritySchemeBuilder<DigestSecurityScheme> {
-    /// Quality of protection
-    pub fn qop(mut self, value: QualityOfProtection) -> Self {
-        self.subtype.qop = value;
-        self
-    }
-}
-
-impl SecuritySchemeBuilder<BearerSecurityScheme> {
-    /// URI of the authorization server
-    pub fn authorization(mut self, value: impl Into<String>) -> Self {
-        self.subtype.authorization = Some(value.into());
-        self
-    }
-
-    /// Encoding, encryption or digest algorithm
-    pub fn alg(mut self, value: impl Into<Cow<'static, str>>) -> Self {
-        self.subtype.alg = value.into();
-        self
-    }
-
-    /// Format of the security authentication information
-    pub fn format(mut self, value: impl Into<Cow<'static, str>>) -> Self {
-        self.subtype.format = value.into();
-        self
-    }
-}
-
-impl SecuritySchemeBuilder<OAuth2SecurityScheme> {
-    /// URI of the authorization server
-    pub fn authorization(mut self, value: impl Into<String>) -> Self {
-        self.subtype.authorization = Some(value.into());
-        self
-    }
-
-    /// URI of the token server
-    pub fn token(mut self, value: impl Into<String>) -> Self {
-        self.subtype.token = Some(value.into());
-        self
-    }
-
-    /// URI of the refresh server
-    pub fn refresh(mut self, value: impl Into<String>) -> Self {
-        self.subtype.refresh = Some(value.into());
-        self
-    }
-
-    /// Authorization scope identifier
-    pub fn scope(mut self, value: impl Into<String>) -> Self {
-        self.subtype
-            .scopes
-            .get_or_insert_with(Default::default)
-            .push(value.into());
-        self
-    }
-}
-
-impl SecuritySchemeBuilder<UnknownSecuritySchemeSubtype> {
-    /// JSON Value to be merged into the Scheme
-    pub fn data(mut self, value: impl Into<Value>) -> Self {
-        self.subtype.data = value.into();
-        self
-    }
-}
+pub use self::security::*;
 
 /// Builder for the Form
 pub struct FormBuilder<Other: ExtendableThing, Href, OtherForm> {
@@ -3010,6 +3031,8 @@ impl TryFrom<UncheckedLink> for Link {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use serde::{Deserialize, Serialize};
     use serde_json::json;
     use time::macros::datetime;
@@ -3022,9 +3045,11 @@ mod tests {
         },
         hlist::{Cons, Nil},
         thing::{
-            ActionAffordance, DataSchema, DataSchemaSubtype, EventAffordance,
-            InteractionAffordance, Maximum, Minimum, NumberSchema, ObjectSchema,
-            PropertyAffordance, StringSchema,
+            ActionAffordance, ApiKeySecurityScheme, BasicSecurityScheme, BearerSecurityScheme,
+            DataSchema, DataSchemaSubtype, DigestSecurityScheme, EventAffordance,
+            InteractionAffordance, Maximum, Minimum, NumberSchema, OAuth2SecurityScheme,
+            ObjectSchema, PropertyAffordance, PskSecurityScheme, QualityOfProtection,
+            SecurityAuthenticationLocation, SecurityScheme, StringSchema,
         },
     };
 

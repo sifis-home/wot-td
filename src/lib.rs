@@ -13,14 +13,7 @@
 //!
 //! ```
 //! use wot_td::{
-//!     builder::{
-//!         affordance::BuildableInteractionAffordance,
-//!         data_schema::{
-//!             BuildableDataSchema, IntegerDataSchemaBuilderLike, ObjectDataSchemaBuilderLike,
-//!             SpecializableDataSchema,
-//!         },
-//!         human_readable_info::BuildableHumanReadableInfo,
-//!     },
+//!     builder::*,
 //!     thing::Thing,
 //! };
 //!
