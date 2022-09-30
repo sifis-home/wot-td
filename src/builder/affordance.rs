@@ -1,4 +1,9 @@
 //! The builder elements related to affordances.
+//!
+//! The affordances in the specification are expressed in term of object inheritance. The builders
+//! in this module mimic that behavior using traits, which must be imported in the context to work.
+//!
+//! See the examples related to the specific affordance bulders for more information.
 
 use std::{collections::HashMap, ops::Not};
 
@@ -57,6 +62,38 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
     ///
     /// It takes a function that accepts an _incomplete_ [`FormBuilder`] and must return a
     /// _complete_ one.
+    ///
+    /// # Example
+    /// ```
+    /// # use serde_json::json;
+    /// use wot_td::builder::affordance::BuildableInteractionAffordance;
+    /// # use wot_td::thing::Thing;
+    ///
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .action("aff", |b| b.form(|b| b.href("href")))
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "actions": {
+    ///             "aff": {
+    ///                 "forms": [{
+    ///                     "href": "href",
+    ///                 }],
+    ///                 "idempotent": false,
+    ///                 "safe": false,
+    ///             },
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     fn form<F>(self, f: F) -> Self
     where
         F: FnOnce(
@@ -68,6 +105,43 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
     ///
     /// It takes a function that accepts a `DataSchema` builder and must return a
     /// type convertible into a `DataSchema`.
+    /// ```
+    /// # use serde_json::json;
+    /// use wot_td::builder::affordance::BuildableInteractionAffordance;
+    /// # use wot_td::{builder::data_schema::SpecializableDataSchema, thing::Thing};
+    ///
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .action("aff", |b| {
+    ///         b.uri_variable("myvar", |b| b.finish_extend().number())
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "title": "Thing name",
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "actions": {
+    ///             "aff": {
+    ///                 "forms": [],
+    ///                 "uriVariables": {
+    ///                     "myvar": {
+    ///                         "type": "number",
+    ///                         "readOnly": false,
+    ///                         "writeOnly": false,
+    ///                     },
+    ///                 },
+    ///                 "idempotent": false,
+    ///                 "safe": false,
+    ///             },
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     fn uri_variable<F, T>(self, name: impl Into<String>, f: F) -> Self
     where
         F: FnOnce(
@@ -306,6 +380,149 @@ impl_buildable_interaction_affordance!(
 );
 
 /// A builder for [`PropertyAffordance`]
+///
+/// A `PropertyAffordanceBuilder` behaves like an interaction affordance builder, a _human readable
+/// info_ builder and a data schema builder. Because of this, you can customize the relative parts
+/// once the traits [`BuildableInteractionAffordance`], [`BuildableHumanReadableInfo`] and
+/// [`SpecializableDataSchema`] (or others related to data schema, see [`DataSchemaBuilder`]
+/// documentation for more information) are in scope.
+///
+/// `PropertyAffordanceBuilder` has three level of extension:
+///
+/// - `PropertyAffordance` through [`ext`]/[`ext_with`]
+/// - `InteractionAffordance` through [`ext_interaction`]/[`ext_interaction_with`]
+/// - `DataSchema` through [`ext_data_schema`]/[`ext_data_schema_with`]
+///
+/// If the _parent_ `ThingBuilder` is extended, it is necessary to explicitly and correctly extend
+/// these three levels for `PropertyAffordanceBuilder`.
+///
+/// Moreover, [`finish_extend_data_schema`] *must* be called in order to make the `DataSchemaBuilder`
+/// specializable and usable in general.
+///
+/// [`DataSchemaBuilder`]: crate::builder::data_schema::DataSchemaBuilder
+/// [`ext`]: Self::ext
+/// [`ext_with`]: Self::ext_with
+/// [`ext_interaction`]: Self::ext_interaction
+/// [`ext_interaction_with`]: Self::ext_interaction_with
+/// [`ext_data_schema`]: Self::ext_data_schema
+/// [`ext_data_schema_with`]: Self::ext_data_schema_with
+/// [`finish_extend_data_schema`]: Self::finish_extend_data_schema
+///
+/// # Example
+///
+/// ```
+/// # use serde::{Deserialize, Serialize};
+/// # use serde_json::json;
+/// # use wot_td::{
+/// #     builder::data_schema::SpecializableDataSchema, extend::ExtendableThing, thing::Thing,
+/// # };
+/// #
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct ThingExtension {
+///     a_field: String,
+///     another_field: u32,
+/// }
+///
+/// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+/// struct InteractionExtension {
+///     ia_field: f32,
+/// }
+///
+/// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+/// struct PropertyExtension {
+///     prop_field: u32,
+/// }
+///
+/// impl ExtendableThing for ThingExtension {
+///     type InteractionAffordance = InteractionExtension;
+///     type PropertyAffordance = PropertyExtension;
+///     /* Other types set to `()` */
+/// #   type Form = ();
+/// #   type ActionAffordance = ();
+/// #   type EventAffordance = ();
+/// #   type ExpectedResponse = ();
+/// #   type DataSchema = ();
+/// #   type ObjectSchema = ();
+/// #   type ArraySchema = ();
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct AnotherExtension {
+///     another_field_again: Vec<String>,
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct AnotherPropertyExtension {
+///     another_prop_field: String,
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct DataExtension {
+///     data_field: u32,
+/// }
+///
+/// impl ExtendableThing for AnotherExtension {
+///     type PropertyAffordance = AnotherPropertyExtension;
+///     type DataSchema = DataExtension;
+///     /* Other types set to `()` */
+/// #   type InteractionAffordance = ();
+/// #   type ActionAffordance = ();
+/// #   type EventAffordance = ();
+/// #   type Form = ();
+/// #   type ExpectedResponse = ();
+/// #   type ObjectSchema = ();
+/// #   type ArraySchema = ();
+/// }
+///
+/// let thing = Thing::builder("Thing name")
+///     .ext(ThingExtension {
+///         a_field: "hello world".to_string(),
+///         another_field: 42,
+///     })
+///     .ext(AnotherExtension {
+///         another_field_again: vec!["field1".to_string(), "field2".to_string()],
+///     })
+///     .finish_extend()
+///     .property("prop", |b| {
+///         b.ext_interaction(InteractionExtension { ia_field: 42. })
+///             .ext_interaction(())
+///             .ext(PropertyExtension { prop_field: 23 })
+///             .ext(AnotherPropertyExtension {
+///                 another_prop_field: "hello".to_string(),
+///             })
+///             .ext_data_schema(())
+///             .ext_data_schema(DataExtension { data_field: 101 })
+///             .finish_extend_data_schema()
+///             .bool()
+///     })
+///     .build()
+///     .unwrap();
+///
+/// assert_eq!(
+///     serde_json::to_value(thing).unwrap(),
+///     json!({
+///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+///         "title": "Thing name",
+///         "a_field": "hello world",
+///         "another_field": 42,
+///         "another_field_again": ["field1", "field2"],
+///         "properties": {
+///             "prop": {
+///                 "ia_field": 42.,
+///                 "prop_field": 23,
+///                 "another_prop_field": "hello",
+///                 "data_field": 101,
+///                 "readOnly": false,
+///                 "writeOnly": false,
+///                 "type": "boolean",
+///                 "forms": [],
+///             }
+///         },
+///         "security": [],
+///         "securityDefinitions": {},
+///     })
+/// );
+/// ```
 pub struct PropertyAffordanceBuilder<
     Other: ExtendableThing,
     DataSchema,
@@ -346,6 +563,139 @@ where
 }
 
 /// Builder for [`ActionAffordance`].
+///
+/// A `ActionAffordanceBuilder` behaves like an interaction affordance builder, and because of this
+/// you can customize the relative parts once the traits [`BuildableInteractionAffordance`] and
+/// [`BuildableHumanReadableInfo`] are in scope.
+///
+/// `ActionAffordanceBuilder` has two level of extension:
+///
+/// - `ActionAffordance` through [`ext`]/[`ext_with`]
+/// - `InteractionAffordance` through [`ext_interaction`]/[`ext_interaction_with`]
+///
+/// If the _parent_ `ThingBuilder` is extended, it is necessary to explicitly and correctly extend
+/// these two levels for `ActionAffordanceBuilder`.
+///
+/// [`ext`]: Self::ext
+/// [`ext_with`]: Self::ext_with
+/// [`ext_interaction`]: Self::ext_interaction
+/// [`ext_interaction_with`]: Self::ext_interaction_with
+///
+/// # Example
+///
+/// ```
+/// # use serde::{Deserialize, Serialize};
+/// # use serde_json::json;
+/// # use wot_td::{
+/// #     builder::data_schema::SpecializableDataSchema, extend::ExtendableThing, thing::Thing,
+/// # };
+/// #
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct ThingExtension {
+///     a_field: String,
+///     another_field: u32,
+/// }
+///
+/// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+/// struct InteractionExtension {
+///     ia_field: f32,
+/// }
+///
+/// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+/// struct ActionExtension {
+///     action_field: u32,
+/// }
+///
+/// impl ExtendableThing for ThingExtension {
+///     type InteractionAffordance = InteractionExtension;
+///     type ActionAffordance = ActionExtension;
+///     /* Other types set to `()` */
+/// #   type Form = ();
+/// #   type PropertyAffordance = ();
+/// #   type EventAffordance = ();
+/// #   type ExpectedResponse = ();
+/// #   type DataSchema = ();
+/// #   type ObjectSchema = ();
+/// #   type ArraySchema = ();
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct AnotherExtension {
+///     another_field_again: Vec<String>,
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct AnotherActionExtension {
+///     another_action_field: String,
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct DataExtension {
+///     data_field: u32,
+/// }
+///
+/// impl ExtendableThing for AnotherExtension {
+///     type ActionAffordance = AnotherActionExtension;
+///     /* Other types set to `()` */
+/// #   type InteractionAffordance = ();
+/// #   type PropertyAffordance = ();
+/// #   type EventAffordance = ();
+/// #   type DataSchema = ();
+/// #   type Form = ();
+/// #   type ExpectedResponse = ();
+/// #   type ObjectSchema = ();
+/// #   type ArraySchema = ();
+/// }
+///
+/// let thing = Thing::builder("Thing name")
+///     .ext(ThingExtension {
+///         a_field: "hello world".to_string(),
+///         another_field: 42,
+///     })
+///     .ext(AnotherExtension {
+///         another_field_again: vec!["field1".to_string(), "field2".to_string()],
+///     })
+///     .finish_extend()
+///     .action("action", |b| {
+///         b.ext_interaction(InteractionExtension { ia_field: 42. })
+///             .ext_interaction(())
+///             .ext(ActionExtension { action_field: 23 })
+///             .ext(AnotherActionExtension {
+///                 another_action_field: "hello".to_string(),
+///             })
+///             .input(|b| b.ext(()).ext(()).finish_extend().number())
+///     })
+///     .build()
+///     .unwrap();
+///
+/// assert_eq!(
+///     serde_json::to_value(thing).unwrap(),
+///     json!({
+///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+///         "title": "Thing name",
+///         "a_field": "hello world",
+///         "another_field": 42,
+///         "another_field_again": ["field1", "field2"],
+///         "actions": {
+///             "action": {
+///                 "ia_field": 42.,
+///                 "action_field": 23,
+///                 "another_action_field": "hello",
+///                 "input": {
+///                     "type": "number",
+///                     "readOnly": false,
+///                     "writeOnly": false,
+///                 },
+///                 "idempotent": false,
+///                 "safe": false,
+///                 "forms": [],
+///             }
+///         },
+///         "security": [],
+///         "securityDefinitions": {},
+///     })
+/// );
+/// ```
 pub struct ActionAffordanceBuilder<
     Other: ExtendableThing,
     OtherInteractionAffordance,
@@ -406,6 +756,137 @@ where
 }
 
 /// Builder for [`EventAffordance`].
+///
+/// A `EventAffordanceBuilder` behaves like an interaction affordance builder, and because of this
+/// you can customize the relative parts once the traits [`BuildableInteractionAffordance`] and
+/// [`BuildableHumanReadableInfo`] are in scope.
+///
+/// `EventAffordanceBuilder` has two level of extension:
+///
+/// - `EventAffordance` through [`ext`]/[`ext_with`]
+/// - `InteractionAffordance` through [`ext_interaction`]/[`ext_interaction_with`]
+///
+/// If the _parent_ `ThingBuilder` is extended, it is necessary to explicitly and correctly extend
+/// these two levels for `EventAffordanceBuilder`.
+///
+/// [`ext`]: Self::ext
+/// [`ext_with`]: Self::ext_with
+/// [`ext_interaction`]: Self::ext_interaction
+/// [`ext_interaction_with`]: Self::ext_interaction_with
+///
+/// # Example
+///
+/// ```
+/// # use serde::{Deserialize, Serialize};
+/// # use serde_json::json;
+/// # use wot_td::{
+/// #     builder::data_schema::SpecializableDataSchema, extend::ExtendableThing, thing::Thing,
+/// # };
+/// #
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct ThingExtension {
+///     a_field: String,
+///     another_field: u32,
+/// }
+///
+/// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+/// struct InteractionExtension {
+///     ia_field: f32,
+/// }
+///
+/// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+/// struct EventExtension {
+///     event_field: u32,
+/// }
+///
+/// impl ExtendableThing for ThingExtension {
+///     type InteractionAffordance = InteractionExtension;
+///     type EventAffordance = EventExtension;
+///     /* Other types set to `()` */
+/// #   type Form = ();
+/// #   type PropertyAffordance = ();
+/// #   type ActionAffordance = ();
+/// #   type ExpectedResponse = ();
+/// #   type DataSchema = ();
+/// #   type ObjectSchema = ();
+/// #   type ArraySchema = ();
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct AnotherExtension {
+///     another_field_again: Vec<String>,
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct AnotherEventExtension {
+///     another_event_field: String,
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct DataExtension {
+///     data_field: u32,
+/// }
+///
+/// impl ExtendableThing for AnotherExtension {
+///     type EventAffordance = AnotherEventExtension;
+///     /* Other types set to `()` */
+/// #   type InteractionAffordance = ();
+/// #   type PropertyAffordance = ();
+/// #   type ActionAffordance = ();
+/// #   type DataSchema = ();
+/// #   type Form = ();
+/// #   type ExpectedResponse = ();
+/// #   type ObjectSchema = ();
+/// #   type ArraySchema = ();
+/// }
+///
+/// let thing = Thing::builder("Thing name")
+///     .ext(ThingExtension {
+///         a_field: "hello world".to_string(),
+///         another_field: 42,
+///     })
+///     .ext(AnotherExtension {
+///         another_field_again: vec!["field1".to_string(), "field2".to_string()],
+///     })
+///     .finish_extend()
+///     .event("event", |b| {
+///         b.ext_interaction(InteractionExtension { ia_field: 42. })
+///             .ext_interaction(())
+///             .ext(EventExtension { event_field: 23 })
+///             .ext(AnotherEventExtension {
+///                 another_event_field: "hello".to_string(),
+///             })
+///             .subscription(|b| b.ext(()).ext(()).finish_extend().number())
+///     })
+///     .build()
+///     .unwrap();
+///
+/// assert_eq!(
+///     serde_json::to_value(thing).unwrap(),
+///     json!({
+///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+///         "title": "Thing name",
+///         "a_field": "hello world",
+///         "another_field": 42,
+///         "another_field_again": ["field1", "field2"],
+///         "events": {
+///             "event": {
+///                 "ia_field": 42.,
+///                 "event_field": 23,
+///                 "another_event_field": "hello",
+///                 "subscription": {
+///                     "type": "number",
+///                     "readOnly": false,
+///                     "writeOnly": false,
+///                 },
+///                 "forms": [],
+///             }
+///         },
+///         "security": [],
+///         "securityDefinitions": {},
+///     })
+/// );
+/// ```
 #[derive(Default)]
 pub struct EventAffordanceBuilder<
     Other: ExtendableThing,
@@ -1355,6 +1836,40 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
     ///
     /// It takes a function that accepts a `DataSchema` builder and must return a
     /// type convertible into a `DataSchema`.
+    ///
+    /// # Example
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{builder::data_schema::SpecializableDataSchema, thing::Thing};
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .action("action", |b| b.input(|b| b.finish_extend().number()))
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "actions": {
+    ///             "action": {
+    ///                 "input": {
+    ///                     "type": "number",
+    ///                     "readOnly": false,
+    ///                     "writeOnly": false,
+    ///                 },
+    ///                 "idempotent": false,
+    ///                 "safe": false,
+    ///                 "forms": [],
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     pub fn input<F, T>(
         self,
         f: F,
@@ -1401,6 +1916,40 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
     ///
     /// It takes a function that accepts a `DataSchema` builder and must return a
     /// type convertible into a `DataSchema`.
+    ///
+    /// # Example
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{builder::data_schema::SpecializableDataSchema, thing::Thing};
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .action("action", |b| b.output(|b| b.finish_extend().string()))
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "actions": {
+    ///             "action": {
+    ///                 "output": {
+    ///                     "type": "string",
+    ///                     "readOnly": false,
+    ///                     "writeOnly": false,
+    ///                 },
+    ///                 "idempotent": false,
+    ///                 "safe": false,
+    ///                 "forms": [],
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     pub fn output<F, T>(
         self,
         f: F,
@@ -1469,6 +2018,38 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     ///
     /// It takes a function that accepts a `DataSchema` builder and must return a
     /// type convertible into a `DataSchema`.
+    ///
+    /// # Example
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{builder::data_schema::SpecializableDataSchema, thing::Thing};
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .event("event", |b| b.subscription(|b| b.finish_extend().number()))
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "events": {
+    ///             "event": {
+    ///                 "subscription": {
+    ///                     "type": "number",
+    ///                     "readOnly": false,
+    ///                     "writeOnly": false,
+    ///                 },
+    ///                 "forms": [],
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     pub fn subscription<F, T>(
         self,
         f: F,
@@ -1513,6 +2094,38 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     ///
     /// It takes a function that accepts a `DataSchema` builder and must return a
     /// type convertible into a `DataSchema`.
+    ///
+    /// # Example
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{builder::data_schema::SpecializableDataSchema, thing::Thing};
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .event("event", |b| b.data(|b| b.finish_extend().number()))
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "events": {
+    ///             "event": {
+    ///                 "data": {
+    ///                     "type": "number",
+    ///                     "readOnly": false,
+    ///                     "writeOnly": false,
+    ///                 },
+    ///                 "forms": [],
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     pub fn data<F, T>(
         self,
         f: F,
@@ -1557,6 +2170,38 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     ///
     /// It takes a function that accepts a `DataSchema` builder and must return a
     /// type convertible into a `DataSchema`.
+    ///
+    /// # Example
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{builder::data_schema::SpecializableDataSchema, thing::Thing};
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .event("event", |b| b.cancellation(|b| b.finish_extend().number()))
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "events": {
+    ///             "event": {
+    ///                 "cancellation": {
+    ///                     "type": "number",
+    ///                     "readOnly": false,
+    ///                     "writeOnly": false,
+    ///                 },
+    ///                 "forms": [],
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     pub fn cancellation<F, T>(
         self,
         f: F,
@@ -1601,6 +2246,38 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     ///
     /// It takes a function that accepts a `DataSchema` builder and must return a
     /// type convertible into a `DataSchema`.
+    ///
+    /// # Example
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{builder::data_schema::SpecializableDataSchema, thing::Thing};
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .event("event", |b| b.data_response(|b| b.finish_extend().number()))
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "events": {
+    ///             "event": {
+    ///                 "data_response": {
+    ///                     "type": "number",
+    ///                     "readOnly": false,
+    ///                     "writeOnly": false,
+    ///                 },
+    ///                 "forms": [],
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     pub fn data_response<F, T>(
         self,
         f: F,

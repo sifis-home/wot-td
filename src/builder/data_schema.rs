@@ -1,5 +1,44 @@
 //! The builder elements related to data schemas.
 //!
+//! The main entry point of the module is [`DataSchemaBuilder`], which can be _extended_ and
+//! _specialized_ in different ways.
+//!
+//! The extension mechanism is similar to other structures as shown in [`builder`] module, with the
+//! difference that `DataSchemaBuilder` *must* declare when the process is completed using the
+//! [`finish_extend`] method. The reason behind this is because the _specialization_ process (see
+//! below) requires the modification of specific elements of the builder, which could cause data
+//! loss in case of further extension or non-zero cost approaches to avoid the problem. In this
+//! way, it is not possible to _specialize_ the `DataSchemaBuilder` before all the extensions have
+//! been performed.
+//!
+//! The _specialization_ process involves the following traits:
+//!
+//! - [`SpecializableDataSchema`]
+//! - [`EnumerableDataSchema`]
+//! - [`UnionDataSchema`]
+//! - [`ReadableWriteableDataSchema`]
+//!
+//! The `SpecializableDataSchema` trait allows transforming a generic builder into a builder for a
+//! specific subtype, for instance using the `number()` function to obtain a _number data schema
+//! builder_. The trait is only implemented on generic builder types.
+//!
+//! The `EnumerableDataSchema` and `UnionDataSchema` traits are similar to
+//! `SpecializableDataSchema` in terms of specialization, but they are also implemented on
+//! specific specialized structs in order to allow adding more _variants_ to the enumeration/union.
+//!
+//! The `ReadableWriteableDataSchema` is an auxiliary trait that allows transforming a specialized builder
+//! into a read-only/write-only variant, keeping the existing behavior of the original one. However,
+//! [`ReadOnly`] and [`WriteOnly`] types do not implement `ReadableWriteableDataSchema`, which
+//! means that you cannot create a `DataSchema` with both [`read_only`] and [`write_only`] fields
+//! set to true using the builder.
+//!
+//! Any `DataSchema` builder also implements [`BuildableHumanReadableInfo`] and
+//! [`BuildableDataSchema`], in order to customize _common_ fields.
+//!
+//! [`builder`]: crate::builder
+//! [`finish_extend`]: DataSchemaBuilder::finish_extend
+//! [`read_only`]: crate::thing::DataSchema::read_only
+//! [`write_only`]: crate::thing::DataSchema::write_only
 use std::{cmp::Ordering, collections::HashMap, marker::PhantomData, ops::Not};
 
 use crate::{
@@ -58,10 +97,14 @@ pub(crate) type UncheckedDataSchemaMap<Other> = HashMap<
 
 /// _Partial_ variant of a [`DataSchemaBuilder`].
 ///
-/// This variant is necessary for building a
-/// [`PropertyAffordance`](crate::thing::PropertyAffordance), which is composed of a set of _human
-/// readable_ fields shared between [`InteractionAffordance`](crate::thing::InteractionAffordance)
-/// and [`DataSchema`].
+/// This variant is necessary for building a [`PropertyAffordance`], which is composed of a set of
+/// _human readable_ fields shared between [`InteractionAffordance`] and [`DataSchema`].
+///
+/// This builder behaves like a [`DataSchemaBuilder`] that does not implement
+/// [`BuildableHumanReadableInfo`].
+///
+/// [`PropertyAffordance`]: crate::thing::PropertyAffordance
+/// [`InteractionAffordance`]: crate::thing::InteractionAffordance
 #[derive(Debug, PartialEq)]
 pub struct PartialDataSchemaBuilder<DS, AS, OS, Status> {
     constant: Option<Value>,
@@ -192,7 +235,8 @@ where
 
 /// _Partial_ variant of a [`DataSchema`].
 ///
-/// This variant does not include the _human readable_ fields.
+/// This variant does not include the _human readable_ fields. It is always converted into the
+/// complete `DataSchema` structure during the _building_ process.
 #[derive(Debug, Default, PartialEq)]
 pub struct PartialDataSchema<DS, AS, OS> {
     pub(super) constant: Option<Value>,
@@ -211,14 +255,112 @@ pub struct PartialDataSchema<DS, AS, OS> {
 
 /// Basic builder for [`DataSchema`].
 ///
-/// # Example
+/// This is builder must be both _extended_ and _specialized_, see the [module documentation] for
+/// a general overview of the concepts.
+///
+/// `DataSchemaBuilder` implements `[BuildableHumanReadableInfo]` in order to customize _human
+/// readable_ fields, but it is not directly convertible into a
+/// `DataSchema`/`UncheckedDataSchema`. For instance, the following fails to compile:
 ///
 /// ```compile_fail
 /// # use wot_td::{
-/// #   thing::DataSchema,
-/// #   builder::DataSchemaBuilder,
+/// #     builder::data_schema::{DataSchemaBuilder, UncheckedDataSchema},
+/// #     hlist::Nil,
 /// # };
-/// let data_schema: DataSchema = DataSchemaBuilder::default().into();
+/// #
+/// let data_schema: UncheckedDataSchema<Nil, Nil, Nil> = DataSchemaBuilder::default().into();
+/// ```
+///
+/// In order to correctly use `DataSchemaBuilder`, the following three steps are required:
+///
+/// 1. call [`ext`]/[`ext_with`] in order to add generic _data schema_ extensions as specified in
+///    the [`ThingBuilder`];
+/// 2. call [`finish_extend`];
+/// 3. _specialize_ the builder.
+///
+/// [module documentation]: self
+/// [`ext`]: Self::ext
+/// [`ext_with`]: Self::ext_with
+/// [`ThingBuilder`]: crate::builder::ThingBuilder
+/// [`finish_extend`]: Self::finish_extend
+///
+/// # Example
+/// ```
+/// # use serde::{Deserialize, Serialize};
+/// # use serde_json::json;
+/// # use wot_td::{
+/// #     builder::data_schema::SpecializableDataSchema, extend::ExtendableThing, thing::Thing,
+/// # };
+/// #
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct ThingExtension {}
+///
+/// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+/// struct DataExtension {
+///     data_schema_field: u32,
+/// }
+///
+/// impl ExtendableThing for ThingExtension {
+///     type DataSchema = DataExtension;
+///     /* Other types set to `()` */
+/// #   type Form = ();
+/// #   type InteractionAffordance = ();
+/// #   type PropertyAffordance = ();
+/// #   type ActionAffordance = ();
+/// #   type EventAffordance = ();
+/// #   type ExpectedResponse = ();
+/// #   type ObjectSchema = ();
+/// #   type ArraySchema = ();
+/// }
+///
+/// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+/// struct DummyExtension {}
+///
+/// impl ExtendableThing for DummyExtension {
+///     /* Types set to `()` */
+/// #   type InteractionAffordance = ();
+/// #   type PropertyAffordance = ();
+/// #   type ActionAffordance = ();
+/// #   type EventAffordance = ();
+/// #   type Form = ();
+/// #   type ExpectedResponse = ();
+/// #   type DataSchema = ();
+/// #   type ObjectSchema = ();
+/// #   type ArraySchema = ();
+/// }
+///
+/// let thing = Thing::builder("Thing name")
+///     .ext(ThingExtension {})
+///     .ext(DummyExtension {})
+///     .finish_extend()
+///     .schema_definition("test", |b| {
+///         b.ext(DataExtension {
+///             data_schema_field: 42,
+///         })
+///         .ext(())
+///         .finish_extend()
+///         .number()
+///     })
+///     .build()
+///     .unwrap();
+///
+/// assert_eq!(
+///     serde_json::to_value(thing).unwrap(),
+///     json!({
+///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+///         "title": "Thing name",
+///         "schemaDefinitions": {
+///             "test": {
+///                 "type": "number",
+///                 "data_schema_field": 42,
+///                 "readOnly": false,
+///                 "writeOnly": false,
+///             }
+///         },
+///         "security": [],
+///         "securityDefinitions": {},
+///     })
+/// );
 /// ```
 #[derive(Debug, PartialEq)]
 pub struct DataSchemaBuilder<DS, AS, OS, Status> {
@@ -337,12 +479,247 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
 
     /// Specialize the builder into an _array_ data schema builder, initializing the array
     /// extensions with default values.
+    ///
+    /// Note that this function can only be called if `AS` implements [`Default`], use
+    /// [`array_ext`] otherwise.
+    ///
+    /// [`array_ext`]: Self::array_ext
+    ///
+    /// # Examples
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema, extend::ExtendableThing, thing::Thing,
+    /// # };
+    /// #
+    /// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// struct ThingExtension {}
+    ///
+    /// #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+    /// struct ArraySchemaExtension {
+    ///     array_field: u32,
+    /// }
+    ///
+    /// impl ExtendableThing for ThingExtension {
+    ///     type ArraySchema = ArraySchemaExtension;
+    ///     /* Other types set to `()` */
+    /// #   type Form = ();
+    /// #   type InteractionAffordance = ();
+    /// #   type PropertyAffordance = ();
+    /// #   type ActionAffordance = ();
+    /// #   type EventAffordance = ();
+    /// #   type ExpectedResponse = ();
+    /// #   type DataSchema = ();
+    /// #   type ObjectSchema = ();
+    /// }
+    ///
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| b.ext(()).finish_extend().array())
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "type": "array",
+    ///                 "array_field": 0,
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
+    ///
+    /// The following does not work instead:
+    ///
+    /// ```compile_fail
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema, extend::ExtendableThing, thing::Thing,
+    /// # };
+    /// #
+    /// # #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// # struct ThingExtension {}
+    /// #
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct NotDefaultableU32(u32);
+    ///
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct ArraySchemaExtension {
+    ///     array_field: NotDefaultableU32,
+    /// }
+    ///
+    /// # impl ExtendableThing for ThingExtension {
+    /// #     type ArraySchema = ArraySchemaExtension;
+    /// #     /* Other types set to `()` */
+    /// #     type Form = ();
+    /// #     type InteractionAffordance = ();
+    /// #     type PropertyAffordance = ();
+    /// #     type ActionAffordance = ();
+    /// #     type EventAffordance = ();
+    /// #     type ExpectedResponse = ();
+    /// #     type DataSchema = ();
+    /// #     type ObjectSchema = ();
+    /// # }
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| b.ext(()).finish_extend().array())
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    ///
+    /// In this case, the following is necessary:
+    ///
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema,
+    /// #     extend::{Extend, ExtendableThing},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// # #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// # struct ThingExtension {}
+    /// #
+    /// # #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// # struct NotDefaultableU32(u32);
+    /// #
+    /// # #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// # struct ArraySchemaExtension {
+    /// #     array_field: NotDefaultableU32,
+    /// # }
+    /// #
+    /// # impl ExtendableThing for ThingExtension {
+    /// #     type ArraySchema = ArraySchemaExtension;
+    /// #     /* Other types set to `()` */
+    /// #     type Form = ();
+    /// #     type InteractionAffordance = ();
+    /// #     type PropertyAffordance = ();
+    /// #     type ActionAffordance = ();
+    /// #     type EventAffordance = ();
+    /// #     type ExpectedResponse = ();
+    /// #     type DataSchema = ();
+    /// #     type ObjectSchema = ();
+    /// # }
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.ext(()).finish_extend().array_ext(|b| {
+    ///             b.ext(ArraySchemaExtension {
+    ///                 array_field: NotDefaultableU32(42),
+    ///             })
+    ///         })
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    /// #
+    /// # assert_eq!(
+    /// #     serde_json::to_value(thing).unwrap(),
+    /// #     json!({
+    /// #         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    /// #         "title": "Thing name",
+    /// #         "schemaDefinitions": {
+    /// #             "test": {
+    /// #                 "type": "array",
+    /// #                 "array_field": 42,
+    /// #                 "readOnly": false,
+    /// #                 "writeOnly": false,
+    /// #             }
+    /// #         },
+    /// #         "security": [],
+    /// #         "securityDefinitions": {},
+    /// #     })
+    /// # );
+    /// ```
     fn array(self) -> Self::Array
     where
         AS: Default;
 
     /// Specialize the builder into an _array_ data schema builder, passing a function to
     /// create the array extensions.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema,
+    /// #     extend::{Extend, ExtendableThing},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// struct ThingExtension {}
+    ///
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct NotDefaultableU32(u32);
+    ///
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct ArraySchemaExtension {
+    ///     array_field: NotDefaultableU32,
+    /// }
+    ///
+    /// impl ExtendableThing for ThingExtension {
+    ///     type ArraySchema = ArraySchemaExtension;
+    /// #   /* Other types set to `()` */
+    /// #   type Form = ();
+    /// #   type InteractionAffordance = ();
+    /// #   type PropertyAffordance = ();
+    /// #   type ActionAffordance = ();
+    /// #   type EventAffordance = ();
+    /// #   type ExpectedResponse = ();
+    /// #   type DataSchema = ();
+    /// #   type ObjectSchema = ();
+    /// }
+    ///
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.ext(()).finish_extend().array_ext(|b| {
+    ///             b.ext(ArraySchemaExtension {
+    ///                 array_field: NotDefaultableU32(42),
+    ///             })
+    ///         })
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "type": "array",
+    ///                 "array_field": 42,
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     fn array_ext<F>(self, f: F) -> Self::Array
     where
         F: FnOnce(AS::Empty) -> AS,
@@ -356,14 +733,250 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
 
     /// Specialize the builder into an _integer_ data schema builder.
     fn integer(self) -> Self::Integer;
+
     /// Specialize the builder into an _object_ data schema builder, initializing the object
     /// extensions with default values.
+    ///
+    /// Note that this function can only be called if `OS` implements [`Default`], use
+    /// [`object_ext`] otherwise.
+    ///
+    /// [`object_ext`]: Self::object_ext
+    ///
+    /// # Examples
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema, extend::ExtendableThing, thing::Thing,
+    /// # };
+    /// #
+    /// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// struct ThingExtension {}
+    ///
+    /// #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+    /// struct ObjectSchemaExtension {
+    ///     object_field: u32,
+    /// }
+    ///
+    /// impl ExtendableThing for ThingExtension {
+    ///     type ObjectSchema = ObjectSchemaExtension;
+    ///     /* Other types set to `()` */
+    /// #   type Form = ();
+    /// #   type InteractionAffordance = ();
+    /// #   type PropertyAffordance = ();
+    /// #   type ActionAffordance = ();
+    /// #   type EventAffordance = ();
+    /// #   type ExpectedResponse = ();
+    /// #   type DataSchema = ();
+    /// #   type ArraySchema = ();
+    /// }
+    ///
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| b.ext(()).finish_extend().object())
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "type": "object",
+    ///                 "object_field": 0,
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
+    ///
+    /// The following does not work instead:
+    ///
+    /// ```compile_fail
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema, extend::ExtendableThing, thing::Thing,
+    /// # };
+    /// #
+    /// # #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// # struct ThingExtension {}
+    /// #
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct NotDefaultableU32(u32);
+    ///
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct ObjectSchemaExtension {
+    ///     object_field: NotDefaultableU32,
+    /// }
+    ///
+    /// # impl ExtendableThing for ThingExtension {
+    /// #     type ArraySchema = ArraySchemaExtension;
+    /// #     /* Other types set to `()` */
+    /// #     type Form = ();
+    /// #     type InteractionAffordance = ();
+    /// #     type PropertyAffordance = ();
+    /// #     type ActionAffordance = ();
+    /// #     type EventAffordance = ();
+    /// #     type ExpectedResponse = ();
+    /// #     type DataSchema = ();
+    /// #     type ObjectSchema = ();
+    /// # }
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| b.ext(()).finish_extend().object())
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    ///
+    /// In this case, the following is necessary:
+    ///
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema,
+    /// #     extend::{Extend, ExtendableThing},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// # #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// # struct ThingExtension {}
+    /// #
+    /// # #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// # struct NotDefaultableU32(u32);
+    /// #
+    /// # #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// # struct ObjectSchemaExtension {
+    /// #     object_field: NotDefaultableU32,
+    /// # }
+    /// #
+    /// # impl ExtendableThing for ThingExtension {
+    /// #     type ObjectSchema = ObjectSchemaExtension;
+    /// #     /* Other types set to `()` */
+    /// #     type Form = ();
+    /// #     type InteractionAffordance = ();
+    /// #     type PropertyAffordance = ();
+    /// #     type ActionAffordance = ();
+    /// #     type EventAffordance = ();
+    /// #     type ExpectedResponse = ();
+    /// #     type DataSchema = ();
+    /// #     type ArraySchema = ();
+    /// # }
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.ext(()).finish_extend().object_ext(|b| {
+    ///             b.ext(ObjectSchemaExtension {
+    ///                 object_field: NotDefaultableU32(42),
+    ///             })
+    ///         })
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    /// #
+    /// # assert_eq!(
+    /// #     serde_json::to_value(thing).unwrap(),
+    /// #     json!({
+    /// #         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    /// #         "title": "Thing name",
+    /// #         "schemaDefinitions": {
+    /// #             "test": {
+    /// #                 "type": "object",
+    /// #                 "object_field": 42,
+    /// #                 "readOnly": false,
+    /// #                 "writeOnly": false,
+    /// #             }
+    /// #         },
+    /// #         "security": [],
+    /// #         "securityDefinitions": {},
+    /// #     })
+    /// # );
+    /// ```
     fn object(self) -> Self::Object
     where
         OS: Default;
 
     /// Specialize the builder into an _object_ data schema builder, passing a function to create
     /// the object extensions.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema,
+    /// #     extend::{Extend, ExtendableThing},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// struct ThingExtension {}
+    ///
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct NotDefaultableU32(u32);
+    ///
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct ObjectSchemaExtension {
+    ///     object_field: NotDefaultableU32,
+    /// }
+    ///
+    /// impl ExtendableThing for ThingExtension {
+    ///     type ObjectSchema = ObjectSchemaExtension;
+    /// #   /* Other types set to `()` */
+    /// #   type Form = ();
+    /// #   type InteractionAffordance = ();
+    /// #   type PropertyAffordance = ();
+    /// #   type ActionAffordance = ();
+    /// #   type EventAffordance = ();
+    /// #   type ExpectedResponse = ();
+    /// #   type DataSchema = ();
+    /// #   type ArraySchema = ();
+    /// }
+    ///
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.ext(()).finish_extend().object_ext(|b| {
+    ///             b.ext(ObjectSchemaExtension {
+    ///                 object_field: NotDefaultableU32(42),
+    ///             })
+    ///         })
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "type": "object",
+    ///                 "object_field": 42,
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     fn object_ext<F>(self, f: F) -> Self::Object
     where
         F: FnOnce(OS::Empty) -> OS,
@@ -398,6 +1011,41 @@ pub trait EnumerableDataSchema<DS, AS, OS, Extended>:
 
     /// Returns a _specialized_ enumeration data schema and adds a variant to the `enumeration`
     /// field. It can be implemented for specialized _enumeration_ data schemas.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{builder::data_schema::EnumerableDataSchema, thing::Thing};
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.finish_extend()
+    ///             .enumeration("variant1")
+    ///             .enumeration("variant2")
+    ///             .enumeration("variant3")
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "enum": ["variant1", "variant2", "variant3"],
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     fn enumeration(self, value: impl Into<Value>) -> Self::Target;
 }
 
@@ -417,6 +1065,60 @@ pub trait UnionDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, Extended>
 
     /// Returns a _specialized_ union data schema and adds a data schema to the `one_of` field. It
     /// can be implemented for specialized _one_of_ data schemas.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::{SpecializableDataSchema, UnionDataSchema},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.finish_extend()
+    ///             .one_of(|b| b.finish_extend().number())
+    ///             .one_of(|b| b.finish_extend().integer())
+    ///             .one_of(|b| b.finish_extend().string())
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "oneOf": [
+    ///                     {
+    ///                         "type": "number",
+    ///                         "readOnly": false,
+    ///                         "writeOnly": false,
+    ///                     },
+    ///                     {
+    ///                         "type": "integer",
+    ///                         "readOnly": false,
+    ///                         "writeOnly": false,
+    ///                     },
+    ///                     {
+    ///                         "type": "string",
+    ///                         "readOnly": false,
+    ///                         "writeOnly": false,
+    ///                     },
+    ///                 ],
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     fn one_of<F, T>(self, f: F) -> Self::Target
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
@@ -444,9 +1146,76 @@ pub trait ReadableWriteableDataSchema<DS, AS, OS, Extended>:
     type WriteOnly: BuildableDataSchema<DS, AS, OS, Extended>;
 
     /// Creates a _read-only_ variant of the data schema builder.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::{
+    /// #         IntegerDataSchemaBuilderLike, ReadableWriteableDataSchema, SpecializableDataSchema,
+    /// #     },
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.finish_extend()
+    ///             .integer()
+    ///             .minimum(5)
+    ///             .read_only()
+    ///             .maximum(10)
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "type": "integer",
+    ///                 "readOnly": true,
+    ///                 "writeOnly": false,
+    ///                 "minimum": 5,
+    ///                 "maximum": 10,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
+    ///
+    /// The example using `write_only` is analogous. However, it is not possible to call both
+    /// `read_only` and `write_only` on the same data schema building chain:
+    ///
+    /// ```compile_fail
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::{ReadableWriteableDataSchema, SpecializableDataSchema},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.finish_extend().integer().read_only().write_only()
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    ///
     fn read_only(self) -> Self::ReadOnly;
 
     /// Creates a _write-only_ variant of the data schema builder.
+    ///
+    /// See [`read_only`] for examples.
+    ///
+    /// [`read_only`]: Self::read_only
     fn write_only(self) -> Self::WriteOnly;
 }
 
@@ -556,6 +1325,56 @@ pub trait ArrayDataSchemaBuilderLike<DS, AS, OS> {
     opt_field_decl!(min_items: u32, max_items: u32);
 
     /// Append an element to the array.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::{ArrayDataSchemaBuilderLike, SpecializableDataSchema},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.finish_extend()
+    ///             .array()
+    ///             .append(|b| b.finish_extend().number())
+    ///             .append(|b| b.finish_extend().null())
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "type": "array",
+    ///                 "items": [
+    ///                     {
+    ///                         "type": "number",
+    ///                         "readOnly": false,
+    ///                         "writeOnly": false,
+    ///                     },
+    ///                     {
+    ///                         "type": "null",
+    ///                         "readOnly": false,
+    ///                         "writeOnly": false,
+    ///                     },
+    ///                 ],
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     fn append<F, T>(self, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
@@ -592,6 +1411,57 @@ pub trait ObjectDataSchemaBuilderLike<DS, AS, OS> {
     ///
     /// If `required` is true, the `name` is added to the
     /// [`required`](crate::thing::ObjectSchema::required) field.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::{ObjectDataSchemaBuilderLike, SpecializableDataSchema},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.finish_extend()
+    ///             .object()
+    ///             .property("prop", true, |b| b.finish_extend().integer())
+    ///             .property("other_prop", false, |b| b.finish_extend().number())
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "type": "object",
+    ///                 "properties": {
+    ///                     "prop": {
+    ///                         "type": "integer",
+    ///                         "readOnly": false,
+    ///                         "writeOnly": false,
+    ///                     },
+    ///                     "other_prop": {
+    ///                         "type": "number",
+    ///                         "readOnly": false,
+    ///                         "writeOnly": false,
+    ///                     },
+    ///                 },
+    ///                 "required": ["prop"],
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
     fn property<F, T>(self, name: impl Into<String>, required: bool, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
