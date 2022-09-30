@@ -240,13 +240,18 @@ pub use self::{affordance::*, data_schema::*};
 
 pub use self::human_readable_info::*;
 
-/// A _typetag_ for types that needs to be extended.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ToExtend;
+/// Builder typetags
+pub mod typetags {
+    /// A _typetag_ for types that needs to be extended.
+    #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct ToExtend;
 
-/// A _typetag_ for types that have been already extended.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Extended;
+    /// A _typetag_ for types that have been already extended.
+    #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct Extended;
+}
+
+pub use self::typetags::*;
 
 /// A builder for a [Thing]
 ///
