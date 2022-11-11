@@ -5825,7 +5825,7 @@ mod tests {
 
         for op in OPS {
             assert_eq!(
-                serde_json::to_value(&op).unwrap(),
+                serde_json::to_value(op).unwrap(),
                 Value::String(op.to_string())
             );
         }
