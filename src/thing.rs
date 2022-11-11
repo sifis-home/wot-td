@@ -995,6 +995,7 @@ pub struct NumberSchema {
 /// An integer metadata.
 #[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 // FIXME: we should probably use a Decimal type
 pub struct IntegerSchema {
     /// The higher limit of the value.
@@ -1004,6 +1005,9 @@ pub struct IntegerSchema {
     /// The lower limit of the value.
     #[serde(flatten)]
     pub minimum: Option<Minimum<usize>>,
+
+    /// It adds the requirement that the numeric value must be a multiple of this.
+    pub multiple_of: Option<usize>,
 }
 
 /// A JSON object metadata.
@@ -3215,6 +3219,7 @@ mod test {
             {
                 "minimum": 5,
                 "maximum": 10,
+                "multipleOf": 2,
             }
         })
         .unwrap();
@@ -3224,6 +3229,7 @@ mod test {
             IntegerSchema {
                 minimum: Some(Minimum::Inclusive(5)),
                 maximum: Some(Maximum::Inclusive(10)),
+                multiple_of: Some(2),
             },
         );
 
@@ -3240,6 +3246,7 @@ mod test {
             IntegerSchema {
                 minimum: Some(Minimum::Exclusive(5)),
                 maximum: Some(Maximum::Exclusive(10)),
+                multiple_of: None,
             },
         );
     }

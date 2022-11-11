@@ -1243,6 +1243,7 @@ pub struct IntegerDataSchemaBuilder<Inner> {
     inner: Inner,
     maximum: Option<Maximum<usize>>,
     minimum: Option<Minimum<usize>>,
+    multiple_of: Option<usize>,
 }
 
 /// The builder for an [`ObjectSchema`](crate::thing::ObjectSchema) builder.
@@ -1400,6 +1401,7 @@ pub trait IntegerDataSchemaBuilderLike<DS, AS, OS> {
         maximum: usize,
         exclusive_minimum: usize,
         exclusive_maximum: usize,
+        multiple_of: usize,
     );
 }
 
@@ -1550,6 +1552,8 @@ impl<Inner: BuildableDataSchema<DS, AS, OS, Extended>, DS, AS, OS>
 impl<Inner: BuildableDataSchema<DS, AS, OS, Extended>, DS, AS, OS>
     IntegerDataSchemaBuilderLike<DS, AS, OS> for IntegerDataSchemaBuilder<Inner>
 {
+    opt_field_builder!(multiple_of: usize);
+
     fn minimum(mut self, value: usize) -> Self {
         self.minimum = Some(Minimum::Inclusive(value));
         self
@@ -1697,6 +1701,12 @@ macro_rules! impl_inner_delegate_schema_builder_like_integer {
         #[inline]
         fn exclusive_maximum(mut self, value: usize) -> Self {
             self.$inner = self.$inner.exclusive_maximum(value);
+            self
+        }
+
+        #[inline]
+        fn multiple_of(mut self, value: usize) -> Self {
+            self.$inner = self.$inner.multiple_of(value);
             self
         }
     };
@@ -1961,6 +1971,7 @@ macro_rules! impl_specializable_data_schema {
                         inner: self,
                         maximum: Default::default(),
                         minimum: Default::default(),
+                        multiple_of: Default::default(),
                     }
                 }
 
@@ -2643,6 +2654,7 @@ where
             inner,
             maximum,
             minimum,
+            multiple_of,
         } = builder;
         let DataSchemaBuilder {
             partial:
@@ -2671,6 +2683,7 @@ where
         let subtype = Some(UncheckedDataSchemaSubtype::Integer(IntegerSchema {
             minimum,
             maximum,
+            multiple_of,
         }));
 
         UncheckedDataSchema {
@@ -2714,6 +2727,7 @@ where
             inner,
             maximum,
             minimum,
+            multiple_of,
         } = builder;
         let PartialDataSchemaBuilder {
             constant: _,
@@ -2731,6 +2745,7 @@ where
         let subtype = Some(UncheckedDataSchemaSubtype::Integer(IntegerSchema {
             minimum,
             maximum,
+            multiple_of,
         }));
 
         PartialDataSchema {
@@ -3811,7 +3826,8 @@ mod tests {
                 format: None,
                 subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                     maximum: None,
-                    minimum: None
+                    minimum: None,
+                    multiple_of: None,
                 })),
                 other: Nil,
             }
@@ -3835,7 +3851,8 @@ mod tests {
                 format: None,
                 subtype: Some(UncheckedDataSchemaSubtype::Integer(IntegerSchema {
                     maximum: None,
-                    minimum: None
+                    minimum: None,
+                    multiple_of: None,
                 })),
                 other: Nil,
             }
@@ -4644,6 +4661,7 @@ mod tests {
             .integer()
             .exclusive_minimum(10)
             .maximum(5)
+            .multiple_of(2)
             .try_into()
             .unwrap();
         assert_eq!(
@@ -4665,6 +4683,7 @@ mod tests {
                 subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                     maximum: Some(Maximum::Inclusive(5)),
                     minimum: Some(Minimum::Exclusive(10)),
+                    multiple_of: Some(2),
                 })),
                 other: Nil,
             },
@@ -4695,6 +4714,7 @@ mod tests {
                 subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                     maximum: Some(Maximum::Exclusive(5)),
                     minimum: Some(Minimum::Inclusive(10)),
+                    multiple_of: None,
                 })),
                 other: Nil,
             },
@@ -4865,6 +4885,7 @@ mod tests {
                         subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                             maximum: None,
                             minimum: None,
+                            multiple_of: None,
                         })),
                         other: Nil,
                     },
@@ -4983,6 +5004,7 @@ mod tests {
                                         subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                                             maximum: None,
                                             minimum: None,
+                                            multiple_of: None,
                                         })),
                                         other: Nil,
                                     },
