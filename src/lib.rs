@@ -78,5 +78,6 @@ pub mod extend;
 pub mod hlist;
 pub mod protocol;
 pub mod thing;
+mod context;
 
 pub use crate::thing::Thing;

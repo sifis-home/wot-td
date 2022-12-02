@@ -20,6 +20,7 @@ use serde_json::Value;
 use serde_with::{serde_as, skip_serializing_none, DeserializeAs, OneOrMany, Same};
 use time::OffsetDateTime;
 
+pub use crate::context::*;
 use crate::{
     builder::{data_schema::UncheckedDataSchema, ThingBuilder, ToExtend},
     extend::ExtendableThing,
@@ -36,14 +37,6 @@ pub(crate) type DataSchemaMap<Other> = HashMap<
     >,
 >;
 
-/// The JSON-LD context for the version 1.0 of the [Thing
-/// description](https://www.w3.org/TR/wot-thing-description/)
-pub const TD_CONTEXT_10: &str = "https://www.w3.org/2019/wot/td/v1";
-
-/// The JSON-LD context for the version 1.1 of the [Thing
-/// description](https://www.w3.org/TR/wot-thing-description11/)
-pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
-
 /// An abstraction of a physical or a virtual entity
 ///
 /// It contains metadata and a description of its interfaces.
@@ -56,8 +49,8 @@ pub struct Thing<Other: ExtendableThing = Nil> {
     // https://www.w3.org/TR/json-ld11/#the-context
     // Let's take a value for now and assume we'll use the json-ld crate later
     /// A [JSON-LD @context](https://www.w3.org/TR/json-ld11/#the-context)
-    #[serde(rename = "@context", default = "default_context")]
-    pub context: Value,
+    #[serde(rename = "@context", default)]
+    pub context: Context,
 
     /// A unique identifier
     pub id: Option<String>,
@@ -270,10 +263,6 @@ where
             && self.schema_definitions == other.schema_definitions
             && self.other == other.other
     }
-}
-
-fn default_context() -> Value {
-    TD_CONTEXT_11.into()
 }
 
 impl Thing<Nil> {
@@ -1742,7 +1731,6 @@ mod test {
         }"#;
 
         let expected_thing = Thing {
-            context: TD_CONTEXT_11.into(),
             id: Some("urn:dev:ops:32473-WoTLamp-1234".to_string()),
             title: "MyLampThing".to_string(),
             security_definitions: [("nosec".to_string(), SecurityScheme::default())]
@@ -1859,7 +1847,6 @@ mod test {
         }"#;
 
         let expected_thing = Thing {
-            context: TD_CONTEXT_11.into(),
             id: Some("urn:dev:ops:32473-WoTLamp-1234".to_string()),
             attype: Some(vec!["Thing".to_string(), "LampThing".to_string()]),
             title: "MyLampThing".to_string(),
@@ -2026,7 +2013,6 @@ mod test {
         }"#;
 
         let expected_thing = Thing {
-            context: TD_CONTEXT_11.into(),
             title: "MyLampThing".to_string(),
             security_definitions: [("nosec".to_string(), SecurityScheme::default())]
                 .into_iter()
@@ -2113,7 +2099,7 @@ mod test {
     #[test]
     fn extend_single_thing() {
         let thing = Thing::<ThingExtA> {
-            context: "test".into(),
+            context: "test".try_into().unwrap(),
             properties: Some(
                 [(
                     "prop".to_string(),
@@ -2268,7 +2254,7 @@ mod test {
     #[test]
     fn extend_single_thing_with_hlist() {
         let thing = Thing::<Cons<ThingExtA, Nil>> {
-            context: "test".into(),
+            context: "test".try_into().unwrap(),
             properties: Some(
                 [(
                     "prop".to_string(),
@@ -2465,7 +2451,7 @@ mod test {
     #[test]
     fn extend_thing_with_two() {
         let thing = Thing::<Cons<ThingExtB, Cons<ThingExtA, Nil>>> {
-            context: "test".into(),
+            context: "test".try_into().unwrap(),
             properties: Some(
                 [(
                     "prop".to_string(),
@@ -2666,7 +2652,7 @@ mod test {
         }
 
         let thing = Thing::<Cons<ThingExtB, Cons<HttpThing, Cons<ThingExtA, Nil>>>> {
-            context: "test".into(),
+            context: "test".try_into().unwrap(),
             properties: Some(
                 [(
                     "prop".to_string(),

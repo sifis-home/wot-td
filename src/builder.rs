@@ -209,16 +209,16 @@ mod human_readable_info;
 use std::{collections::HashMap, fmt, marker::PhantomData, ops::Not};
 
 use oxilangtag::LanguageTag;
-use serde_json::Value;
 use time::OffsetDateTime;
 
 use crate::{
+    context::{Context, ContextEntry, InvalidEmptyIri, Iri},
     extend::{Extend, Extendable, ExtendableThing},
     thing::{
         AdditionalExpectedResponse, ComboSecurityScheme, DataSchemaFromOther,
         DefaultedFormOperations, ExpectedResponse, Form, FormOperation, KnownSecuritySchemeSubtype,
         Link, SecurityScheme, SecuritySchemeSubtype, Thing, UnknownSecuritySchemeSubtype,
-        VersionInfo, TD_CONTEXT_11,
+        VersionInfo,
     },
 };
 
@@ -258,7 +258,7 @@ pub use self::typetags::*;
 /// [`Thing`].
 #[must_use]
 pub struct ThingBuilder<Other: ExtendableThing, Status> {
-    context: Vec<Context>,
+    context: SimpleContext,
     id: Option<String>,
     attype: Option<Vec<String>>,
     title: String,
@@ -364,6 +364,9 @@ pub enum Error {
     /// A `Link` contains a `sizes` field but its `rel` field is not equal to `icon`.
     #[error("A sizes field can be used only when \"rel\" is \"icon\"")]
     SizesWithRelNotIcon,
+
+    #[error("IRI cannot be empty")]
+    InvalidEmptyIri,
 }
 
 /// Context of a [`Form`]
@@ -439,10 +442,9 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
         Other: Default,
     {
         let title = title.into();
-        let context = vec![Context::Simple(TD_CONTEXT_11.to_string())];
 
         Self {
-            context,
+            context: Default::default(),
             id: Default::default(),
             attype: Default::default(),
             title,
@@ -476,10 +478,9 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
         Other::Empty: ExtendableThing,
     {
         let title = title.into();
-        let context = vec![Context::Simple(TD_CONTEXT_11.to_string())];
 
         ThingBuilder {
-            context,
+            context: Default::default(),
             id: Default::default(),
             attype: Default::default(),
             title,
@@ -789,6 +790,10 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             _marker: _,
         } = self;
 
+        let context = context
+            .try_into()
+            .map_err(|InvalidEmptyIri| Error::InvalidEmptyIri)?;
+
         let mut security_definitions = HashMap::with_capacity(security_definitions_vec.len());
         for (name, scheme) in security_definitions_vec {
             let scheme: SecurityScheme = scheme.try_into()?;
@@ -847,24 +852,6 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             .is_empty()
             .not()
             .then_some(schema_definitions);
-
-        let context = {
-            // TODO: improve this
-            if context.len() == 1 {
-                Value::String(context.into_iter().next().unwrap().into_simple().unwrap())
-            } else {
-                context
-                    .into_iter()
-                    .map(|context| match context {
-                        Context::Simple(s) => Value::from(s),
-                        Context::Map(map) => {
-                            let map = map.into_iter().map(|(k, v)| (k, Value::from(v))).collect();
-                            Value::Object(map)
-                        }
-                    })
-                    .collect()
-            }
-        };
 
         let invalid_uri_variables = uri_variables
             .as_ref()
@@ -1073,20 +1060,6 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         base: String,
     );
 
-    /// Add a new JSON-LD @context in the default namespace
-    pub fn context<S>(mut self, value: S) -> Self
-    where
-        S: Into<String> + AsRef<str>,
-    {
-        if value.as_ref() == TD_CONTEXT_11 {
-            return self;
-        }
-
-        let context = Context::Simple(value.into());
-        self.context.push(context);
-        self
-    }
-
     /// Add a new JSON-LD @context with a custom namespace
     ///
     /// # Example
@@ -1126,7 +1099,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
         let mut context_map = ContextMapBuilder(Default::default());
         f(&mut context_map);
 
-        self.context.push(Context::Map(context_map.0));
+        self.context.named.extend(context_map.0.into_iter());
         self
     }
 
@@ -1736,20 +1709,6 @@ where
                 })
         })
         .transpose()
-}
-
-enum Context {
-    Simple(String),
-    Map(HashMap<String, String>),
-}
-
-impl Context {
-    fn into_simple(self) -> Option<String> {
-        match self {
-            Self::Simple(s) => Some(s),
-            _ => None,
-        }
-    }
 }
 
 /// Builder to create a structured JSON-LD @context with multiple namespaces
@@ -3029,12 +2988,39 @@ impl TryFrom<UncheckedLink> for Link {
     }
 }
 
+#[derive(Debug, Default)]
+struct SimpleContext {
+    default: Option<String>,
+    named: HashMap<String, String>,
+}
+
+impl TryFrom<SimpleContext> for Context {
+    type Error = InvalidEmptyIri;
+
+    fn try_from(context: SimpleContext) -> Result<Self, Self::Error> {
+        let SimpleContext { default, named } = context;
+        if default.is_none() && named.is_empty() {}
+        let default = default
+            .map(ContextEntry::new)
+            .transpose()?
+            .unwrap_or_else(|| ContextEntry::Iri(Iri::td_context_11()));
+        let default = Some(default);
+
+        let named = named
+            .into_iter()
+            .map(|(name, context)| ContextEntry::new(context).map(|context| (name, context)))
+            .collect::<Result<_, _>>()?;
+
+        Ok(Context { default, named })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
 
     use serde::{Deserialize, Serialize};
-    use serde_json::json;
+    use serde_json::{json, Value};
     use time::macros::datetime;
 
     use crate::{
@@ -3065,7 +3051,10 @@ mod tests {
                     assert_eq!(
                         thing,
                         Thing {
-                            context: TD_CONTEXT_11.into(),
+                            context: Context {
+                                default: Some(ContextEntry::Iri(Iri::td_context_11())),
+                                named: HashMap::new(),
+                            },
                             title: "MyLampThing".to_string(),
                             $field: Some("test".into()),
                             ..Default::default()
@@ -3085,46 +3074,10 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
-                title: "MyLampThing".to_string(),
-                ..Default::default()
-            }
-        )
-    }
-
-    #[test]
-    fn redundant_default_context() {
-        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
-            .context(TD_CONTEXT_11)
-            .build()
-            .unwrap();
-
-        assert_eq!(
-            thing,
-            Thing {
-                context: TD_CONTEXT_11.into(),
-                title: "MyLampThing".to_string(),
-                ..Default::default()
-            }
-        )
-    }
-
-    #[test]
-    fn simple_contexts() {
-        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
-            .context("test")
-            .context("another_test")
-            .build()
-            .unwrap();
-
-        assert_eq!(
-            thing,
-            Thing {
-                context: json! {[
-                    TD_CONTEXT_11,
-                    "test",
-                    "another_test",
-                ]},
+                context: Context {
+                    default: Some(ContextEntry::Iri(Iri::td_context_11())),
+                    named: HashMap::new(),
+                },
                 title: "MyLampThing".to_string(),
                 ..Default::default()
             }
@@ -3135,21 +3088,21 @@ mod tests {
     fn map_contexts() {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .context_map(|b| b.context("hello", "world").context("all", "fine"))
-            .context("simple")
             .build()
             .unwrap();
 
         assert_eq!(
             thing,
             Thing {
-                context: json! {[
-                    TD_CONTEXT_11,
-                    {
-                        "hello": "world",
-                        "all": "fine",
-                    },
-                    "simple",
-                ]},
+                context: Context {
+                    default: Some(ContextEntry::Iri(Iri::td_context_11())),
+                    named: [
+                        ("hello".into(), ContextEntry::new("world").unwrap()),
+                        ("all".into(), ContextEntry::new("fine").unwrap()),
+                    ]
+                    .into_iter()
+                    .collect()
+                },
                 title: "MyLampThing".to_string(),
                 ..Default::default()
             }
@@ -3168,7 +3121,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 attype: Some(vec!["test".to_string()]),
                 ..Default::default()
@@ -3184,7 +3136,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 attype: Some(vec!["test1".to_string(), "test2".to_string()]),
                 ..Default::default()
@@ -3202,7 +3153,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 titles: Some(
                     [("en", "My lamp"), ("it", "La mia lampada")]
@@ -3226,7 +3176,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 description: Some("My Lamp".to_string()),
                 descriptions: Some(
@@ -3251,7 +3200,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 created: Some(DATETIME),
                 ..Default::default()
@@ -3270,7 +3218,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 modified: Some(DATETIME),
                 ..Default::default()
@@ -3289,7 +3236,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 links: Some(vec![
                     Link {
@@ -3333,7 +3279,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 links: Some(vec![
                     Link {
@@ -3401,7 +3346,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["nosec".to_string()],
                 security_definitions: [(
@@ -3446,7 +3390,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["auto".to_string()],
                 security_definitions: [(
@@ -3493,7 +3436,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["basic".to_string()],
                 security_definitions: [(
@@ -3546,7 +3488,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["digest".to_string()],
                 security_definitions: [(
@@ -3599,7 +3540,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["apikey".to_string()],
                 security_definitions: [(
@@ -3654,7 +3594,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["bearer".to_string()],
                 security_definitions: [(
@@ -3712,7 +3651,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["oauth2".to_string()],
                 security_definitions: [(
@@ -3769,7 +3707,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["mysec".to_string()],
                 security_definitions: [(
@@ -3813,7 +3750,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["test_sec1".to_string(), "test_sec2".to_string()],
                 security_definitions: [
@@ -3860,7 +3796,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["sec2".to_string()],
                 security_definitions: [
@@ -3904,7 +3839,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security: vec!["basic".to_string()],
                 security_definitions: [
@@ -3965,7 +3899,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
@@ -3989,7 +3922,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
@@ -4040,7 +3972,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
@@ -4137,7 +4068,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![
@@ -4212,7 +4142,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 properties: Some(
                     [
@@ -4309,7 +4238,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 actions: Some(
                     [
@@ -4394,7 +4322,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 events: Some(
                     [
@@ -4479,7 +4406,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 properties: Some(
                     [(
@@ -4549,7 +4475,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 profile: Some(vec!["profile".to_string()]),
                 ..Default::default()
@@ -4565,7 +4490,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 profile: Some(vec!["profile1".to_string(), "profile2".to_string()]),
                 ..Default::default()
@@ -4585,7 +4509,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 schema_definitions: Some(
                     [
@@ -4677,7 +4600,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
@@ -5051,7 +4973,7 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
+                context: Default::default(),
                 title: "thing title".to_string(),
                 other: Nil::cons(ThingA { a: 1, b: 2 })
                     .cons(ThingB {})
@@ -5539,7 +5461,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 security_definitions: [
                     (
@@ -5636,7 +5557,6 @@ mod tests {
         assert_eq!(
             thing,
             Thing {
-                context: TD_CONTEXT_11.into(),
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![
