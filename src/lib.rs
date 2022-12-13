@@ -74,10 +74,12 @@
 //! See [`builder`] module for more examples.
 
 pub mod builder;
+mod context;
 pub mod extend;
 pub mod hlist;
 pub mod protocol;
+pub mod seedable;
+mod serde_helpers;
 pub mod thing;
-mod context;
 
 pub use crate::thing::Thing;

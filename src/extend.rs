@@ -7,7 +7,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::hlist::{Cons, Nil};
+use crate::{
+    hlist::{Cons, Nil},
+    seedable::Seedable,
+};
 
 /// Requirement trait for extending a Thing Description element
 pub trait ExtendablePiece: Serialize + for<'a> Deserialize<'a> {}
@@ -63,6 +66,14 @@ pub trait ExtendableThing {
     ///
     /// [`ArraySchema`]: crate::thing::ArraySchema
     type ArraySchema: ExtendablePiece;
+}
+
+// TODO: should be this merged with other traits? Should be split?
+pub trait ThingContext: Seedable {
+    // TODO: we could use `phf` instead of a plain slice here (yeah, we cannot use an array), but
+    // what about "reverse" mapping? We both need to find a prefix from the IRI and, vice versa, to
+    // find an IRI from a prefix.
+    const CONTEXT_MAP: &'static [[&'static str; 2]];
 }
 
 impl ExtendableThing for Nil {

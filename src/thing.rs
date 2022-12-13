@@ -12,10 +12,14 @@ use std::{
     cmp::{self, Ordering},
     collections::HashMap,
     fmt,
+    marker::PhantomData,
 };
 
 use oxilangtag::LanguageTag;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de::{self, DeserializeSeed, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use serde_json::Value;
 use serde_with::{serde_as, skip_serializing_none, DeserializeAs, OneOrMany, Same};
 use time::OffsetDateTime;
@@ -25,6 +29,8 @@ use crate::{
     builder::{data_schema::UncheckedDataSchema, ThingBuilder, ToExtend},
     extend::ExtendableThing,
     hlist::Nil,
+    seedable::{make_seed, Seed, Seedable},
+    serde_helpers,
 };
 
 pub(crate) type MultiLanguage = HashMap<LanguageTag<String>, String>;
@@ -1519,6 +1525,309 @@ where
     }
 }
 
+// TODO: move me
+make_seed!(
+    Form<Other: ExtendableThing> => FormSeed,
+    ExpectedResponse<Other> => ExpectedResponseSeed,
+);
+
+// TODO: implement using proc-macros, this is just for some tests
+impl<'a, 'b, 'de, Other> DeserializeSeed<'de> for FormSeed<'a, 'b, 'de, Other>
+where
+    Other: ExtendableThing,
+    Other::Form: Seedable,
+    Other::ExpectedResponse: Seedable,
+    for<'c> <Other::Form as Seedable>::Seed<'a, 'c, 'de>: DeserializeSeed<'de, Value = Other::Form>,
+    for<'c> <Other::ExpectedResponse as Seedable>::Seed<'a, 'c, 'de>:
+        DeserializeSeed<'de, Value = Other::ExpectedResponse>,
+{
+    type Value = Form<Other>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_struct(
+            "Form",
+            &["href", "response"],
+            FormVisitor {
+                inner: self.inner,
+                _marker: PhantomData,
+            },
+        )
+    }
+}
+
+struct FormVisitor<'a, 'b, 'de, Other> {
+    inner: Seed<'a, 'b, 'de>,
+    _marker: PhantomData<Other>,
+}
+
+// TODO: implement using proc-macros, this is just for some tests
+impl<'a, 'b, 'de, Other> Visitor<'de> for FormVisitor<'a, 'b, 'de, Other>
+where
+    Other: ExtendableThing,
+    Other::Form: Seedable,
+    Other::ExpectedResponse: Seedable,
+    for<'c> <Other::Form as Seedable>::Seed<'a, 'c, 'de>: DeserializeSeed<'de, Value = Other::Form>,
+    for<'c> <Other::ExpectedResponse as Seedable>::Seed<'a, 'c, 'de>:
+        DeserializeSeed<'de, Value = Other::ExpectedResponse>,
+{
+    type Value = Form<Other>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a structure")
+    }
+
+    fn visit_map<A>(mut self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: de::MapAccess<'de>,
+    {
+        let mut href = None;
+        let mut response = None;
+        let mut other_fields = Vec::new();
+
+        while let Some(field) = map.next_key_seed(FormFieldSeed(self.inner.reseed()))? {
+            match field {
+                FormField::Href => {
+                    if href.is_some() {
+                        return Err(de::Error::duplicate_field("href"));
+                    }
+                    href = Some(
+                        map.next_value_seed(<String as Seedable>::new_seed(self.inner.reseed()))?,
+                    );
+                }
+                FormField::Response => {
+                    if response.is_some() {
+                        return Err(de::Error::duplicate_field("response"));
+                    }
+                    response = Some(map.next_value_seed(<Option<
+                        ExpectedResponse<Other::ExpectedResponse>,
+                    > as Seedable>::new_seed(
+                        self.inner.reseed()
+                    ))?);
+                }
+                FormField::Other(key) => {
+                    let value =
+                        map.next_value_seed(serde_helpers::ContentSeed(self.inner.reseed()))?;
+                    other_fields.push(Some((key, value)));
+                }
+            }
+        }
+
+        let Some(href) = href else {
+            return Err(de::Error::missing_field("href"));
+        };
+        let response = response.flatten();
+
+        let other = Other::Form::new_seed(self.inner.reseed()).deserialize(
+            serde_helpers::FlatMapDeserializer(&mut other_fields, PhantomData),
+        )?;
+
+        // TODO: this is just a test, in the proc-macro we need to deserialize all fields.
+        Ok(Form {
+            href,
+            response,
+            other,
+            op: Default::default(),
+            content_type: Default::default(),
+            content_coding: Default::default(),
+            subprotocol: Default::default(),
+            security: Default::default(),
+            scopes: Default::default(),
+            additional_responses: Default::default(),
+        })
+    }
+}
+
+struct FormFieldSeed<'a, 'b, 'de>(Seed<'a, 'b, 'de>);
+
+impl<'a, 'b, 'de> DeserializeSeed<'de> for FormFieldSeed<'a, 'b, 'de> {
+    type Value = FormField<'de>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_identifier(FormFieldVisitor(self.0))
+    }
+}
+
+struct FormFieldVisitor<'a, 'b, 'de>(Seed<'a, 'b, 'de>);
+
+impl<'a, 'b, 'de> Visitor<'de> for FormFieldVisitor<'a, 'b, 'de> {
+    type Value = FormField<'de>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("field identifier")
+    }
+
+    fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::Bool(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::I8(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::I16(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::I32(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::I64(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::U8(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::U16(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::U32(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::U64(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::F32(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::F64(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_char<E>(self, v: char) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::Char(v);
+        Ok(FormField::Other(value))
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match v {
+            "href" => Ok(FormField::Href),
+            "response" => Ok(FormField::Response),
+            _ => {
+                let value = serde_helpers::Content::String(v.to_owned());
+                Ok(FormField::Other(value))
+            }
+        }
+    }
+
+    fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match v {
+            "href" => Ok(FormField::Href),
+            "response" => Ok(FormField::Response),
+            _ => {
+                let value = serde_helpers::Content::Str(v);
+                Ok(FormField::Other(value))
+            }
+        }
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match v {
+            b"href" => Ok(FormField::Href),
+            b"response" => Ok(FormField::Response),
+            _ => {
+                let value = serde_helpers::Content::ByteBuf(v.to_owned());
+                Ok(FormField::Other(value))
+            }
+        }
+    }
+
+    fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match v {
+            b"href" => Ok(FormField::Href),
+            b"response" => Ok(FormField::Response),
+            _ => {
+                let value = serde_helpers::Content::Bytes(v);
+                Ok(FormField::Other(value))
+            }
+        }
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(FormField::Other(serde_helpers::Content::Unit))
+    }
+}
+
+enum FormField<'de> {
+    Href,
+    Response,
+    Other(serde_helpers::Content<'de>),
+}
+
 /// The semantic intention of an operation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -1676,6 +1985,267 @@ pub struct ExpectedResponse<Other> {
     /// Expected response extension.
     #[serde(flatten)]
     pub other: Other,
+}
+
+struct ExpectedResponseVisitor<'a, 'b, 'de, Other> {
+    inner: Seed<'a, 'b, 'de>,
+    _marker: PhantomData<Other>,
+}
+
+impl<'a, 'b, 'de, Other> Visitor<'de> for ExpectedResponseVisitor<'a, 'b, 'de, Other>
+where
+    Other: Seedable,
+    for<'c> <Other as Seedable>::Seed<'a, 'c, 'de>: DeserializeSeed<'de, Value = Other>,
+{
+    type Value = ExpectedResponse<Other>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("struct ExpectedResponse")
+    }
+
+    fn visit_map<A>(mut self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: de::MapAccess<'de>,
+    {
+        let mut content_type = None;
+        let mut other_fields = Vec::new();
+
+        while let Some(field) = map.next_key_seed(ExpectedResponseFieldSeed(self.inner.reseed()))? {
+            match field {
+                ExpectedResponseField::ContentType => {
+                    if content_type.is_some() {
+                        return Err(de::Error::duplicate_field("contentType"));
+                    }
+
+                    content_type = Some(
+                        map.next_value_seed(<String as Seedable>::new_seed(self.inner.reseed()))?,
+                    );
+                }
+                ExpectedResponseField::Other(key) => {
+                    let value =
+                        map.next_value_seed(serde_helpers::ContentSeed(self.inner.reseed()))?;
+                    other_fields.push(Some((key, value)));
+                }
+            }
+        }
+
+        let Some(content_type) = content_type else {
+            return Err(de::Error::missing_field("contentType"));
+        };
+        let other = Other::new_seed(self.inner.reseed()).deserialize(
+            serde_helpers::FlatMapDeserializer(&mut other_fields, PhantomData),
+        )?;
+
+        Ok(ExpectedResponse {
+            content_type,
+            other,
+        })
+    }
+}
+
+struct ExpectedResponseFieldSeed<'a, 'b, 'de>(Seed<'a, 'b, 'de>);
+
+impl<'a, 'b, 'de> DeserializeSeed<'de> for ExpectedResponseFieldSeed<'a, 'b, 'de> {
+    type Value = ExpectedResponseField<'de>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_identifier(ExpectedResponseFieldVisitor(self.0))
+    }
+}
+
+struct ExpectedResponseFieldVisitor<'a, 'b, 'de>(Seed<'a, 'b, 'de>);
+
+impl<'a, 'b, 'de> Visitor<'de> for ExpectedResponseFieldVisitor<'a, 'b, 'de> {
+    type Value = ExpectedResponseField<'de>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("field identifier")
+    }
+
+    fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::Bool(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::I8(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::I16(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::I32(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::I64(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::U8(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::U16(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::U32(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::U64(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::F32(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::F64(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_char<E>(self, v: char) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let value = serde_helpers::Content::Char(v);
+        Ok(ExpectedResponseField::Other(value))
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match v {
+            "contentType" => Ok(ExpectedResponseField::ContentType),
+            _ => {
+                let value = serde_helpers::Content::String(v.to_owned());
+                Ok(ExpectedResponseField::Other(value))
+            }
+        }
+    }
+
+    fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match v {
+            "contentType" => Ok(ExpectedResponseField::ContentType),
+            _ => {
+                let value = serde_helpers::Content::Str(v);
+                Ok(ExpectedResponseField::Other(value))
+            }
+        }
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match v {
+            b"contentType" => Ok(ExpectedResponseField::ContentType),
+            _ => {
+                let value = serde_helpers::Content::ByteBuf(v.to_owned());
+                Ok(ExpectedResponseField::Other(value))
+            }
+        }
+    }
+
+    fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        match v {
+            b"contentType" => Ok(ExpectedResponseField::ContentType),
+            _ => {
+                let value = serde_helpers::Content::Bytes(v);
+                Ok(ExpectedResponseField::Other(value))
+            }
+        }
+    }
+
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(ExpectedResponseField::Other(serde_helpers::Content::Unit))
+    }
+}
+
+enum ExpectedResponseField<'de> {
+    ContentType,
+    Other(serde_helpers::Content<'de>),
+}
+
+impl<'a, 'b, 'de, Other> DeserializeSeed<'de> for ExpectedResponseSeed<'a, 'b, 'de, Other>
+where
+    Other: Seedable,
+    for<'c> <Other as Seedable>::Seed<'a, 'c, 'de>: DeserializeSeed<'de, Value = Other>,
+{
+    type Value = ExpectedResponse<Other>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_struct(
+            "ExpectedResponse",
+            &["contentType"],
+            ExpectedResponseVisitor {
+                inner: self.inner,
+                _marker: PhantomData,
+            },
+        )
+    }
 }
 
 /// The expected response message for additional responses.
