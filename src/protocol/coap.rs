@@ -62,6 +62,19 @@ pub struct Form {
     pub qblockwise: Option<BlockWiseTransferParameters>,
     #[serde(rename = "cov:hopLimit")]
     pub hop_limit: Option<u8>,
+    #[serde(rename = "cov:accept")]
+    pub accept: Option<u16>,
+    #[serde(rename = "cov:contentFormat")]
+    pub content_format: Option<u16>,
+}
+
+/// CoAP Protocol ExpectedResponse fields
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash, Default)]
+pub struct ExpectedResponse {
+    #[serde(rename = "cov:contentFormat")]
+    pub content_format: Option<u16>,
 }
 
 /// Extension for the CoAP protocol
@@ -74,7 +87,7 @@ impl ExtendableThing for CoapProtocol {
     type ActionAffordance = ();
     type EventAffordance = ();
     type Form = Form;
-    type ExpectedResponse = ();
+    type ExpectedResponse = ExpectedResponse;
     type DataSchema = ();
     type ObjectSchema = ();
     type ArraySchema = ();
@@ -83,7 +96,7 @@ impl ExtendableThing for CoapProtocol {
 #[cfg(test)]
 mod test {
     use super::{BlockSize, CoapProtocol};
-    use crate::thing::Form;
+    use crate::thing::{ExpectedResponse, Form};
     fn deserialize_form(s: &str, r: Form<CoapProtocol>) {
         let f: crate::thing::Form<CoapProtocol> = serde_json::from_str(s).unwrap();
 
@@ -183,6 +196,40 @@ mod test {
                 hop_limit: Some(5),
                 ..Default::default()
             },
+            ..Default::default()
+        };
+
+        deserialize_form(form, expected);
+    }
+
+    #[test]
+    fn deserialize_content_format() {
+        let form = r#"
+            {
+                "href": "coap://[2001:DB8::1]/status",
+                "contentType": "application/cbor",
+                "cov:contentFormat": 60,
+                "cov:accept": 60,
+                "response": {
+                    "contentType": "application/cbor",
+                    "cov:contentFormat": 60
+                }
+            }
+        "#;
+        let expected = Form {
+            href: "coap://[2001:DB8::1]/status".into(),
+            content_type: Some("application/cbor".into()),
+            other: super::Form {
+                content_format: Some(60),
+                accept: Some(60),
+                ..Default::default()
+            },
+            response: Some(ExpectedResponse {
+                content_type: "application/cbor".into(),
+                other: super::ExpectedResponse {
+                    content_format: Some(60),
+                },
+            }),
             ..Default::default()
         };
 
