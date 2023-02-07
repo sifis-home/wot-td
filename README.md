@@ -1,6 +1,6 @@
 # [![logo](https://github.com/sifis-home/wot/raw/master/assets/wot-rust-icon.svg)](https://docs.rs/wot-td) wot-td
 
-[![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSES/MIT.txt)
 [![Build Status](https://github.com/sifis-home/wot-td/workflows/wot-td/badge.svg)](https://github.com/sifis-home/wot-td/actions)
 [![Crates.io](https://img.shields.io/crates/v/wot-td.svg)](https://crates.io/crates/wot-td)
 [![dependency status](https://deps.rs/repo/github/sifis-home/wot-td/status.svg)](https://deps.rs/repo/github/sifis-home/wot-td)

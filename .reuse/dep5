@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: wot-td
+Source: https://github.com/sifis-home/wot-td
+
+Files: *
+Copyright: 2022 sifis-home
+License: MIT
