@@ -214,8 +214,8 @@ jobs:
     - name: Install weighted-code-coverage
       env:
         WCC_LINK: https://github.com/SoftengPoliTo/weighted-code-coverage/releases/download
-        WCC_VERSION: v0.1.0
-        WCC_BINARY: weighted-code-coverage-0.1.0-x86_64-unknown-linux-gnu.tar.gz
+        WCC_VERSION: v0.2.0
+        WCC_BINARY: weighted-code-coverage-0.2.0-x86_64-unknown-linux-gnu.tar.gz
       run: |
         curl -L "$WCC_LINK/$WCC_VERSION/$WCC_BINARY" |
         tar xz -C $HOME/.cargo/bin
@@ -243,7 +243,7 @@ jobs:
     - name: Run weighted-code-coverage
       run: |
         mkdir $HOME/wcc-output
-        weighted-code-coverage -p src/ -j coveralls.json -c --json $HOME/wcc-output/out.json
+        weighted-code-coverage -p src/ -j coveralls.json -c cyclomatic --json $HOME/wcc-output/out.json
 
     - name: Upload weighted-code-coverage data
       uses: actions/upload-artifact@v3
@@ -529,8 +529,8 @@ jobs:
     - name: Install weighted-code-coverage
       env:
         WCC_LINK: https://github.com/SoftengPoliTo/weighted-code-coverage/releases/download
-        WCC_VERSION: v0.1.0
-        WCC_BINARY: weighted-code-coverage-0.1.0-x86_64-apple-darwin.tar.gz
+        WCC_VERSION: v0.2.0
+        WCC_BINARY: weighted-code-coverage-0.2.0-x86_64-apple-darwin.tar.gz
       run: |
         curl -L "$WCC_LINK/$WCC_VERSION/$WCC_BINARY" |
         tar xz -C $HOME/.cargo/bin
@@ -558,7 +558,7 @@ jobs:
     - name: Run weighted-code-coverage
       run: |
         mkdir $HOME/wcc-output
-        weighted-code-coverage -p src/ -j coveralls.json -c --json $HOME/wcc-output/out.json
+        weighted-code-coverage -p src/ -j coveralls.json -c cyclomatic --json $HOME/wcc-output/out.json
 
     - name: Upload weighted-code-coverage data
       uses: actions/upload-artifact@v3
@@ -780,8 +780,8 @@ jobs:
     - name: Install weighted-code-coverage
       env:
         WCC_LINK: https://github.com/SoftengPoliTo/weighted-code-coverage/releases/download
-        WCC_VERSION: v0.1.0
-        WCC_BINARY: weighted-code-coverage-0.1.0-x86_64-pc-windows-msvc.zip
+        WCC_VERSION: v0.2.0
+        WCC_BINARY: weighted-code-coverage-0.2.0-x86_64-pc-windows-msvc.zip
       run: |
         curl -LO "$Env:WCC_LINK/$Env:WCC_VERSION/$Env:WCC_BINARY"
         7z e -y "$Env:WCC_BINARY" -o"${env:USERPROFILE}\.cargo\bin"
@@ -809,7 +809,7 @@ jobs:
     - name: Run weighted-code-coverage
       run: |
         mkdir $HOME/wcc-output
-        weighted-code-coverage -p src/ -j coveralls.json -c --json $HOME/wcc-output/out.json
+        weighted-code-coverage -p src/ -j coveralls.json -c cyclomatic --json $HOME/wcc-output/out.json
 
     - name: Upload weighted-code-coverage data
       uses: actions/upload-artifact@v3
