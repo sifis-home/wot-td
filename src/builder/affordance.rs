@@ -79,7 +79,7 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
     ///         "title": "Thing name",
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "actions": {
     ///             "aff": {
     ///                 "forms": [{
@@ -122,7 +122,7 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
     ///         "title": "Thing name",
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "actions": {
     ///             "aff": {
     ///                 "forms": [],
@@ -501,7 +501,7 @@ impl_buildable_interaction_affordance!(
 /// assert_eq!(
 ///     serde_json::to_value(thing).unwrap(),
 ///     json!({
-///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
 ///         "title": "Thing name",
 ///         "a_field": "hello world",
 ///         "another_field": 42,
@@ -671,7 +671,7 @@ where
 /// assert_eq!(
 ///     serde_json::to_value(thing).unwrap(),
 ///     json!({
-///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
 ///         "title": "Thing name",
 ///         "a_field": "hello world",
 ///         "another_field": 42,
@@ -864,7 +864,7 @@ where
 /// assert_eq!(
 ///     serde_json::to_value(thing).unwrap(),
 ///     json!({
-///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
 ///         "title": "Thing name",
 ///         "a_field": "hello world",
 ///         "another_field": 42,
@@ -1851,7 +1851,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "actions": {
     ///             "action": {
@@ -1931,7 +1931,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherActionAffordance>
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "actions": {
     ///             "action": {
@@ -2033,7 +2033,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "events": {
     ///             "event": {
@@ -2109,7 +2109,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "events": {
     ///             "event": {
@@ -2185,7 +2185,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "events": {
     ///             "event": {
@@ -2261,7 +2261,7 @@ impl<Other: ExtendableThing, OtherInteractionAffordance, OtherEventAffordance>
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "events": {
     ///             "event": {
