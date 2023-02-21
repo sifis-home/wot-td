@@ -42,7 +42,7 @@ pub const TD_CONTEXT_10: &str = "https://www.w3.org/2019/wot/td/v1";
 
 /// The JSON-LD context for the version 1.1 of the [Thing
 /// description](https://www.w3.org/TR/wot-thing-description11/)
-pub const TD_CONTEXT_11: &str = "https://www.w3.org/2019/wot/td/v1.1";
+pub const TD_CONTEXT_11: &str = "https://www.w3.org/2022/wot/td/v1.1";
 
 /// An abstraction of a physical or a virtual entity
 ///
@@ -1732,7 +1732,7 @@ mod test {
     fn minimal_thing() {
         const RAW: &str = r#"
         {
-            "@context": "https://www.w3.org/2019/wot/td/v1.1",
+            "@context": "https://www.w3.org/2022/wot/td/v1.1",
             "id": "urn:dev:ops:32473-WoTLamp-1234",
             "title": "MyLampThing",
             "securityDefinitions": {
@@ -1763,7 +1763,7 @@ mod test {
     fn complete_thing() {
         const RAW: &str = r#"
         {
-          "@context": "https://www.w3.org/2019/wot/td/v1.1",
+          "@context": "https://www.w3.org/2022/wot/td/v1.1",
           "id": "urn:dev:ops:32473-WoTLamp-1234",
           "@type": [
             "Thing",
