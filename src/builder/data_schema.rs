@@ -347,7 +347,7 @@ pub struct PartialDataSchema<DS, AS, OS> {
 /// assert_eq!(
 ///     serde_json::to_value(thing).unwrap(),
 ///     json!({
-///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
 ///         "title": "Thing name",
 ///         "schemaDefinitions": {
 ///             "test": {
@@ -524,7 +524,7 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "schemaDefinitions": {
     ///             "test": {
@@ -632,7 +632,7 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// # assert_eq!(
     /// #     serde_json::to_value(thing).unwrap(),
     /// #     json!({
-    /// #         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    /// #         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     /// #         "title": "Thing name",
     /// #         "schemaDefinitions": {
     /// #             "test": {
@@ -705,7 +705,7 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "schemaDefinitions": {
     ///             "test": {
@@ -781,7 +781,7 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "schemaDefinitions": {
     ///             "test": {
@@ -889,7 +889,7 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// # assert_eq!(
     /// #     serde_json::to_value(thing).unwrap(),
     /// #     json!({
-    /// #         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    /// #         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     /// #         "title": "Thing name",
     /// #         "schemaDefinitions": {
     /// #             "test": {
@@ -962,7 +962,7 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "schemaDefinitions": {
     ///             "test": {
@@ -1032,7 +1032,7 @@ pub trait EnumerableDataSchema<DS, AS, OS, Extended>:
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "schemaDefinitions": {
     ///             "test": {
@@ -1089,7 +1089,7 @@ pub trait UnionDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, Extended>
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "schemaDefinitions": {
     ///             "test": {
@@ -1173,7 +1173,7 @@ pub trait ReadableWriteableDataSchema<DS, AS, OS, Extended>:
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "schemaDefinitions": {
     ///             "test": {
@@ -1349,7 +1349,7 @@ pub trait ArrayDataSchemaBuilderLike<DS, AS, OS> {
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "schemaDefinitions": {
     ///             "test": {
@@ -1435,7 +1435,7 @@ pub trait ObjectDataSchemaBuilderLike<DS, AS, OS> {
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "schemaDefinitions": {
     ///             "test": {

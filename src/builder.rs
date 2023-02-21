@@ -101,7 +101,7 @@
 //! assert_eq!(
 //!     serde_json::to_value(thing).unwrap(),
 //!     json!({
-//!         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+//!         "@context": "https://www.w3.org/2022/wot/td/v1.1",
 //!         "title": "Thing name",
 //!         "a_field": "hello world",
 //!         "another_field": 42,
@@ -186,7 +186,7 @@
 //! assert_eq!(
 //!     serde_json::to_value(thing).unwrap(),
 //!     json!({
-//!         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+//!         "@context": "https://www.w3.org/2022/wot/td/v1.1",
 //!         "title": "Thing name",
 //!         "a_field": "hello world",
 //!         "another_field": 42,
@@ -626,7 +626,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "a_field": "hello world",
     ///         "another_field": 42,
@@ -736,7 +736,7 @@ impl<Other: ExtendableThing> ThingBuilder<Other, ToExtend> {
     /// assert_eq!(
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "title": "Thing name",
     ///         "a_field": "hello world",
     ///         "another_field": 42,
@@ -1108,7 +1108,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     ///     json!({
     ///         "title": "Thing name",
     ///         "@context": [
-    ///             "https://www.w3.org/2019/wot/td/v1.1",
+    ///             "https://www.w3.org/2022/wot/td/v1.1",
     ///             {
     ///                 "custom_context1": "hello",
     ///                 "custom_context2": "world",
@@ -1159,7 +1159,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
     ///         "title": "Thing name",
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "titles": {
     ///             "en": "English title",
     ///             "it": "Italian title",
@@ -1246,7 +1246,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
     ///         "title": "Thing name",
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "links": [{
     ///             "href": "https://localhost",
     ///             "rel": "icon",
@@ -1306,7 +1306,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
     ///         "title": "Thing name",
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "security": [],
     ///         "securityDefinitions": {
     ///             "my_basic_sec": {
@@ -1422,7 +1422,7 @@ where
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
     ///         "title": "Thing name",
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "forms": [
     ///             {
     ///                 "href": "form_href",
@@ -1523,7 +1523,7 @@ where
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
     ///         "title": "Thing name",
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "uriVariables": {
     ///             "var": {
     ///                 "type": "number",
@@ -2328,7 +2328,7 @@ pub mod security {
         ///     serde_json::to_value(thing).unwrap(),
         ///     json!({
         ///         "title": "Thing name",
-        ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+        ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
         ///         "security": [],
         ///         "securityDefinitions": {
         ///             "combo": {
@@ -2412,7 +2412,7 @@ pub mod security {
         ///     serde_json::to_value(thing).unwrap(),
         ///     json!({
         ///         "title": "Thing name",
-        ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+        ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
         ///         "security": [],
         ///         "securityDefinitions": {
         ///             "combo": {
@@ -2737,7 +2737,7 @@ where
     ///     serde_json::to_value(thing).unwrap(),
     ///     json!({
     ///         "title": "Thing name",
-    ///         "@context": "https://www.w3.org/2019/wot/td/v1.1",
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
     ///         "forms": [{
     ///             "href": "form_href",
     ///             "op": ["readallproperties"],
