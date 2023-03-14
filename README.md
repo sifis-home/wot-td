@@ -6,6 +6,7 @@
 [![dependency status](https://deps.rs/repo/github/sifis-home/wot-td/status.svg)](https://deps.rs/repo/github/sifis-home/wot-td)
 [![Documentation](https://docs.rs/wot-td/badge.svg)](https://docs.rs/wot-td/)
 [![codecov](https://codecov.io/gh/sifis-home/wot-td/branch/master/graph/badge.svg?token=C5Ha6M2cFR)](https://codecov.io/gh/sifis-home/wot-td)
+[![wot discord](https://img.shields.io/badge/wot-discord-blue)](https://discord.gg/5zy68ukBrv)
 
 
 Rust crate to produce and consume Web Of Things [Thing Descriptions](https://www.w3.org/TR/wot-thing-description/).
