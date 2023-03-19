@@ -23,13 +23,13 @@ pub enum Method {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize_repr, Serialize_repr)]
 #[repr(u16)]
 pub enum BlockSize {
-    Szx16 = 16,
-    Szx32 = 32,
-    Szx64 = 64,
-    Szx128 = 128,
-    Szx256 = 256,
-    Szx512 = 512,
-    Szx1024 = 1024,
+    Size16 = 16,
+    Size32 = 32,
+    Size64 = 64,
+    Size128 = 128,
+    Size256 = 256,
+    Size512 = 512,
+    Size1024 = 1024,
 }
 
 /// CoAP BlockWise Transfer Parameters
@@ -43,10 +43,10 @@ pub enum BlockSize {
 #[skip_serializing_none]
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Hash, Default)]
 pub struct BlockWiseTransferParameters {
-    #[serde(rename = "cov:block2SZX")]
-    pub block_2szx: Option<BlockSize>,
-    #[serde(rename = "cov:block1SZX")]
-    pub block_1szx: Option<BlockSize>,
+    #[serde(rename = "cov:block2Size")]
+    pub block2_size: Option<BlockSize>,
+    #[serde(rename = "cov:block1Size")]
+    pub block1_size: Option<BlockSize>,
 }
 
 /// CoAP Protocol Form fields
@@ -160,7 +160,7 @@ mod test {
                 "href": "coap://[2001:DB8::1]/status",
                 "contentType": "text/plain;charset=utf-8",
                 "cov:qblockwise": {
-                    "cov:block2SZX": 64
+                    "cov:block2Size": 64
                 }
             }
         "#;
@@ -169,7 +169,7 @@ mod test {
             content_type: Some("text/plain;charset=utf-8".into()),
             other: super::Form {
                 qblockwise: Some(super::BlockWiseTransferParameters {
-                    block_2szx: Some(BlockSize::Szx64),
+                    block2_size: Some(BlockSize::Size64),
                     ..Default::default()
                 }),
                 ..Default::default()
