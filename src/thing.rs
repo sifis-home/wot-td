@@ -1444,7 +1444,7 @@ pub struct Link {
 /// The representation of an operation over a Thing.
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Form<Other: ExtendableThing> {
     /// The semantic intention of performing the operation(s) described by the form.
@@ -1506,6 +1506,33 @@ pub struct Form<Other: ExtendableThing> {
     /// Form extension.
     #[serde(flatten)]
     pub other: Other::Form,
+
+    /// Form Verb.
+    #[serde(flatten)]
+    pub verb: Option<Other::FormVerb>,
+}
+
+impl<Other> Default for Form<Other>
+where
+    Other: ExtendableThing,
+    Other::ExpectedResponse: Default,
+    Other::Form: Default,
+{
+    fn default() -> Self {
+        Self {
+            op: Default::default(),
+            href: Default::default(),
+            content_type: Default::default(),
+            content_coding: Default::default(),
+            subprotocol: Default::default(),
+            security: Default::default(),
+            scopes: Default::default(),
+            response: Default::default(),
+            additional_responses: Default::default(),
+            other: Default::default(),
+            verb: Default::default(),
+        }
+    }
 }
 
 impl<Other> Clone for Form<Other>
@@ -1513,6 +1540,7 @@ where
     Other: ExtendableThing,
     Other::ExpectedResponse: Clone,
     Other::Form: Clone,
+    Other::FormVerb: Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -1526,6 +1554,7 @@ where
             response: self.response.clone(),
             additional_responses: self.additional_responses.clone(),
             other: self.other.clone(),
+            verb: self.verb.clone(),
         }
     }
 }

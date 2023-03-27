@@ -38,13 +38,19 @@ pub struct Response {
     pub status_code_value: Option<usize>,
 }
 
-/// Extended fields for Form
+/// Extended fields for FormVerb
 #[serde_as]
 #[skip_serializing_none]
-#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Eq, Hash)]
-pub struct Form {
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
+pub struct Verb {
     #[serde(rename = "htv:methodName")]
-    pub method_name: Option<Method>,
+    pub method_name: Method,
+}
+
+impl From<Method> for Verb {
+    fn from(method_name: Method) -> Self {
+        Verb { method_name }
+    }
 }
 
 /// HTTP Protocol extension
@@ -56,7 +62,8 @@ impl ExtendableThing for HttpProtocol {
     type PropertyAffordance = ();
     type ActionAffordance = ();
     type EventAffordance = ();
-    type Form = Form;
+    type Form = ();
+    type FormVerb = Verb;
     type ExpectedResponse = Response;
     type DataSchema = ();
     type ObjectSchema = ();
@@ -104,9 +111,7 @@ mod test {
                     status_code_value: Some(200),
                 },
             }),
-            other: super::Form {
-                method_name: Some(super::Method::Get),
-            },
+            verb: Some(super::Verb::from(super::Method::Get)),
             ..Default::default()
         };
 
@@ -146,9 +151,7 @@ mod test {
                     status_code_value: Some(201),
                 },
             }),
-            other: super::Form {
-                method_name: Some(super::Method::Post),
-            },
+            verb: Some(super::Verb::from(super::Method::Post)),
             ..Default::default()
         };
 

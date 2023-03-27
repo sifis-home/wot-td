@@ -44,6 +44,11 @@ pub trait ExtendableThing {
     /// [`Form`]: crate::thing::Form
     type Form: ExtendablePiece;
 
+    /// The extension type for [`Form::verb`].
+    ///
+    /// [`Form::verb`]: crate::thing::Form::verb
+    type FormVerb: ExtendablePiece;
+
     /// The extension type for [`ExpectedResponse`].
     ///
     /// [`ExpectedResponse`]: crate::thing::ExpectedResponse
@@ -71,6 +76,7 @@ impl ExtendableThing for Nil {
     type ActionAffordance = Nil;
     type EventAffordance = Nil;
     type Form = Nil;
+    type FormVerb = Nil;
     type ExpectedResponse = Nil;
     type DataSchema = Nil;
     type ObjectSchema = Nil;
@@ -87,6 +93,7 @@ where
     type ActionAffordance = Cons<T::ActionAffordance, U::ActionAffordance>;
     type EventAffordance = Cons<T::EventAffordance, U::EventAffordance>;
     type Form = Cons<T::Form, U::Form>;
+    type FormVerb = Cons<T::FormVerb, U::FormVerb>;
     type ExpectedResponse = Cons<T::ExpectedResponse, U::ExpectedResponse>;
     type DataSchema = Cons<T::DataSchema, U::DataSchema>;
     type ObjectSchema = Cons<T::ObjectSchema, U::ObjectSchema>;

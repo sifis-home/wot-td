@@ -988,6 +988,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             response,
             additional_responses,
             other,
+            verb,
             _marker: _,
         } = form_builder;
 
@@ -1060,6 +1061,7 @@ impl<Other: ExtendableThing, Status> ThingBuilder<Other, Status> {
             response,
             additional_responses,
             other,
+            verb,
         })
     }
 
@@ -2594,6 +2596,8 @@ pub struct FormBuilder<Other: ExtendableThing, Href, OtherForm> {
 
     /// Form builder extension.
     pub other: OtherForm,
+    /// Form Verb builder extension.
+    pub verb: Option<Other::FormVerb>,
     _marker: PhantomData<fn() -> Other>,
 }
 
@@ -2616,6 +2620,7 @@ where
             response: Default::default(),
             additional_responses: Default::default(),
             other,
+            verb: Default::default(),
             _marker: PhantomData,
         }
     }
@@ -2638,6 +2643,7 @@ where
             response,
             additional_responses,
             other,
+            verb,
             _marker,
         } = self;
 
@@ -2653,6 +2659,7 @@ where
             response,
             additional_responses,
             other,
+            verb,
             _marker,
         }
     }
@@ -2802,6 +2809,7 @@ where
             response,
             additional_responses,
             other,
+            verb,
             _marker,
         } = self;
         let other = other.ext_with(f);
@@ -2816,6 +2824,7 @@ where
             response,
             additional_responses,
             other,
+            verb,
             _marker,
         }
     }
@@ -2889,6 +2898,7 @@ where
             response,
             additional_responses,
             other,
+            verb,
             _marker: _,
         } = builder;
 
@@ -2908,6 +2918,7 @@ where
             response,
             additional_responses,
             other,
+            verb,
         }
     }
 }

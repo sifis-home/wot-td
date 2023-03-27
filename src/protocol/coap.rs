@@ -54,8 +54,6 @@ pub struct BlockWiseTransferParameters {
 #[skip_serializing_none]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash, Default)]
 pub struct Form {
-    #[serde(rename = "cov:method")]
-    pub method: Option<Method>,
     #[serde(rename = "cov:blockwise")]
     pub blockwise: Option<BlockWiseTransferParameters>,
     #[serde(rename = "cov:qblockwise")]
@@ -66,6 +64,21 @@ pub struct Form {
     pub accept: Option<u16>,
     #[serde(rename = "cov:contentFormat")]
     pub content_format: Option<u16>,
+}
+
+/// CoAP Protocol verb
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
+pub struct Verb {
+    #[serde(rename = "cov:method")]
+    pub method: Method,
+}
+
+impl From<Method> for Verb {
+    fn from(method: Method) -> Self {
+        Verb { method }
+    }
 }
 
 /// CoAP Protocol ExpectedResponse fields
@@ -87,6 +100,7 @@ impl ExtendableThing for CoapProtocol {
     type ActionAffordance = ();
     type EventAffordance = ();
     type Form = Form;
+    type FormVerb = Verb;
     type ExpectedResponse = ExpectedResponse;
     type DataSchema = ();
     type ObjectSchema = ();
@@ -95,7 +109,7 @@ impl ExtendableThing for CoapProtocol {
 
 #[cfg(test)]
 mod test {
-    use super::{BlockSize, CoapProtocol};
+    use super::{BlockSize, CoapProtocol, Verb};
     use crate::thing::{ExpectedResponse, Form};
     fn deserialize_form(s: &str, r: Form<CoapProtocol>) {
         let f: crate::thing::Form<CoapProtocol> = serde_json::from_str(s).unwrap();
@@ -122,9 +136,9 @@ mod test {
             content_type: Some("text/plain;charset=utf-8".into()),
             subprotocol: Some("cov:observe".into()),
             other: super::Form {
-                method: Some(super::Method::Get),
                 ..Default::default()
             },
+            verb: Some(Verb::from(super::Method::Get)),
             ..Default::default()
         };
 

@@ -37,8 +37,6 @@ pub struct Form {
         default
     )]
     pub retain: bool,
-    #[serde(rename = "mqv:controlPacket")]
-    pub control_packet: Option<ControlPacket>,
     #[serde(rename = "mqv:qos")]
     pub qos: Option<QoS>,
     #[serde(rename = "mqv:topic")]
@@ -46,6 +44,23 @@ pub struct Form {
     #[serde(rename = "mqv:filter", skip_serializing_if = "Vec::is_empty", default)]
     #[serde_as(as = "OneOrMany<_>")]
     pub filter: Vec<String>,
+}
+
+/// mqtt verb
+///
+/// Never use it as the `Form::op <-> ControlPacket` mapping is 1:1
+#[serde_as]
+#[skip_serializing_none]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
+pub struct Verb {
+    #[serde(rename = "mqv:controlPacket")]
+    pub control_packet: ControlPacket,
+}
+
+impl From<ControlPacket> for Verb {
+    fn from(control_packet: ControlPacket) -> Self {
+        Verb { control_packet }
+    }
 }
 
 /// MQTT Protocol extension
@@ -58,6 +73,7 @@ impl ExtendableThing for MqttProtocol {
     type ActionAffordance = ();
     type EventAffordance = ();
     type Form = Form;
+    type FormVerb = ();
     type ExpectedResponse = ();
     type DataSchema = ();
     type ObjectSchema = ();
