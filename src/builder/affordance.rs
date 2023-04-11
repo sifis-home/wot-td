@@ -32,7 +32,7 @@ use super::{
     human_readable_info::{
         impl_delegate_buildable_hr_info, BuildableHumanReadableInfo, HumanReadableInfo,
     },
-    AffordanceType, Error, Extended, FormBuilder, MultiLanguageBuilder, ToExtend,
+    AffordanceType, Error, Extended, FormBuilder, FormBuilderInner, MultiLanguageBuilder, ToExtend,
 };
 
 /// A conversion into an _usable_ form of a value.
@@ -94,11 +94,11 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
     ///     })
     /// );
     /// ```
-    fn form<F>(self, f: F) -> Self
+    fn form<F, const CAN_ADD_OPS: bool>(self, f: F) -> Self
     where
         F: FnOnce(
-            FormBuilder<Other, (), <Other::Form as Extendable>::Empty>,
-        ) -> FormBuilder<Other, String, Other::Form>,
+            FormBuilderInner<Other, (), <Other::Form as Extendable>::Empty, true>,
+        ) -> FormBuilderInner<Other, String, Other::Form, CAN_ADD_OPS>,
         Other::Form: Extendable;
 
     /// Adds a new _URI variable_.
@@ -311,13 +311,13 @@ where
     Other: ExtendableThing,
     Other::Form: Extendable,
 {
-    fn form<F>(mut self, f: F) -> Self
+    fn form<F, const CAN_ADD_OPS: bool>(mut self, f: F) -> Self
     where
         F: FnOnce(
-            FormBuilder<Other, (), <Other::Form as Extendable>::Empty>,
-        ) -> FormBuilder<Other, String, Other::Form>,
+            FormBuilderInner<Other, (), <Other::Form as Extendable>::Empty, true>,
+        ) -> FormBuilderInner<Other, String, Other::Form, CAN_ADD_OPS>,
     {
-        self.forms.push(f(FormBuilder::new()));
+        self.forms.push(f(FormBuilderInner::new()).into());
         self
     }
 
@@ -349,9 +349,9 @@ macro_rules! impl_buildable_interaction_affordance {
             where
                 Other::Form: Extendable
             {
-                fn form<F>(mut self, f: F) -> Self
+                fn form<F, const CAN_ADD_OPS: bool>(mut self, f: F) -> Self
                 where
-                    F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty>) -> FormBuilder<Other, String, Other::Form>,
+                    F: FnOnce(FormBuilderInner<Other, (), <Other::Form as Extendable>::Empty, true>) -> FormBuilderInner<Other, String, Other::Form, CAN_ADD_OPS>,
                     Other::Form: Extendable,
                 {
                     self.$($interaction_path).* = self.$($interaction_path).*.form(f);
@@ -2483,7 +2483,7 @@ where
     F: Fn(FormOperation) -> bool,
 {
     for form in forms {
-        if let DefaultedFormOperations::Custom(ops) = &form.op {
+        if let DefaultedFormOperations::Custom(ops) = form.op() {
             let invalid_op = ops.iter().copied().find(|&op| is_allowed_op(op).not());
             if let Some(operation) = invalid_op {
                 return Err(Error::InvalidOpInForm {
@@ -2493,7 +2493,7 @@ where
             }
         }
 
-        form.security
+        form.security()
             .as_ref()
             .map(|securities| {
                 securities.iter().try_for_each(|security| {
