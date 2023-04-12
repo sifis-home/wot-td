@@ -1537,10 +1537,10 @@ where
     ///     }
     /// );
     /// ```
-    pub fn form<F, const CAN_ADD_OPS: bool>(mut self, f: F) -> Self
+    pub fn form<F, const CAN_ADD_OPS: u8>(mut self, f: F) -> Self
     where
         F: FnOnce(
-            FormBuilderInner<Other, (), <Other::Form as Extendable>::Empty, true>,
+            FormBuilderInner<Other, (), <Other::Form as Extendable>::Empty, CAN_ADD_ANY_OPS>,
         ) -> FormBuilderInner<Other, String, Other::Form, CAN_ADD_OPS>,
     {
         self.forms
@@ -2636,17 +2636,17 @@ pub use self::security::*;
 
 /// Builder for the Form
 pub enum FormBuilder<Other: ExtendableThing, Href, OtherForm> {
-    LockedOps(FormBuilderInner<Other, Href, OtherForm, false>),
-    UnlockedOps(FormBuilderInner<Other, Href, OtherForm, true>),
+    LockedOps(FormBuilderInner<Other, Href, OtherForm, CAN_ADD_NO_OPS>),
+    UnlockedOps(FormBuilderInner<Other, Href, OtherForm, CAN_ADD_MANY_OPS>),
 }
 
-impl<Other: ExtendableThing, Href, OtherForm, const CAN_ADD_OPS: bool>
+impl<Other: ExtendableThing, Href, OtherForm, const CAN_ADD_OPS: u8>
     From<FormBuilderInner<Other, Href, OtherForm, CAN_ADD_OPS>>
     for FormBuilder<Other, Href, OtherForm>
 {
     #[inline]
     fn from(value: FormBuilderInner<Other, Href, OtherForm, CAN_ADD_OPS>) -> Self {
-        if CAN_ADD_OPS {
+        if CAN_ADD_OPS == CAN_ADD_MANY_OPS {
             let FormBuilderInner {
                 op,
                 href,
@@ -2722,7 +2722,11 @@ impl<Other: ExtendableThing, Href, OtherForm> FormBuilder<Other, Href, OtherForm
     }
 }
 
-pub struct FormBuilderInner<Other: ExtendableThing, Href, OtherForm, const CAN_ADD_OPS: bool> {
+pub const CAN_ADD_ANY_OPS: u8 = 0;
+pub const CAN_ADD_MANY_OPS: u8 = 1;
+pub const CAN_ADD_NO_OPS: u8 = u8::MAX;
+
+pub struct FormBuilderInner<Other: ExtendableThing, Href, OtherForm, const CAN_ADD_OPS: u8> {
     op: DefaultedFormOperations,
     href: Href,
     content_type: Option<String>,
@@ -2738,7 +2742,7 @@ pub struct FormBuilderInner<Other: ExtendableThing, Href, OtherForm, const CAN_A
     _marker: PhantomData<fn() -> Other>,
 }
 
-impl<Other, const CAN_ADD_OPS: bool>
+impl<Other, const CAN_ADD_OPS: u8>
     FormBuilderInner<Other, (), <Other::Form as Extendable>::Empty, CAN_ADD_OPS>
 where
     Other: ExtendableThing,
@@ -2763,7 +2767,7 @@ where
     }
 }
 
-impl<Other, OtherForm, const CAN_ADD_OPS: bool> FormBuilderInner<Other, (), OtherForm, CAN_ADD_OPS>
+impl<Other, OtherForm, const CAN_ADD_OPS: u8> FormBuilderInner<Other, (), OtherForm, CAN_ADD_OPS>
 where
     Other: ExtendableThing,
 {
@@ -2803,7 +2807,7 @@ where
     }
 }
 
-impl<Other, Href, OtherForm, const CAN_ADD_OPS: bool>
+impl<Other, Href, OtherForm, const CAN_ADD_OPS: u8>
     FormBuilderInner<Other, Href, OtherForm, CAN_ADD_OPS>
 where
     Other: ExtendableThing,
@@ -2966,17 +2970,8 @@ where
     {
         self.ext_with(move || t)
     }
-}
 
-impl<Other, Href, OtherForm> FormBuilderInner<Other, Href, OtherForm, true>
-where
-    Other: ExtendableThing,
-{
-    /// Set the form intended operation
-    ///
-    /// Depending on its parent the form may have a Default operation
-    /// or it must be explicitly set.
-    pub fn op(mut self, new_op: FormOperation) -> Self {
+    fn op_inner(mut self, new_op: FormOperation) -> Self {
         match &mut self.op {
             ops @ DefaultedFormOperations::Default => {
                 *ops = DefaultedFormOperations::Custom(vec![new_op])
@@ -2986,8 +2981,63 @@ where
 
         self
     }
+}
 
-    /// Set the form intended operation and remove the ability to add more operations.
+impl<Other, Href, OtherForm> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_MANY_OPS>
+where
+    Other: ExtendableThing,
+{
+    /// Set the form intended operation
+    ///
+    /// Depending on its parent the form may have a Default operation
+    /// or it must be explicitly set.
+    pub fn op(self, new_op: FormOperation) -> Self {
+        self.op_inner(new_op)
+    }
+}
+
+impl<Other, Href, OtherForm> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_ANY_OPS>
+where
+    Other: ExtendableThing,
+{
+    /// Set the form intended operation
+    ///
+    /// Depending on its parent the form may have a Default operation
+    /// or it must be explicitly set.
+    pub fn op(
+        self,
+        new_op: FormOperation,
+    ) -> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_MANY_OPS> {
+        let Self {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
+            additional_responses,
+            other,
+            _marker,
+        } = self.op_inner(new_op);
+
+        FormBuilderInner {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
+            additional_responses,
+            other,
+            _marker,
+        }
+    }
+
+    /// Set the form intended operation only once.
     ///
     /// See [`FormBuilderInner::op`].
     ///
@@ -3001,7 +3051,6 @@ where
     /// let thing = builder
     ///     .form(|f| {
     ///         f.href("test")
-    ///             .op(FormOperation::ReadAllProperties)
     ///             .op_once(FormOperation::WriteAllProperties)
     ///     })
     ///     .build()
@@ -3025,7 +3074,27 @@ where
     ///     .unwrap();
     /// # drop(thing);
     /// ```
-    pub fn op_once(self, new_op: FormOperation) -> FormBuilderInner<Other, Href, OtherForm, false> {
+    ///
+    /// This does not compile as well:
+    /// ```compile_fail
+    /// # use wot_td::thing::{FormOperation, Thing};
+    /// # let builder = Thing::builder("Thing name")
+    /// #     .finish_extend();
+    /// let thing = builder
+    ///     .form(|f| {
+    ///         f.href("test")
+    ///             .op(FormOperation::ReadAllProperties)
+    ///             // Error: you cannot use `.op_once` after `.op`
+    ///             .op_once(FormOperation::WriteAllProperties)
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    /// # drop(thing);
+    /// ```
+    pub fn op_once(
+        self,
+        new_op: FormOperation,
+    ) -> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_NO_OPS> {
         let Self {
             op,
             href,
@@ -3038,7 +3107,7 @@ where
             additional_responses,
             other,
             _marker,
-        } = self.op(new_op);
+        } = self.op_inner(new_op);
 
         FormBuilderInner {
             op,
@@ -3056,8 +3125,7 @@ where
     }
 }
 
-impl<Other, T, OtherForm, const CAN_ADD_OPS: bool>
-    FormBuilderInner<Other, T, OtherForm, CAN_ADD_OPS>
+impl<Other, T, OtherForm, const CAN_ADD_OPS: u8> FormBuilderInner<Other, T, OtherForm, CAN_ADD_OPS>
 where
     Other: ExtendableThing,
     Other::ExpectedResponse: Default,
@@ -3075,8 +3143,7 @@ where
     }
 }
 
-impl<Other, T, OtherForm, const CAN_ADD_OPS: bool>
-    FormBuilderInner<Other, T, OtherForm, CAN_ADD_OPS>
+impl<Other, T, OtherForm, const CAN_ADD_OPS: u8> FormBuilderInner<Other, T, OtherForm, CAN_ADD_OPS>
 where
     Other: ExtendableThing,
     Other::ExpectedResponse: Extendable,
@@ -3110,7 +3177,7 @@ where
     }
 }
 
-impl<Other, const CAN_ADD_OPS: bool> From<FormBuilderInner<Other, String, Other::Form, CAN_ADD_OPS>>
+impl<Other, const CAN_ADD_OPS: u8> From<FormBuilderInner<Other, String, Other::Form, CAN_ADD_OPS>>
     for Form<Other>
 where
     Other: ExtendableThing,
@@ -4396,7 +4463,6 @@ mod tests {
             .finish_extend()
             .form(|form| {
                 form.href("href")
-                    .op(FormOperation::ReadAllProperties)
                     .op_once(FormOperation::ReadMultipleProperties)
             })
             .build()
@@ -4409,7 +4475,6 @@ mod tests {
                 title: "MyLampThing".to_string(),
                 forms: Some(vec![Form {
                     op: DefaultedFormOperations::Custom(vec![
-                        FormOperation::ReadAllProperties,
                         FormOperation::ReadMultipleProperties
                     ]),
                     href: "href".to_string(),
@@ -5025,19 +5090,20 @@ mod tests {
             type ArraySchema = ();
         }
 
-        let builder = FormBuilderInner::<Cons<ThingB, Cons<ThingA, Nil>>, _, _, true>::new()
-            .href("href")
-            .ext(FormExtA {
-                a: A("a".to_string()),
-            })
-            .op(FormOperation::ReadProperty)
-            .ext_with(|| FormExtB { c: B(1) })
-            .response("application/json", |b| {
-                b.ext(ExpectedResponseExtA {
-                    b: A("b".to_string()),
+        let builder =
+            FormBuilderInner::<Cons<ThingB, Cons<ThingA, Nil>>, _, _, CAN_ADD_ANY_OPS>::new()
+                .href("href")
+                .ext(FormExtA {
+                    a: A("a".to_string()),
                 })
-                .ext_with(|| ExpectedResponseExtB { d: B(2) })
-            });
+                .op(FormOperation::ReadProperty)
+                .ext_with(|| FormExtB { c: B(1) })
+                .response("application/json", |b| {
+                    b.ext(ExpectedResponseExtA {
+                        b: A("b".to_string()),
+                    })
+                    .ext_with(|| ExpectedResponseExtB { d: B(2) })
+                });
 
         let form: Form<Cons<ThingB, Cons<ThingA, Nil>>> = builder.into();
         assert_eq!(
