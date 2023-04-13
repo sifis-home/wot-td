@@ -2724,6 +2724,7 @@ impl<Other: ExtendableThing, Href, OtherForm> FormBuilder<Other, Href, OtherForm
 
 pub const CAN_ADD_ANY_OPS: u8 = 0;
 pub const CAN_ADD_MANY_OPS: u8 = 1;
+pub const CAN_ADD_ONE_OP: u8 = 2;
 pub const CAN_ADD_NO_OPS: u8 = u8::MAX;
 
 pub struct FormBuilderInner<Other: ExtendableThing, Href, OtherForm, const CAN_ADD_OPS: u8> {
@@ -2996,7 +2997,44 @@ where
     }
 }
 
-impl<Other, Href, OtherForm> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_ANY_OPS>
+impl<Other, Href, OtherForm> From<FormBuilderInner<Other, Href, OtherForm, CAN_ADD_ANY_OPS>>
+    for FormBuilderInner<Other, Href, OtherForm, CAN_ADD_ONE_OP>
+where
+    Other: ExtendableThing,
+{
+    fn from(
+        f: FormBuilderInner<Other, Href, OtherForm, CAN_ADD_ANY_OPS>,
+    ) -> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_ONE_OP> {
+        let FormBuilderInner {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
+            additional_responses,
+            other,
+            _marker,
+        } = f;
+        FormBuilderInner {
+            op,
+            href,
+            content_type,
+            content_coding,
+            subprotocol,
+            security,
+            scopes,
+            response,
+            additional_responses,
+            other,
+            _marker,
+        }
+    }
+}
+
+impl<Other, Href, OtherForm> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_ONE_OP>
 where
     Other: ExtendableThing,
 {
@@ -3007,7 +3045,7 @@ where
     pub fn op(
         self,
         new_op: FormOperation,
-    ) -> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_MANY_OPS> {
+    ) -> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_NO_OPS> {
         let Self {
             op,
             href,
@@ -3036,65 +3074,20 @@ where
             _marker,
         }
     }
+}
 
-    /// Set the form intended operation only once.
+impl<Other, Href, OtherForm> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_ANY_OPS>
+where
+    Other: ExtendableThing,
+{
+    /// Set the form intended operation
     ///
-    /// See [`FormBuilderInner::op`].
-    ///
-    /// # Examples
-    ///
-    /// This works:
-    /// ```
-    /// # use wot_td::thing::{FormOperation, Thing};
-    /// # let builder = Thing::builder("Thing name")
-    /// #     .finish_extend();
-    /// let thing = builder
-    ///     .form(|f| {
-    ///         f.href("test")
-    ///             .op_once(FormOperation::WriteAllProperties)
-    ///     })
-    ///     .build()
-    ///     .unwrap();
-    /// # drop(thing);
-    /// ```
-    ///
-    /// This does not compile instead:
-    /// ```compile_fail
-    /// # use wot_td::thing::{FormOperation, Thing};
-    /// # let builder = Thing::builder("Thing name")
-    /// #     .finish_extend();
-    /// let thing = builder
-    ///     .form(|f| {
-    ///         f.href("test")
-    ///             .op_once(FormOperation::WriteAllProperties)
-    ///             // Error: you cannot use `.op` after `.op_once`
-    ///             .op(FormOperation::ReadAllProperties)
-    ///     })
-    ///     .build()
-    ///     .unwrap();
-    /// # drop(thing);
-    /// ```
-    ///
-    /// This does not compile as well:
-    /// ```compile_fail
-    /// # use wot_td::thing::{FormOperation, Thing};
-    /// # let builder = Thing::builder("Thing name")
-    /// #     .finish_extend();
-    /// let thing = builder
-    ///     .form(|f| {
-    ///         f.href("test")
-    ///             .op(FormOperation::ReadAllProperties)
-    ///             // Error: you cannot use `.op_once` after `.op`
-    ///             .op_once(FormOperation::WriteAllProperties)
-    ///     })
-    ///     .build()
-    ///     .unwrap();
-    /// # drop(thing);
-    /// ```
-    pub fn op_once(
+    /// Depending on its parent the form may have a Default operation
+    /// or it must be explicitly set.
+    pub fn op(
         self,
         new_op: FormOperation,
-    ) -> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_NO_OPS> {
+    ) -> FormBuilderInner<Other, Href, OtherForm, CAN_ADD_MANY_OPS> {
         let Self {
             op,
             href,
@@ -4462,8 +4455,9 @@ mod tests {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .finish_extend()
             .form(|form| {
-                form.href("href")
-                    .op_once(FormOperation::ReadMultipleProperties)
+                let fbi = form.href("href");
+                let fbi_once: FormBuilderInner<_, _, _, CAN_ADD_ONE_OP> = fbi.into();
+                fbi_once.op(FormOperation::ReadMultipleProperties)
             })
             .build()
             .unwrap();
