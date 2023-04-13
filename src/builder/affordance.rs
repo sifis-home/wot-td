@@ -17,6 +17,8 @@ use crate::{
     },
 };
 
+use crate::builder::{CAN_ADD_ANY_OPS, CAN_ADD_NO_OPS};
+
 use super::{
     data_schema::{
         buildable_data_schema_delegate, impl_inner_delegate_schema_builder_like_array,
@@ -94,11 +96,10 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
     ///     })
     /// );
     /// ```
-    fn form<F>(self, f: F) -> Self
+    fn form<F, R>(self, f: F) -> Self
     where
-        F: FnOnce(
-            FormBuilder<Other, (), <Other::Form as Extendable>::Empty>,
-        ) -> FormBuilder<Other, String, Other::Form>,
+        F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty, CAN_ADD_ANY_OPS>) -> R,
+        R: Into<FormBuilder<Other, String, Other::Form, CAN_ADD_NO_OPS>>,
         Other::Form: Extendable;
 
     /// Adds a new _URI variable_.
@@ -311,13 +312,12 @@ where
     Other: ExtendableThing,
     Other::Form: Extendable,
 {
-    fn form<F>(mut self, f: F) -> Self
+    fn form<F, R>(mut self, f: F) -> Self
     where
-        F: FnOnce(
-            FormBuilder<Other, (), <Other::Form as Extendable>::Empty>,
-        ) -> FormBuilder<Other, String, Other::Form>,
+        F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty, CAN_ADD_ANY_OPS>) -> R,
+        R: Into<FormBuilder<Other, String, Other::Form, CAN_ADD_NO_OPS>>,
     {
-        self.forms.push(f(FormBuilder::new()));
+        self.forms.push(f(FormBuilder::new()).into());
         self
     }
 
@@ -349,9 +349,10 @@ macro_rules! impl_buildable_interaction_affordance {
             where
                 Other::Form: Extendable
             {
-                fn form<F>(mut self, f: F) -> Self
+                fn form<F, R>(mut self, f: F) -> Self
                 where
-                    F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty>) -> FormBuilder<Other, String, Other::Form>,
+                    F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty, CAN_ADD_ANY_OPS>) -> R,
+                    R: Into<FormBuilder<Other, String, Other::Form, CAN_ADD_NO_OPS>>,
                     Other::Form: Extendable,
                 {
                     self.$($interaction_path).* = self.$($interaction_path).*.form(f);
@@ -2483,7 +2484,7 @@ where
     F: Fn(FormOperation) -> bool,
 {
     for form in forms {
-        if let DefaultedFormOperations::Custom(ops) = &form.op {
+        if let DefaultedFormOperations::Custom(ref ops) = form.op {
             let invalid_op = ops.iter().copied().find(|&op| is_allowed_op(op).not());
             if let Some(operation) = invalid_op {
                 return Err(Error::InvalidOpInForm {
