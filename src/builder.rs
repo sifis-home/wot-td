@@ -2579,13 +2579,16 @@ pub mod security {
 
 pub use self::security::*;
 
-/// Builder for the Form
-
+/// The FormBuilder does not have op set, can take more
 pub const CAN_ADD_ANY_OPS: u8 = 0;
+/// The FormBuilder has ops, can take more
 pub const CAN_ADD_MANY_OPS: u8 = 1;
+/// The FormBuilder can take only one more op
 pub const CAN_ADD_ONE_OP: u8 = 2;
+/// The FormBuilder cannot take any additional ops
 pub const CAN_ADD_NO_OPS: u8 = u8::MAX;
 
+/// Builder for the Form
 pub struct FormBuilder<
     Other: ExtendableThing,
     Href,
