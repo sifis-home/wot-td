@@ -1483,15 +1483,14 @@ where
     ///     }
     /// );
     /// ```
-    pub fn form<F>(mut self, f: F) -> Self
+    pub fn form<F, R>(mut self, f: F) -> Self
     where
-        F: FnOnce(
-            FormBuilder<Other, (), <Other::Form as Extendable>::Empty>,
-        ) -> FormBuilder<Other, String, Other::Form>,
+        F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty>) -> R,
+        R: Into<FormBuilder<Other, String, Other::Form>>,
     {
         self.forms
             .get_or_insert_with(Default::default)
-            .push(f(FormBuilder::new()));
+            .push(f(FormBuilder::new()).into());
         self
     }
 }
@@ -3959,6 +3958,40 @@ mod tests {
         let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
             .finish_extend()
             .form(|form| form.href("href").op(FormOperation::ReadAllProperties))
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            thing,
+            Thing {
+                context: TD_CONTEXT_11.into(),
+                title: "MyLampThing".to_string(),
+                forms: Some(vec![Form {
+                    op: DefaultedFormOperations::Custom(vec![FormOperation::ReadAllProperties]),
+                    href: "href".to_string(),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn simple_into_form() {
+        struct FormBuilderEx<Other: ExtendableThing, Href, OtherForm>(
+            FormBuilder<Other, Href, OtherForm>,
+        );
+        impl<Other: ExtendableThing, Href, OtherForm> From<FormBuilderEx<Other, Href, OtherForm>>
+            for FormBuilder<Other, Href, OtherForm>
+        {
+            fn from(value: FormBuilderEx<Other, Href, OtherForm>) -> Self {
+                value.0
+            }
+        }
+
+        let thing = ThingBuilder::<Nil, _>::new("MyLampThing")
+            .finish_extend()
+            .form(|form| FormBuilderEx(form.href("href").op(FormOperation::ReadAllProperties)))
             .build()
             .unwrap();
 

@@ -94,11 +94,10 @@ pub trait BuildableInteractionAffordance<Other: ExtendableThing> {
     ///     })
     /// );
     /// ```
-    fn form<F>(self, f: F) -> Self
+    fn form<F, R>(self, f: F) -> Self
     where
-        F: FnOnce(
-            FormBuilder<Other, (), <Other::Form as Extendable>::Empty>,
-        ) -> FormBuilder<Other, String, Other::Form>,
+        F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty>) -> R,
+        R: Into<FormBuilder<Other, String, Other::Form>>,
         Other::Form: Extendable;
 
     /// Adds a new _URI variable_.
@@ -311,13 +310,12 @@ where
     Other: ExtendableThing,
     Other::Form: Extendable,
 {
-    fn form<F>(mut self, f: F) -> Self
+    fn form<F, R>(mut self, f: F) -> Self
     where
-        F: FnOnce(
-            FormBuilder<Other, (), <Other::Form as Extendable>::Empty>,
-        ) -> FormBuilder<Other, String, Other::Form>,
+        F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty>) -> R,
+        R: Into<FormBuilder<Other, String, Other::Form>>,
     {
-        self.forms.push(f(FormBuilder::new()));
+        self.forms.push(f(FormBuilder::new()).into());
         self
     }
 
@@ -349,9 +347,10 @@ macro_rules! impl_buildable_interaction_affordance {
             where
                 Other::Form: Extendable
             {
-                fn form<F>(mut self, f: F) -> Self
+                fn form<F, R>(mut self, f: F) -> Self
                 where
-                    F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty>) -> FormBuilder<Other, String, Other::Form>,
+                    F: FnOnce(FormBuilder<Other, (), <Other::Form as Extendable>::Empty>) -> R,
+                    R: Into<FormBuilder<Other, String, Other::Form>>,
                     Other::Form: Extendable,
                 {
                     self.$($interaction_path).* = self.$($interaction_path).*.form(f);
