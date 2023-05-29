@@ -53,107 +53,16 @@ impl<T, U> Cons<T, U> {
     }
 }
 
-// /// A conversion from an heterogenous list of values into an heterogenous list of references.
-// pub trait HListRef {
-//     /// The heterogenous list of references.
-//     type Target<'a>
-//     where
-//         Self: 'a;
-//
-//     /// Create a heterogeneous list of references.
-//     fn to_ref(&self) -> Self::Target<'_>;
-// }
-
-// impl<T, U> HListRef for Cons<T, U>
-// where
-//     U: HListRef,
-// {
-//     type Target<'a> = Cons<&'a T, <U as HListRef>::Target<'a>>
-//     where
-//         Self: 'a;
-//
-//     #[inline]
-//     fn to_ref(&self) -> Self::Target<'_> {
-//         let Cons { head, tail } = self;
-//         Cons {
-//             head,
-//             tail: tail.to_ref(),
-//         }
-//     }
-// }
-//
-// impl HListRef for Nil {
-//     type Target<'a> = Nil;
-//
-//     #[inline]
-//     fn to_ref(&self) -> Self::Target<'_> {
-//         Nil
-//     }
-// }
-//
-// /// A conversion from an heterogenous list of values into an heterogenous list of mutable
-// /// references.
-// pub trait HListMut {
-//     /// The heterogenous list of mutable references.
-//     type Target<'a>
-//     where
-//         Self: 'a;
-//
-//     // This is ignored because `HListMut` must be implemented for mutable references only,
-//     // therefore `to_mut` must take `self`. The reason behind this design is because we don't have
-//     // GATs on stable in order to write something like this:
-//     // ```
-//     // trait HList {
-//     //     type ToRef<'a> where Self: 'a;
-//     //     type ToMut<'a> where Self: 'a;
-//     //
-//     //     fn to_ref(&self) -> Self::ToRef<'_>;
-//     //     fn to_mut(&mut self) -> Self::ToMut<'_>;
-//     // }
-//     // ```
-//     /// Create a heterogeneous list of mutable references
-//     fn to_mut(&mut self) -> Self::Target<'_>;
-// }
-//
-// impl<T, U> HListMut for Cons<T, U>
-// where
-//     U: HListMut,
-// {
-//     type Target<'a> = Cons<&'a mut T, <U as HListMut>::Target<'a>>
-//     where
-//         Self: 'a;
-//
-//     #[inline]
-//     fn to_mut(&mut self) -> Self::Target<'_> {
-//         let Cons { head, tail } = self;
-//         Cons {
-//             head,
-//             tail: tail.to_mut(),
-//         }
-//     }
-// }
-//
-// impl HListMut for Nil {
-//     type Target<'a> = Nil
-//     where
-//         Self: 'a;
-//
-//     #[inline]
-//     fn to_mut(&mut self) -> Self::Target<'_> {
-//         Nil
-//     }
-// }
-
 pub trait HList {
-    type Ref<'a>: HList
+    type Ref<'a>
     where
         Self: 'a;
 
-    type MutRef<'a>: HList
+    type MutRef<'a>
     where
         Self: 'a;
 
-    type Reversed: HList;
+    type Reversed;
 
     fn to_ref(&self) -> Self::Ref<'_>;
     fn to_mut(&mut self) -> Self::MutRef<'_>;
@@ -162,17 +71,52 @@ pub trait HList {
     fn reverse(self) -> Self::Reversed;
 }
 
-/// An interface for non-empty heterogenous lists.
-pub trait NonEmptyHList: HList {
+pub trait NonEmptyHListTypes {
     type Head;
     type Last;
     type Init: HList;
     type Tail: HList;
+}
 
+/// An interface for non-empty heterogenous lists.
+pub trait NonEmptyHList: HList + NonEmptyHListTypes {
     /// Split the last element of an heterogeneous list
     ///
     /// Return a tuple with the last element and a list containing the remainder.
     fn split_last(self) -> (Self::Last, Self::Init);
+}
+
+pub trait NonEmptyHListRefTypes {
+    type Head<'a>
+    where
+        Self: 'a;
+    type Last<'a>
+    where
+        Self: 'a;
+    type Init<'a>: HList
+    where
+        Self: 'a;
+    type Tail<'a>: HList
+    where
+        Self: 'a;
+}
+
+impl<T> NonEmptyHListRefTypes for T
+where
+    T: NonEmptyHList,
+    for<'a> <T as HList>::Ref<'a>: NonEmptyHListTypes,
+{
+    type Head<'a> = <<T as HList>::Ref<'a> as NonEmptyHListTypes>::Head
+        where T: 'a;
+
+    type Last<'a> = <<T as HList>::Ref<'a> as NonEmptyHListTypes>::Last
+        where T: 'a;
+
+    type Init<'a> = <<T as HList>::Ref<'a> as NonEmptyHListTypes>::Init
+        where T: 'a;
+
+    type Tail<'a> = <<T as HList>::Ref<'a> as NonEmptyHListTypes>::Tail
+        where T: 'a;
 }
 
 impl HList for Nil {
@@ -202,92 +146,65 @@ impl HList for Nil {
     }
 }
 
-impl<T> HList for Cons<T, Nil> {
-    type Ref<'a> = Cons<&'a T, Nil>
-    where
-        Self: 'a;
-
-    type MutRef<'a> = Cons<&'a mut T, Nil>
-    where
-        Self: 'a;
-
-    type Reversed = Self;
-
-    #[inline]
-    fn to_ref(&self) -> Self::Ref<'_> {
-        Cons {
-            head: &self.head,
-            tail: Nil,
-        }
-    }
-
-    #[inline]
-    fn to_mut(&mut self) -> Self::MutRef<'_> {
-        Cons {
-            head: &mut self.head,
-            tail: Nil,
-        }
-    }
-
-    #[inline]
-    fn reverse(self) -> Self::Reversed {
-        self
-    }
-}
-
-impl<T, U, V> HList for Cons<T, Cons<U, V>>
+impl<T, U, V> NonEmptyHListTypes for Cons<T, Cons<U, V>>
 where
-    Cons<U, V>: NonEmptyHList,
+    Cons<U, V>: HList + NonEmptyHListTypes,
+    Cons<T, <Cons<U, V> as NonEmptyHListTypes>::Init>: HList,
 {
-    type Ref<'a> = Cons<&'a T, <Cons<U, V> as HList>::Ref<'a>>
-    where
-        Self: 'a;
-
-    type MutRef<'a> = Cons<&'a mut T, <Cons<U, V> as HList>::MutRef<'a>>
-    where
-        Self: 'a;
-
-    type Reversed = Cons<
-        <Cons<U, V> as NonEmptyHList>::Last,
-        <Cons<T, <Cons<U, V> as NonEmptyHList>::Init> as HList>::Reversed,
-    >;
-
-    #[inline]
-    fn to_ref(&self) -> Self::Ref<'_> {
-        let Cons { head, tail } = self;
-
-        Cons {
-            head,
-            tail: tail.to_ref(),
-        }
-    }
-
-    #[inline]
-    fn to_mut(&mut self) -> Self::MutRef<'_> {
-        let Cons { head, tail } = self;
-
-        Cons {
-            head,
-            tail: tail.to_mut(),
-        }
-    }
-
-    #[inline]
-    fn reverse(self) -> Self::Reversed {
-        let Self { head, tail } = self;
-
-        let (last, init) = tail.split_last();
-        let tail = Cons { head, tail: init }.reverse();
-        Cons { head: last, tail }
-    }
+    type Head = T;
+    type Last = <Cons<U, V> as NonEmptyHListTypes>::Last;
+    type Init = Cons<T, <Cons<U, V> as NonEmptyHListTypes>::Init>;
+    type Tail = Cons<U, V>;
 }
 
-impl<T> NonEmptyHList for Cons<T, Nil> {
+impl<T> NonEmptyHListTypes for Cons<T, Nil> {
     type Head = T;
     type Last = T;
     type Init = Nil;
     type Tail = Nil;
+}
 
+impl<T, U> HList for Cons<T, U>
+where
+    U: HList,
+    Self: NonEmptyHListTypes,
+{
+    type Ref<'a> = Cons<&'a T, <U as HList>::Ref<'a>>
+    where
+        Self: 'a;
+
+    type MutRef<'a> = Cons<&'a mut T, <U as HList>::MutRef<'a>>
+    where
+        Self: 'a;
+
+    type Reversed = Cons<
+        <Self as NonEmptyHListTypes>::Last,
+        <<Self as NonEmptyHListTypes>::Init as HList>::Reversed,
+    >;
+
+    #[inline]
+    fn to_ref(&self) -> Self::Ref<'_> {
+        let Self { head, tail } = self;
+        let tail = tail.to_ref();
+
+        Cons { head, tail }
+    }
+
+    #[inline]
+    fn to_mut(&mut self) -> Self::MutRef<'_> {
+        let Self { head, tail } = self;
+        let tail = tail.to_mut();
+
+        Cons { head, tail }
+    }
+
+    #[inline]
+    fn reverse(self) -> Self::Reversed {
+        todo!()
+    }
+}
+
+impl<T> NonEmptyHList for Cons<T, Nil> {
     #[inline]
     fn split_last(self) -> (Self::Last, Self::Init) {
         (self.head, Nil)
@@ -297,12 +214,8 @@ impl<T> NonEmptyHList for Cons<T, Nil> {
 impl<T, U, V> NonEmptyHList for Cons<T, Cons<U, V>>
 where
     Cons<U, V>: NonEmptyHList,
+    Cons<T, <Cons<U, V> as NonEmptyHListTypes>::Init>: HList,
 {
-    type Head = T;
-    type Last = <Cons<U, V> as NonEmptyHList>::Last;
-    type Init = Cons<T, <Cons<U, V> as NonEmptyHList>::Init>;
-    type Tail = Cons<U, V>;
-
     #[inline]
     fn split_last(self) -> (Self::Last, Self::Init) {
         let Self { head, tail } = self;
@@ -312,31 +225,6 @@ where
         (last, init)
     }
 }
-
-// impl<T, U> NonEmptyHList for Cons<T, U>
-// where
-//     U: NonEmptyHList,
-//     Cons<T, U::Init>: NonEmptyHList,
-// {
-//     type Init = Cons<T, U::Init>;
-//     type Last = U::Last;
-//     type Reversed = Cons<Self::Last, <Self::Init as NonEmptyHList>::Reversed>;
-
-//     #[inline]
-//     fn split_last(self) -> (Self::Last, Self::Init) {
-//         let Self { head, tail } = self;
-//         let (last, tail) = tail.split_last();
-//         let init = Cons { head, tail };
-//         (last, init)
-//     }
-
-//     #[inline]
-//     fn reverse(self) -> Self::Reversed {
-//         let (last, init) = self.split_last();
-//         let tail = init.reverse();
-//         Cons { head: last, tail }
-//     }
-// }
 
 impl Serialize for Nil {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
