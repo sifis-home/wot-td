@@ -12,6 +12,7 @@ use std::{
     cmp::{self, Ordering},
     collections::HashMap,
     fmt,
+    num::NonZeroU64,
 };
 
 use oxilangtag::LanguageTag;
@@ -1000,14 +1001,14 @@ pub struct NumberSchema {
 pub struct IntegerSchema {
     /// The higher limit of the value.
     #[serde(flatten)]
-    pub maximum: Option<Maximum<usize>>,
+    pub maximum: Option<Maximum<i64>>,
 
     /// The lower limit of the value.
     #[serde(flatten)]
-    pub minimum: Option<Minimum<usize>>,
+    pub minimum: Option<Minimum<i64>>,
 
     /// It adds the requirement that the numeric value must be a multiple of this.
-    pub multiple_of: Option<usize>,
+    pub multiple_of: Option<NonZeroU64>,
 }
 
 /// A JSON object metadata.
@@ -3229,7 +3230,7 @@ mod test {
             IntegerSchema {
                 minimum: Some(Minimum::Inclusive(5)),
                 maximum: Some(Maximum::Inclusive(10)),
-                multiple_of: Some(2),
+                multiple_of: Some(NonZeroU64::new(2).unwrap()),
             },
         );
 
