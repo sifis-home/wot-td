@@ -39,7 +39,7 @@
 //! [`finish_extend`]: DataSchemaBuilder::finish_extend
 //! [`read_only`]: crate::thing::DataSchema::read_only
 //! [`write_only`]: crate::thing::DataSchema::write_only
-use std::{cmp::Ordering, collections::HashMap, marker::PhantomData, ops::Not};
+use std::{cmp::Ordering, collections::HashMap, marker::PhantomData, num::NonZeroU64, ops::Not};
 
 use crate::{
     extend::{Extend, Extendable, ExtendableThing},
@@ -1241,9 +1241,9 @@ pub struct NumberDataSchemaBuilder<Inner> {
 /// The builder for an [`IntegerSchema`](crate::thing::IntegerSchema) builder.
 pub struct IntegerDataSchemaBuilder<Inner> {
     inner: Inner,
-    maximum: Option<Maximum<usize>>,
-    minimum: Option<Minimum<usize>>,
-    multiple_of: Option<usize>,
+    maximum: Option<Maximum<i64>>,
+    minimum: Option<Minimum<i64>>,
+    multiple_of: Option<NonZeroU64>,
 }
 
 /// The builder for an [`ObjectSchema`](crate::thing::ObjectSchema) builder.
@@ -1397,11 +1397,11 @@ pub trait NumberDataSchemaBuilderLike<DS, AS, OS> {
 /// An interface for things behaving like an integer data schema builder.
 pub trait IntegerDataSchemaBuilderLike<DS, AS, OS> {
     opt_field_decl!(
-        minimum: usize,
-        maximum: usize,
-        exclusive_minimum: usize,
-        exclusive_maximum: usize,
-        multiple_of: usize,
+        minimum: i64,
+        maximum: i64,
+        exclusive_minimum: i64,
+        exclusive_maximum: i64,
+        multiple_of: NonZeroU64,
     );
 }
 
@@ -1552,24 +1552,24 @@ impl<Inner: BuildableDataSchema<DS, AS, OS, Extended>, DS, AS, OS>
 impl<Inner: BuildableDataSchema<DS, AS, OS, Extended>, DS, AS, OS>
     IntegerDataSchemaBuilderLike<DS, AS, OS> for IntegerDataSchemaBuilder<Inner>
 {
-    opt_field_builder!(multiple_of: usize);
+    opt_field_builder!(multiple_of: NonZeroU64);
 
-    fn minimum(mut self, value: usize) -> Self {
+    fn minimum(mut self, value: i64) -> Self {
         self.minimum = Some(Minimum::Inclusive(value));
         self
     }
 
-    fn exclusive_minimum(mut self, value: usize) -> Self {
+    fn exclusive_minimum(mut self, value: i64) -> Self {
         self.minimum = Some(Minimum::Exclusive(value));
         self
     }
 
-    fn maximum(mut self, value: usize) -> Self {
+    fn maximum(mut self, value: i64) -> Self {
         self.maximum = Some(Maximum::Inclusive(value));
         self
     }
 
-    fn exclusive_maximum(mut self, value: usize) -> Self {
+    fn exclusive_maximum(mut self, value: i64) -> Self {
         self.maximum = Some(Maximum::Exclusive(value));
         self
     }
@@ -1681,31 +1681,31 @@ macro_rules! impl_inner_delegate_schema_builder_like_number {
 macro_rules! impl_inner_delegate_schema_builder_like_integer {
     ($inner:ident) => {
         #[inline]
-        fn minimum(mut self, value: usize) -> Self {
+        fn minimum(mut self, value: i64) -> Self {
             self.$inner = self.$inner.minimum(value);
             self
         }
 
         #[inline]
-        fn maximum(mut self, value: usize) -> Self {
+        fn maximum(mut self, value: i64) -> Self {
             self.$inner = self.$inner.maximum(value);
             self
         }
 
         #[inline]
-        fn exclusive_minimum(mut self, value: usize) -> Self {
+        fn exclusive_minimum(mut self, value: i64) -> Self {
             self.$inner = self.$inner.exclusive_minimum(value);
             self
         }
 
         #[inline]
-        fn exclusive_maximum(mut self, value: usize) -> Self {
+        fn exclusive_maximum(mut self, value: i64) -> Self {
             self.$inner = self.$inner.exclusive_maximum(value);
             self
         }
 
         #[inline]
-        fn multiple_of(mut self, value: usize) -> Self {
+        fn multiple_of(mut self, value: std::num::NonZeroU64) -> Self {
             self.$inner = self.$inner.multiple_of(value);
             self
         }
@@ -4661,7 +4661,7 @@ mod tests {
             .integer()
             .exclusive_minimum(10)
             .maximum(5)
-            .multiple_of(2)
+            .multiple_of(NonZeroU64::new(2).unwrap())
             .try_into()
             .unwrap();
         assert_eq!(
@@ -4683,7 +4683,7 @@ mod tests {
                 subtype: Some(DataSchemaSubtype::Integer(IntegerSchema {
                     maximum: Some(Maximum::Inclusive(5)),
                     minimum: Some(Minimum::Exclusive(10)),
-                    multiple_of: Some(2),
+                    multiple_of: Some(NonZeroU64::new(2).unwrap()),
                 })),
                 other: Nil,
             },
