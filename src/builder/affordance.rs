@@ -19,15 +19,16 @@ use crate::{
 
 use super::{
     data_schema::{
-        buildable_data_schema_delegate, impl_inner_delegate_schema_builder_like_array,
-        impl_inner_delegate_schema_builder_like_integer,
+        buildable_data_schema_delegate, impl_inner_delegate_schema_builder_like_integer,
         impl_inner_delegate_schema_builder_like_number,
-        impl_inner_delegate_schema_builder_like_object, uri_variables_contains_arrays_objects,
-        ArrayDataSchemaBuilderLike, BuildableDataSchema, DataSchemaBuilder, EnumerableDataSchema,
-        IntegerDataSchemaBuilderLike, NumberDataSchemaBuilderLike, ObjectDataSchemaBuilderLike,
-        PartialDataSchema, PartialDataSchemaBuilder, ReadableWriteableDataSchema,
-        SpecializableDataSchema, UncheckedDataSchemaFromOther, UncheckedDataSchemaMap,
-        UnionDataSchema,
+        impl_inner_delegate_schema_builder_like_object,
+        impl_inner_delegate_schema_builder_like_tuple, impl_inner_delegate_schema_builder_like_vec,
+        uri_variables_contains_arrays_objects, BuildableDataSchema, DataSchemaBuilder,
+        EnumerableDataSchema, IntegerDataSchemaBuilderLike, NumberDataSchemaBuilderLike,
+        ObjectDataSchemaBuilderLike, PartialDataSchema, PartialDataSchemaBuilder,
+        ReadableWriteableDataSchema, SpecializableDataSchema, TupleDataSchemaBuilderLike,
+        UncheckedDataSchemaFromOther, UncheckedDataSchemaMap, UnionDataSchema,
+        VecDataSchemaBuilderLike,
     },
     human_readable_info::{
         impl_delegate_buildable_hr_info, BuildableHumanReadableInfo, HumanReadableInfo,
@@ -1592,9 +1593,15 @@ where
         OtherInteractionAffordance,
         OtherPropertyAffordance,
     >;
-    type Array = PropertyAffordanceBuilder<
+    type Tuple = PropertyAffordanceBuilder<
         Other,
-        DataSchema::Array,
+        DataSchema::Tuple,
+        OtherInteractionAffordance,
+        OtherPropertyAffordance,
+    >;
+    type Vec = PropertyAffordanceBuilder<
+        Other,
+        DataSchema::Vec,
         OtherInteractionAffordance,
         OtherPropertyAffordance,
     >;
@@ -1630,8 +1637,10 @@ where
     >;
 
     impl_property_affordance_builder_delegator!(
-        array where AS: Default => Self::Array,
-        array_ext<F>(f: F) where F: FnOnce(AS::Empty) -> AS, AS: Extendable => Self::Array,
+        tuple where AS: Default => Self::Tuple,
+        tuple_ext<F>(f: F) where F: FnOnce(AS::Empty) -> AS, AS: Extendable => Self::Tuple,
+        vec where AS: Default => Self::Vec,
+        vec_ext<F>(f: F) where F: FnOnce(AS::Empty) -> AS, AS: Extendable => Self::Vec,
         bool => Self::Stateless,
         number => Self::Number,
         integer => Self::Integer,
@@ -1789,13 +1798,23 @@ where
 }
 
 impl<Other, CDS, DS, AS, OS, OtherInteractionAffordance, OtherPropertyAffordance>
-    ArrayDataSchemaBuilderLike<DS, AS, OS>
+    TupleDataSchemaBuilderLike<DS, AS, OS>
     for PropertyAffordanceBuilder<Other, CDS, OtherInteractionAffordance, OtherPropertyAffordance>
 where
     Other: ExtendableThing<DataSchema = DS, ArraySchema = AS, ObjectSchema = OS>,
-    CDS: ArrayDataSchemaBuilderLike<DS, AS, OS>,
+    CDS: TupleDataSchemaBuilderLike<DS, AS, OS>,
 {
-    impl_inner_delegate_schema_builder_like_array!(data_schema);
+    impl_inner_delegate_schema_builder_like_tuple!(data_schema);
+}
+
+impl<Other, CDS, DS, AS, OS, OtherInteractionAffordance, OtherPropertyAffordance>
+    VecDataSchemaBuilderLike<DS, AS, OS>
+    for PropertyAffordanceBuilder<Other, CDS, OtherInteractionAffordance, OtherPropertyAffordance>
+where
+    Other: ExtendableThing<DataSchema = DS, ArraySchema = AS, ObjectSchema = OS>,
+    CDS: VecDataSchemaBuilderLike<DS, AS, OS>,
+{
+    impl_inner_delegate_schema_builder_like_vec!(data_schema);
 }
 
 impl<Other, CDS, DS, AS, OS, OtherInteractionAffordance, OtherPropertyAffordance>
@@ -2777,8 +2796,8 @@ mod test {
         },
         hlist::{Cons, Nil},
         thing::{
-            DataSchemaFromOther, DataSchemaSubtype, DefaultedFormOperations, FormOperation,
-            Minimum, NumberSchema,
+            ArraySchema, BoxedElemOrVec, DataSchemaFromOther, DataSchemaSubtype,
+            DefaultedFormOperations, FormOperation, Minimum, NumberSchema,
         },
     };
 
@@ -3770,5 +3789,81 @@ mod test {
             builder.build().unwrap_err(),
             Error::InvalidLanguageTag("i1t".to_string()),
         );
+    }
+
+    #[test]
+    fn delegate_vec_methods() {
+        let builder  = PropertyAffordanceBuilder::<Nil, PartialDataSchemaBuilder<_, _, _, _>, (), ()>::default()
+            .vec()
+            .read_only()
+            .min_items(3)
+            .max_items(5)
+            .set_item(|b| b.finish_extend().integer())
+            .into_usable();
+
+        assert_eq!(
+            builder.build().unwrap(),
+            PropertyAffordance {
+                interaction: Default::default(),
+                data_schema: DataSchema {
+                    read_only: true,
+                    subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                        items: Some(BoxedElemOrVec::Elem(Box::new(DataSchema {
+                            subtype: Some(DataSchemaSubtype::Integer(Default::default())),
+                            other: Nil,
+                            ..Default::default()
+                        }))),
+                        min_items: Some(3),
+                        max_items: Some(5),
+                        other: Nil,
+                    })),
+                    other: Nil,
+                    ..Default::default()
+                },
+                observable: Default::default(),
+                other: Nil,
+            }
+        )
+    }
+
+    #[test]
+    fn delegate_tuple_methods() {
+        let builder  = PropertyAffordanceBuilder::<Nil, PartialDataSchemaBuilder<_, _, _, _>, (), ()>::default()
+            .tuple()
+            .read_only()
+            .append(|b| b.finish_extend().integer())
+            .append(|b| b.finish_extend().string())
+            .into_usable();
+
+        assert_eq!(
+            builder.build().unwrap(),
+            PropertyAffordance {
+                interaction: Default::default(),
+                data_schema: DataSchema {
+                    read_only: true,
+                    subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                        items: Some(BoxedElemOrVec::Vec(vec![
+                            DataSchema {
+                                subtype: Some(DataSchemaSubtype::Integer(Default::default())),
+                                other: Nil,
+                                ..Default::default()
+                            },
+                            DataSchema {
+                                subtype: Some(DataSchemaSubtype::String(Default::default())),
+                                other: Nil,
+                                ..Default::default()
+                            },
+                        ])),
+                        min_items: None,
+                        max_items: None,
+                        other: Nil,
+                    })),
+                    other: Nil,
+                    ..Default::default()
+                },
+                observable: Default::default(),
+                other: Nil,
+            }
+        )
     }
 }
