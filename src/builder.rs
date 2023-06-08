@@ -5442,7 +5442,7 @@ mod tests {
 
         let error = ThingBuilder::<Nil, _>::new("MyLampThing")
             .finish_extend()
-            .uri_variable("uriVariable", |b| b.finish_extend().array())
+            .uri_variable("uriVariable", |b| b.finish_extend().vec())
             .build()
             .unwrap_err();
 
@@ -5465,7 +5465,7 @@ mod tests {
             .finish_extend()
             .property("property", |b| {
                 b.finish_extend_data_schema()
-                    .uri_variable("uriVariable", |b| b.finish_extend().array())
+                    .uri_variable("uriVariable", |b| b.finish_extend().vec())
                     .string()
             })
             .build()

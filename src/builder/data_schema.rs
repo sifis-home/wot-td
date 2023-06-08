@@ -44,9 +44,9 @@ use std::{cmp::Ordering, collections::HashMap, marker::PhantomData, num::NonZero
 use crate::{
     extend::{Extend, Extendable, ExtendableThing},
     thing::{
-        ArraySchema, DataSchema, DataSchemaSubtype, IntegerSchema, Maximum, Minimum, NumberSchema,
-        ObjectSchema, StringSchema, UncheckedArraySchema, UncheckedDataSchemaSubtype,
-        UncheckedObjectSchema,
+        ArraySchema, BoxedElemOrVec, DataSchema, DataSchemaSubtype, IntegerSchema, Maximum,
+        Minimum, NumberSchema, ObjectSchema, StringSchema, UncheckedArraySchema,
+        UncheckedDataSchemaSubtype, UncheckedObjectSchema,
     },
 };
 
@@ -459,8 +459,11 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// A generic stateless specialized data schema builder.
     type Stateless: BuildableDataSchema<DS, AS, OS, Extended>;
 
-    /// The _array_ specialization of the data schema builder.
-    type Array: BuildableDataSchema<DS, AS, OS, Extended>;
+    /// The _array_ specialization of the data schema builder, representing a tuple of items.
+    type Tuple: BuildableDataSchema<DS, AS, OS, Extended>;
+
+    /// The _array_ specialization of the data schema builder, representing an _homogeneous list_.
+    type Vec: BuildableDataSchema<DS, AS, OS, Extended>;
 
     /// The _number_ specialization of the data schema builder.
     type Number: BuildableDataSchema<DS, AS, OS, Extended>;
@@ -477,13 +480,13 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// The _constant_ specialization of the data schema builder.
     type Constant: BuildableDataSchema<DS, AS, OS, Extended>;
 
-    /// Specialize the builder into an _array_ data schema builder, initializing the array
-    /// extensions with default values.
+    /// Specialize the builder into an _array_ data schema builder representing a tuple,
+    /// initializing the array extensions with default values.
     ///
     /// Note that this function can only be called if `AS` implements [`Default`], use
-    /// [`array_ext`] otherwise.
+    /// [`tuple_ext`] otherwise.
     ///
-    /// [`array_ext`]: Self::array_ext
+    /// [`tuple_ext`]: Self::tuple_ext
     ///
     /// # Examples
     /// ```
@@ -517,7 +520,183 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// let thing = Thing::builder("Thing name")
     ///     .ext(ThingExtension {})
     ///     .finish_extend()
-    ///     .schema_definition("test", |b| b.ext(()).finish_extend().array())
+    ///     .schema_definition("test", |b| b.ext(()).finish_extend().tuple())
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "type": "array",
+    ///                 "items": [],
+    ///                 "array_field": 0,
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
+    ///
+    /// The following does not work instead:
+    ///
+    /// ```compile_fail
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema, extend::ExtendableThing, thing::Thing,
+    /// # };
+    /// #
+    /// # #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// # struct ThingExtension {}
+    /// #
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct NotDefaultableU32(u32);
+    ///
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct ArraySchemaExtension {
+    ///     array_field: NotDefaultableU32,
+    /// }
+    ///
+    /// # impl ExtendableThing for ThingExtension {
+    /// #     type ArraySchema = ArraySchemaExtension;
+    /// #     /* Other types set to `()` */
+    /// #     type Form = ();
+    /// #     type InteractionAffordance = ();
+    /// #     type PropertyAffordance = ();
+    /// #     type ActionAffordance = ();
+    /// #     type EventAffordance = ();
+    /// #     type ExpectedResponse = ();
+    /// #     type DataSchema = ();
+    /// #     type ObjectSchema = ();
+    /// # }
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| b.ext(()).finish_extend().tuple())
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    ///
+    /// In this case, the following is necessary:
+    ///
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema,
+    /// #     extend::{Extend, ExtendableThing},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// # #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// # struct ThingExtension {}
+    /// #
+    /// # #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// # struct NotDefaultableU32(u32);
+    /// #
+    /// # #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// # struct ArraySchemaExtension {
+    /// #     array_field: NotDefaultableU32,
+    /// # }
+    /// #
+    /// # impl ExtendableThing for ThingExtension {
+    /// #     type ArraySchema = ArraySchemaExtension;
+    /// #     /* Other types set to `()` */
+    /// #     type Form = ();
+    /// #     type InteractionAffordance = ();
+    /// #     type PropertyAffordance = ();
+    /// #     type ActionAffordance = ();
+    /// #     type EventAffordance = ();
+    /// #     type ExpectedResponse = ();
+    /// #     type DataSchema = ();
+    /// #     type ObjectSchema = ();
+    /// # }
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.ext(()).finish_extend().tuple_ext(|b| {
+    ///             b.ext(ArraySchemaExtension {
+    ///                 array_field: NotDefaultableU32(42),
+    ///             })
+    ///         })
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    /// #
+    /// # assert_eq!(
+    /// #     serde_json::to_value(thing).unwrap(),
+    /// #     json!({
+    /// #         "@context": "https://www.w3.org/2022/wot/td/v1.1",
+    /// #         "title": "Thing name",
+    /// #         "schemaDefinitions": {
+    /// #             "test": {
+    /// #                 "type": "array",
+    /// #                 "items": [],
+    /// #                 "array_field": 42,
+    /// #                 "readOnly": false,
+    /// #                 "writeOnly": false,
+    /// #             }
+    /// #         },
+    /// #         "security": [],
+    /// #         "securityDefinitions": {},
+    /// #     })
+    /// # );
+    /// ```
+    fn tuple(self) -> Self::Tuple
+    where
+        AS: Default;
+
+    /// Specialize the builder into an _array_ data schema builder to represent a _homogeneous
+    /// list_, initializing the array extensions with default values.
+    ///
+    /// Note that this function can only be called if `AS` implements [`Default`], use
+    /// [`vec_ext`] otherwise.
+    ///
+    /// [`vec_ext`]: Self::vec_ext
+    ///
+    /// # Examples
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema, extend::ExtendableThing, thing::Thing,
+    /// # };
+    /// #
+    /// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// struct ThingExtension {}
+    ///
+    /// #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+    /// struct ArraySchemaExtension {
+    ///     array_field: u32,
+    /// }
+    ///
+    /// impl ExtendableThing for ThingExtension {
+    ///     type ArraySchema = ArraySchemaExtension;
+    ///     /* Other types set to `()` */
+    /// #   type Form = ();
+    /// #   type InteractionAffordance = ();
+    /// #   type PropertyAffordance = ();
+    /// #   type ActionAffordance = ();
+    /// #   type EventAffordance = ();
+    /// #   type ExpectedResponse = ();
+    /// #   type DataSchema = ();
+    /// #   type ObjectSchema = ();
+    /// }
+    ///
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| b.ext(()).finish_extend().vec())
     ///     .build()
     ///     .unwrap();
     ///
@@ -576,7 +755,7 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// let thing = Thing::builder("Thing name")
     ///     .ext(ThingExtension {})
     ///     .finish_extend()
-    ///     .schema_definition("test", |b| b.ext(()).finish_extend().array())
+    ///     .schema_definition("test", |b| b.ext(()).finish_extend().vec())
     ///     .build()
     ///     .unwrap();
     /// ```
@@ -620,7 +799,7 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     ///     .ext(ThingExtension {})
     ///     .finish_extend()
     ///     .schema_definition("test", |b| {
-    ///         b.ext(()).finish_extend().array_ext(|b| {
+    ///         b.ext(()).finish_extend().vec_ext(|b| {
     ///             b.ext(ArraySchemaExtension {
     ///                 array_field: NotDefaultableU32(42),
     ///             })
@@ -647,12 +826,12 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     /// #     })
     /// # );
     /// ```
-    fn array(self) -> Self::Array
+    fn vec(self) -> Self::Vec
     where
         AS: Default;
 
-    /// Specialize the builder into an _array_ data schema builder, passing a function to
-    /// create the array extensions.
+    /// Specialize the builder into an _array_ data schema builder representing a tuple, passing a
+    /// function to create the array extensions.
     ///
     /// # Example
     ///
@@ -693,7 +872,82 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     ///     .ext(ThingExtension {})
     ///     .finish_extend()
     ///     .schema_definition("test", |b| {
-    ///         b.ext(()).finish_extend().array_ext(|b| {
+    ///         b.ext(()).finish_extend().tuple_ext(|b| {
+    ///             b.ext(ArraySchemaExtension {
+    ///                 array_field: NotDefaultableU32(42),
+    ///             })
+    ///         })
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "type": "array",
+    ///                 "items": [],
+    ///                 "array_field": 42,
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
+    fn tuple_ext<F>(self, f: F) -> Self::Tuple
+    where
+        F: FnOnce(AS::Empty) -> AS,
+        AS: Extendable;
+
+    /// Specialize the builder into an _array_ data schema builder representing a _homogeneous
+    /// list_, passing a function to create the array extensions.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde::{Deserialize, Serialize};
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::SpecializableDataSchema,
+    /// #     extend::{Extend, ExtendableThing},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+    /// struct ThingExtension {}
+    ///
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct NotDefaultableU32(u32);
+    ///
+    /// #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    /// struct ArraySchemaExtension {
+    ///     array_field: NotDefaultableU32,
+    /// }
+    ///
+    /// impl ExtendableThing for ThingExtension {
+    ///     type ArraySchema = ArraySchemaExtension;
+    /// #   /* Other types set to `()` */
+    /// #   type Form = ();
+    /// #   type InteractionAffordance = ();
+    /// #   type PropertyAffordance = ();
+    /// #   type ActionAffordance = ();
+    /// #   type EventAffordance = ();
+    /// #   type ExpectedResponse = ();
+    /// #   type DataSchema = ();
+    /// #   type ObjectSchema = ();
+    /// }
+    ///
+    /// let thing = Thing::builder("Thing name")
+    ///     .ext(ThingExtension {})
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.ext(()).finish_extend().vec_ext(|b| {
     ///             b.ext(ArraySchemaExtension {
     ///                 array_field: NotDefaultableU32(42),
     ///             })
@@ -720,7 +974,7 @@ pub trait SpecializableDataSchema<DS, AS, OS>: BuildableDataSchema<DS, AS, OS, E
     ///     })
     /// );
     /// ```
-    fn array_ext<F>(self, f: F) -> Self::Array
+    fn vec_ext<F>(self, f: F) -> Self::Vec
     where
         F: FnOnce(AS::Empty) -> AS,
         AS: Extendable;
@@ -1219,10 +1473,21 @@ pub trait ReadableWriteableDataSchema<DS, AS, OS, Extended>:
     fn write_only(self) -> Self::WriteOnly;
 }
 
-/// The builder for an [`ArraySchema`](crate::thing::ArraySchema) builder.
-pub struct ArrayDataSchemaBuilder<Inner, DS, AS, OS> {
+/// The builder for an [`ArraySchema`](crate::thing::ArraySchema) builder with a set of `items` to
+/// represent a tuple of elements.
+pub struct TupleDataSchemaBuilder<Inner, DS, AS, OS> {
     inner: Inner,
     items: Vec<UncheckedDataSchema<DS, AS, OS>>,
+
+    /// Array data schema extension.
+    pub other: AS,
+}
+
+/// The builder for an [`ArraySchema`](crate::thing::ArraySchema) builder with a single `item` to
+/// represent the underlying type of a _homogeneous list_.
+pub struct VecDataSchemaBuilder<Inner, DS, AS, OS> {
+    inner: Inner,
+    item: Option<UncheckedDataSchema<DS, AS, OS>>,
     min_items: Option<u32>,
     max_items: Option<u32>,
 
@@ -1321,18 +1586,19 @@ macro_rules! opt_field_into_decl {
     };
 }
 
-/// An interface for things behaving like an array data schema builder.
-pub trait ArrayDataSchemaBuilderLike<DS, AS, OS> {
+/// An interface for things behaving like an array data schema builder representing a _homogeneous
+/// list_.
+pub trait VecDataSchemaBuilderLike<DS, AS, OS> {
     opt_field_decl!(min_items: u32, max_items: u32);
 
-    /// Append an element to the array.
+    /// Sets the data schema of the underlying type.
     ///
     /// # Example
     ///
     /// ```
     /// # use serde_json::json;
     /// # use wot_td::{
-    /// #     builder::data_schema::{ArrayDataSchemaBuilderLike, SpecializableDataSchema},
+    /// #     builder::data_schema::{VecDataSchemaBuilderLike, SpecializableDataSchema},
     /// #     thing::Thing,
     /// # };
     /// #
@@ -1340,7 +1606,59 @@ pub trait ArrayDataSchemaBuilderLike<DS, AS, OS> {
     ///     .finish_extend()
     ///     .schema_definition("test", |b| {
     ///         b.finish_extend()
-    ///             .array()
+    ///             .vec()
+    ///             .set_item(|b| b.finish_extend().number())
+    ///     })
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(
+    ///     serde_json::to_value(thing).unwrap(),
+    ///     json!({
+    ///         "@context": "https://www.w3.org/2022/wot/td/v1.1",
+    ///         "title": "Thing name",
+    ///         "schemaDefinitions": {
+    ///             "test": {
+    ///                 "type": "array",
+    ///                 "items": {
+    ///                     "type": "number",
+    ///                     "readOnly": false,
+    ///                     "writeOnly": false,
+    ///                 },
+    ///                 "readOnly": false,
+    ///                 "writeOnly": false,
+    ///             }
+    ///         },
+    ///         "security": [],
+    ///         "securityDefinitions": {},
+    ///     })
+    /// );
+    /// ```
+    fn set_item<F, T>(self, f: F) -> Self
+    where
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
+        T: Into<UncheckedDataSchema<DS, AS, OS>>;
+}
+
+/// An interface for things behaving like an array data schema builder representing a tuple.
+pub trait TupleDataSchemaBuilderLike<DS, AS, OS> {
+    /// Append an element to the tuple of inner data schemas.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use serde_json::json;
+    /// # use wot_td::{
+    /// #     builder::data_schema::{TupleDataSchemaBuilderLike, SpecializableDataSchema},
+    /// #     thing::Thing,
+    /// # };
+    /// #
+    /// let thing = Thing::builder("Thing name")
+    ///     .finish_extend()
+    ///     .schema_definition("test", |b| {
+    ///         b.finish_extend()
+    ///             .tuple()
     ///             .append(|b| b.finish_extend().number())
     ///             .append(|b| b.finish_extend().null())
     ///     })
@@ -1504,13 +1822,11 @@ macro_rules! opt_field_into_builder {
     };
 }
 
-impl<Inner, DS, AS, OS> ArrayDataSchemaBuilderLike<DS, AS, OS>
-    for ArrayDataSchemaBuilder<Inner, DS, AS, OS>
+impl<Inner, DS, AS, OS> TupleDataSchemaBuilderLike<DS, AS, OS>
+    for TupleDataSchemaBuilder<Inner, DS, AS, OS>
 where
     Inner: BuildableDataSchema<DS, AS, OS, Extended>,
 {
-    opt_field_builder!(min_items: u32, max_items: u32);
-
     fn append<F, T>(mut self, f: F) -> Self
     where
         F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
@@ -1519,6 +1835,24 @@ where
     {
         self.items
             .push(f(DataSchemaBuilder::<DS, _, _, _>::empty()).into());
+        self
+    }
+}
+
+impl<Inner, DS, AS, OS> VecDataSchemaBuilderLike<DS, AS, OS>
+    for VecDataSchemaBuilder<Inner, DS, AS, OS>
+where
+    Inner: BuildableDataSchema<DS, AS, OS, Extended>,
+{
+    opt_field_builder!(min_items: u32, max_items: u32);
+
+    fn set_item<F, T>(mut self, f: F) -> Self
+    where
+        F: FnOnce(DataSchemaBuilder<<DS as Extendable>::Empty, AS, OS, ToExtend>) -> T,
+        DS: Extendable,
+        T: Into<UncheckedDataSchema<DS, AS, OS>>,
+    {
+        self.item = Some(f(DataSchemaBuilder::<DS, _, _, _>::empty()).into());
         self
     }
 }
@@ -1610,7 +1944,7 @@ impl<Inner: BuildableDataSchema<DS, AS, OS, Extended>, DS, AS, OS>
     );
 }
 
-macro_rules! impl_inner_delegate_schema_builder_like_array {
+macro_rules! impl_inner_delegate_schema_builder_like_vec {
     ($inner:ident) => {
         #[inline]
         fn min_items(mut self, value: u32) -> Self {
@@ -1624,6 +1958,28 @@ macro_rules! impl_inner_delegate_schema_builder_like_array {
             self
         }
 
+        #[inline]
+        fn set_item<F, T>(mut self, f: F) -> Self
+        where
+            F: FnOnce(
+                crate::builder::data_schema::DataSchemaBuilder<
+                    <DS as Extendable>::Empty,
+                    AS,
+                    OS,
+                    crate::builder::ToExtend,
+                >,
+            ) -> T,
+            DS: Extendable,
+            T: Into<crate::builder::data_schema::UncheckedDataSchema<DS, AS, OS>>,
+        {
+            self.$inner = self.$inner.set_item(f);
+            self
+        }
+    };
+}
+
+macro_rules! impl_inner_delegate_schema_builder_like_tuple {
+    ($inner:ident) => {
         #[inline]
         fn append<F, T>(mut self, f: F) -> Self
         where
@@ -1737,8 +2093,12 @@ macro_rules! impl_inner_delegate_schema_builder_like_object {
 macro_rules! impl_delegate_schema_builder_like {
     ($( $ty:ident <$( $generic:ident ),+> on $inner:ident ),+ $(,)?) => {
         $(
-            impl<DS, AS, OS, $($generic: crate::builder::data_schema::ArrayDataSchemaBuilderLike<DS, AS, OS>),+ > crate::builder::data_schema::ArrayDataSchemaBuilderLike<DS, AS, OS> for $ty< $($generic),+ > {
-                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_array!($inner);
+            impl<DS, AS, OS, $($generic: crate::builder::data_schema::VecDataSchemaBuilderLike<DS, AS, OS>),+ > crate::builder::data_schema::VecDataSchemaBuilderLike<DS, AS, OS> for $ty< $($generic),+ > {
+                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_vec!($inner);
+            }
+
+            impl<DS, AS, OS, $($generic: crate::builder::data_schema::TupleDataSchemaBuilderLike<DS, AS, OS>),+ > crate::builder::data_schema::TupleDataSchemaBuilderLike<DS, AS, OS> for $ty< $($generic),+ > {
+                crate::builder::data_schema::impl_inner_delegate_schema_builder_like_tuple!($inner);
             }
 
             impl<DS, AS, OS, $($generic: crate::builder::data_schema::NumberDataSchemaBuilderLike<DS, AS, OS>),+ > crate::builder::data_schema::NumberDataSchemaBuilderLike<DS, AS, OS> for $ty< $($generic),+ > {
@@ -1756,10 +2116,11 @@ macro_rules! impl_delegate_schema_builder_like {
     };
 }
 pub(super) use impl_delegate_schema_builder_like;
-pub(super) use impl_inner_delegate_schema_builder_like_array;
 pub(super) use impl_inner_delegate_schema_builder_like_integer;
 pub(super) use impl_inner_delegate_schema_builder_like_number;
 pub(super) use impl_inner_delegate_schema_builder_like_object;
+pub(super) use impl_inner_delegate_schema_builder_like_tuple;
+pub(super) use impl_inner_delegate_schema_builder_like_vec;
 
 impl_delegate_schema_builder_like!(ReadOnly<Inner> on inner, WriteOnly<Innner> on inner);
 
@@ -1835,7 +2196,8 @@ macro_rules! impl_delegate_buildable_data_schema {
 }
 
 impl_delegate_buildable_data_schema!(
-    ArrayDataSchemaBuilder<DS, AS, OS, Inner>,
+    TupleDataSchemaBuilder<DS, AS, OS, Inner>,
+    VecDataSchemaBuilder<DS, AS, OS, Inner>,
     NumberDataSchemaBuilder<Inner>,
     IntegerDataSchemaBuilder<Inner>,
     ObjectDataSchemaBuilder<DS, AS, OS, Inner>,
@@ -1897,7 +2259,8 @@ impl<DS, AS, OS, Status> BuildableDataSchema<DS, AS, OS, Status>
 }
 
 impl_delegate_buildable_hr_info!(
-    ArrayDataSchemaBuilder<Inner: BuildableHumanReadableInfo, DS, AS, OS> on inner,
+    TupleDataSchemaBuilder<Inner: BuildableHumanReadableInfo, DS, AS, OS> on inner,
+    VecDataSchemaBuilder<Inner: BuildableHumanReadableInfo, DS, AS, OS> on inner,
     NumberDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     IntegerDataSchemaBuilder<Inner: BuildableHumanReadableInfo> on inner,
     ObjectDataSchemaBuilder<Inner: BuildableHumanReadableInfo, DS, AS, OS> on inner,
@@ -1914,36 +2277,62 @@ macro_rules! impl_specializable_data_schema {
         $(
             impl<DS, AS, OS> SpecializableDataSchema<DS, AS, OS> for $ty {
                 type Stateless = StatelessDataSchemaBuilder<Self>;
-                type Array = ArrayDataSchemaBuilder<Self, DS, AS, OS>;
+                type Tuple = TupleDataSchemaBuilder<Self, DS, AS, OS>;
+                type Vec = VecDataSchemaBuilder<Self, DS, AS, OS>;
                 type Number = NumberDataSchemaBuilder<Self>;
                 type Integer = IntegerDataSchemaBuilder<Self>;
                 type Object = ObjectDataSchemaBuilder<Self, DS, AS, OS>;
                 type String = StringDataSchemaBuilder<Self>;
                 type Constant = ReadOnly<StatelessDataSchemaBuilder<Self>>;
 
-                fn array(self) -> Self::Array
+                fn tuple(self) -> Self::Tuple
                 where
                     AS: Default
                 {
-                    ArrayDataSchemaBuilder {
+                    TupleDataSchemaBuilder {
                         inner: self,
                         items: Default::default(),
-                        min_items: Default::default(),
-                        max_items: Default::default(),
                         other: Default::default(),
                     }
                 }
 
-                fn array_ext<F>(self, f: F) -> Self::Array
+                fn tuple_ext<F>(self, f: F) -> Self::Tuple
                 where
                     F: FnOnce(AS::Empty) -> AS,
                     AS: Extendable,
                 {
                     let other = f(AS::empty());
 
-                    ArrayDataSchemaBuilder {
+                    TupleDataSchemaBuilder {
                         inner: self,
                         items: Default::default(),
+                        other,
+                    }
+                }
+
+                fn vec(self) -> Self::Vec
+                where
+                    AS: Default
+                {
+                    VecDataSchemaBuilder {
+                        inner: self,
+                        item: Default::default(),
+                        min_items: Default::default(),
+                        max_items: Default::default(),
+                        other: Default::default(),
+                    }
+                }
+
+                fn vec_ext<F>(self, f: F) -> Self::Vec
+                where
+                    F: FnOnce(AS::Empty) -> AS,
+                    AS: Extendable,
+                {
+                    let other = f(AS::empty());
+
+                    VecDataSchemaBuilder {
+                        inner: self,
+                        item: Default::default(),
                         min_items: Default::default(),
                         max_items: Default::default(),
                         other,
@@ -2234,8 +2623,10 @@ macro_rules! impl_rw_data_schema {
 impl_rw_data_schema!(
     StatelessDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>>; inner.partial,
     StatelessDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>>; inner,
-    ArrayDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS>; inner.partial,
-    ArrayDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS>; inner,
+    TupleDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS>; inner.partial,
+    TupleDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS>; inner,
+    VecDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS>; inner.partial,
+    VecDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>, DS, AS, OS>; inner,
     NumberDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>>; inner.partial,
     NumberDataSchemaBuilder<PartialDataSchemaBuilder<DS, AS, OS, Extended>>; inner,
     IntegerDataSchemaBuilder<DataSchemaBuilder<DS, AS, OS, Extended>>; inner.partial,
@@ -2403,14 +2794,76 @@ where
     }
 }
 
-impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for UncheckedDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> From<TupleDataSchemaBuilder<T, DS, AS, OS>> for UncheckedDataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
-    fn from(builder: ArrayDataSchemaBuilder<T, DS, AS, OS>) -> Self {
-        let ArrayDataSchemaBuilder {
+    fn from(builder: TupleDataSchemaBuilder<T, DS, AS, OS>) -> Self {
+        let TupleDataSchemaBuilder {
             inner,
             items,
+            other: other_array_schema,
+        } = builder;
+        let DataSchemaBuilder {
+            partial:
+                PartialDataSchemaBuilder {
+                    constant: _,
+                    default,
+                    unit,
+                    one_of: _,
+                    enumeration: _,
+                    read_only,
+                    write_only,
+                    format,
+                    other: other_data_schema,
+                    _marker: _,
+                },
+            info:
+                HumanReadableInfo {
+                    attype,
+                    title,
+                    titles,
+                    description,
+                    descriptions,
+                },
+        } = inner.into();
+
+        let items = Some(BoxedElemOrVec::Vec(items));
+        let subtype = Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
+            items,
+            min_items: None,
+            max_items: None,
+            other: other_array_schema,
+        }));
+
+        UncheckedDataSchema {
+            attype,
+            title,
+            titles,
+            description,
+            descriptions,
+            constant: None,
+            default,
+            unit,
+            one_of: None,
+            enumeration: None,
+            read_only,
+            write_only,
+            format,
+            subtype,
+            other: other_data_schema,
+        }
+    }
+}
+
+impl<T, DS, AS, OS> From<VecDataSchemaBuilder<T, DS, AS, OS>> for UncheckedDataSchema<DS, AS, OS>
+where
+    T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    fn from(builder: VecDataSchemaBuilder<T, DS, AS, OS>) -> Self {
+        let VecDataSchemaBuilder {
+            inner,
+            item,
             min_items,
             max_items,
             other: other_array_schema,
@@ -2439,7 +2892,7 @@ where
                 },
         } = inner.into();
 
-        let items = items.is_empty().not().then_some(items);
+        let items = item.map(|item| BoxedElemOrVec::Elem(Box::new(item)));
         let subtype = Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
             items,
             min_items,
@@ -2467,26 +2920,84 @@ where
     }
 }
 
-impl<T, DS, AS, OS> TryFrom<ArrayDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> TryFrom<TupleDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
 where
     T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
 {
     type Error = Error;
 
-    fn try_from(value: ArrayDataSchemaBuilder<T, DS, AS, OS>) -> Result<Self, Self::Error> {
+    fn try_from(value: TupleDataSchemaBuilder<T, DS, AS, OS>) -> Result<Self, Self::Error> {
         let data_schema: UncheckedDataSchema<_, _, _> = value.into();
         data_schema.try_into()
     }
 }
 
-impl<T, DS, AS, OS> From<ArrayDataSchemaBuilder<T, DS, AS, OS>> for PartialDataSchema<DS, AS, OS>
+impl<T, DS, AS, OS> TryFrom<VecDataSchemaBuilder<T, DS, AS, OS>> for DataSchema<DS, AS, OS>
+where
+    T: Into<DataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    type Error = Error;
+
+    fn try_from(value: VecDataSchemaBuilder<T, DS, AS, OS>) -> Result<Self, Self::Error> {
+        let data_schema: UncheckedDataSchema<_, _, _> = value.into();
+        data_schema.try_into()
+    }
+}
+
+impl<T, DS, AS, OS> From<TupleDataSchemaBuilder<T, DS, AS, OS>> for PartialDataSchema<DS, AS, OS>
 where
     T: Into<PartialDataSchemaBuilder<DS, AS, OS, Extended>>,
 {
-    fn from(builder: ArrayDataSchemaBuilder<T, DS, AS, OS>) -> Self {
-        let ArrayDataSchemaBuilder {
+    fn from(builder: TupleDataSchemaBuilder<T, DS, AS, OS>) -> Self {
+        let TupleDataSchemaBuilder {
             inner,
             items,
+            other: other_array_schema,
+        } = builder;
+        let PartialDataSchemaBuilder {
+            constant: _,
+            default,
+            unit,
+            one_of: _,
+            enumeration: _,
+            read_only,
+            write_only,
+            format,
+            other: other_data_schema,
+            _marker: _,
+        } = inner.into();
+
+        let items = Some(BoxedElemOrVec::Vec(items));
+        let subtype = Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
+            items,
+            min_items: None,
+            max_items: None,
+            other: other_array_schema,
+        }));
+
+        PartialDataSchema {
+            constant: None,
+            default,
+            unit,
+            one_of: None,
+            enumeration: None,
+            read_only,
+            write_only,
+            format,
+            subtype,
+            other: other_data_schema,
+        }
+    }
+}
+
+impl<T, DS, AS, OS> From<VecDataSchemaBuilder<T, DS, AS, OS>> for PartialDataSchema<DS, AS, OS>
+where
+    T: Into<PartialDataSchemaBuilder<DS, AS, OS, Extended>>,
+{
+    fn from(builder: VecDataSchemaBuilder<T, DS, AS, OS>) -> Self {
+        let VecDataSchemaBuilder {
+            inner,
+            item,
             min_items,
             max_items,
             other: other_array_schema,
@@ -2504,7 +3015,7 @@ where
             _marker: _,
         } = inner.into();
 
-        let items = items.is_empty().not().then_some(items);
+        let items = item.map(|item| BoxedElemOrVec::Elem(Box::new(item)));
         let subtype = Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
             items,
             min_items,
@@ -3327,8 +3838,11 @@ pub(super) fn check_data_schema_subtype<DS, AS, OS>(
                         _ => {}
                     };
 
-                    if let Some(items) = array.items.as_deref() {
-                        stack.extend(items.iter());
+                    if let Some(items) = &array.items {
+                        match items {
+                            BoxedElemOrVec::Elem(item) => stack.push(item.as_ref()),
+                            BoxedElemOrVec::Vec(items) => stack.extend(items.iter()),
+                        }
                     }
                 }
                 Number(number) => {
@@ -3489,7 +4003,16 @@ impl<DS, AS, OS> TryFrom<UncheckedArraySchema<DS, AS, OS>> for ArraySchema<DS, A
             other,
         } = value;
         let items = items
-            .map(|items| items.into_iter().map(TryInto::try_into).collect())
+            .map(|items| match items {
+                BoxedElemOrVec::Elem(item) => (*item)
+                    .try_into()
+                    .map(|item| BoxedElemOrVec::Elem(Box::new(item))),
+                BoxedElemOrVec::Vec(items) => items
+                    .into_iter()
+                    .map(TryInto::try_into)
+                    .collect::<Result<_, _>>()
+                    .map(BoxedElemOrVec::Vec),
+            })
             .transpose()?;
 
         Ok(Self {
@@ -3535,7 +4058,7 @@ mod tests {
     use crate::{
         extend::ExtendableThing,
         hlist::{Cons, Nil},
-        thing::{ArraySchema, DataSchemaFromOther, ObjectSchema},
+        thing::{ArraySchema, BoxedElemOrVec, DataSchemaFromOther, ObjectSchema},
     };
 
     use super::*;
@@ -3694,9 +4217,9 @@ mod tests {
     }
 
     #[test]
-    fn empty_simple_array() {
+    fn empty_simple_vec() {
         let data_schema: DataSchemaFromOther<Nil> =
-            DataSchemaBuilder::default().array().try_into().unwrap();
+            DataSchemaBuilder::default().vec().try_into().unwrap();
         assert_eq!(
             data_schema,
             DataSchema {
@@ -3725,9 +4248,9 @@ mod tests {
     }
 
     #[test]
-    fn empty_partial_array() {
+    fn empty_partial_vec() {
         let data_schema: PartialDataSchema<Nil, Nil, Nil> =
-            PartialDataSchemaBuilder::default().array().into();
+            PartialDataSchemaBuilder::default().vec().into();
         assert_eq!(
             data_schema,
             PartialDataSchema {
@@ -3741,6 +4264,63 @@ mod tests {
                 format: None,
                 subtype: Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
                     items: None,
+                    min_items: None,
+                    max_items: None,
+                    other: Nil,
+                })),
+                other: Nil,
+            }
+        );
+    }
+
+    #[test]
+    fn empty_simple_tuple() {
+        let data_schema: DataSchemaFromOther<Nil> =
+            DataSchemaBuilder::default().tuple().try_into().unwrap();
+        assert_eq!(
+            data_schema,
+            DataSchema {
+                attype: None,
+                title: None,
+                titles: None,
+                description: None,
+                descriptions: None,
+                constant: None,
+                default: None,
+                unit: None,
+                one_of: None,
+                enumeration: None,
+                read_only: false,
+                write_only: false,
+                format: None,
+                subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                    items: Some(BoxedElemOrVec::Vec(vec![])),
+                    min_items: None,
+                    max_items: None,
+                    other: Nil,
+                })),
+                other: Nil,
+            }
+        );
+    }
+
+    #[test]
+    fn empty_partial_tuple() {
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> =
+            PartialDataSchemaBuilder::default().tuple().into();
+        assert_eq!(
+            data_schema,
+            PartialDataSchema {
+                constant: None,
+                default: None,
+                unit: None,
+                one_of: None,
+                enumeration: None,
+                read_only: false,
+                write_only: false,
+                format: None,
+                subtype: Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
+                    items: Some(BoxedElemOrVec::Vec(vec![])),
                     min_items: None,
                     max_items: None,
                     other: Nil,
@@ -4354,11 +4934,9 @@ mod tests {
     }
 
     #[test]
-    fn array_with_content() {
+    fn tuple_with_content() {
         let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
-            .array()
-            .min_items(0)
-            .max_items(5)
+            .tuple()
             .append(|b| b.finish_extend().constant("hello"))
             .append(|b| b.finish_extend().bool())
             .try_into()
@@ -4380,7 +4958,7 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(DataSchemaSubtype::Array(ArraySchema {
-                    items: Some(vec![
+                    items: Some(BoxedElemOrVec::Vec(vec![
                         DataSchema {
                             attype: None,
                             title: None,
@@ -4415,7 +4993,59 @@ mod tests {
                             subtype: Some(DataSchemaSubtype::Boolean),
                             other: Nil,
                         },
-                    ]),
+                    ])),
+                    min_items: None,
+                    max_items: None,
+                    other: Nil,
+                })),
+                other: Nil,
+            }
+        );
+    }
+
+    #[test]
+    fn vec_with_content() {
+        let data_schema: DataSchemaFromOther<Nil> = DataSchemaBuilder::default()
+            .vec()
+            .min_items(0)
+            .max_items(5)
+            .set_item(|b| b.finish_extend().constant("hello"))
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            data_schema,
+            DataSchema {
+                attype: None,
+                title: None,
+                titles: None,
+                description: None,
+                descriptions: None,
+                constant: None,
+                default: None,
+                unit: None,
+                one_of: None,
+                enumeration: None,
+                read_only: false,
+                write_only: false,
+                format: None,
+                subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                    items: Some(BoxedElemOrVec::Elem(Box::new(DataSchema {
+                        attype: None,
+                        title: None,
+                        titles: None,
+                        description: None,
+                        descriptions: None,
+                        constant: Some("hello".into()),
+                        default: None,
+                        unit: None,
+                        one_of: None,
+                        enumeration: None,
+                        read_only: true,
+                        write_only: false,
+                        format: None,
+                        subtype: None,
+                        other: Nil,
+                    },))),
                     min_items: Some(0),
                     max_items: Some(5),
                     other: Nil,
@@ -4426,11 +5056,9 @@ mod tests {
     }
 
     #[test]
-    fn array_partial_with_content() {
+    fn tuple_partial_with_content() {
         let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
-            .array()
-            .min_items(0)
-            .max_items(5)
+            .tuple()
             .append(|b| b.finish_extend().constant("hello"))
             .append(|b| b.finish_extend().bool())
             .try_into()
@@ -4447,7 +5075,7 @@ mod tests {
                 write_only: false,
                 format: None,
                 subtype: Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
-                    items: Some(vec![
+                    items: Some(BoxedElemOrVec::Vec(vec![
                         UncheckedDataSchema {
                             attype: None,
                             title: None,
@@ -4482,7 +5110,54 @@ mod tests {
                             subtype: Some(UncheckedDataSchemaSubtype::Boolean),
                             other: Nil,
                         },
-                    ]),
+                    ])),
+                    min_items: None,
+                    max_items: None,
+                    other: Nil,
+                })),
+                other: Nil,
+            }
+        );
+    }
+
+    #[test]
+    fn vec_partial_with_content() {
+        let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
+            .vec()
+            .min_items(0)
+            .max_items(5)
+            .set_item(|b| b.finish_extend().constant("hello"))
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            data_schema,
+            PartialDataSchema {
+                constant: None,
+                default: None,
+                unit: None,
+                one_of: None,
+                enumeration: None,
+                read_only: false,
+                write_only: false,
+                format: None,
+                subtype: Some(UncheckedDataSchemaSubtype::Array(UncheckedArraySchema {
+                    items: Some(BoxedElemOrVec::Elem(Box::new(UncheckedDataSchema {
+                        attype: None,
+                        title: None,
+                        titles: None,
+                        description: None,
+                        descriptions: None,
+                        constant: Some("hello".into()),
+                        default: None,
+                        unit: None,
+                        one_of: None,
+                        enumeration: None,
+                        read_only: true,
+                        write_only: false,
+                        format: None,
+                        subtype: None,
+                        other: Nil,
+                    },))),
                     min_items: Some(0),
                     max_items: Some(5),
                     other: Nil,
@@ -5033,17 +5708,20 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| {
+                    .set_item(|b| {
                         b.finish_extend()
-                            .number()
-                            .minimum(0.)
-                            .maximum(5.)
-                            .multiple_of(2.)
+                            .one_of(|b| {
+                                b.finish_extend()
+                                    .number()
+                                    .minimum(0.)
+                                    .maximum(5.)
+                                    .multiple_of(2.)
+                            })
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
                     })
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| {
                 b.finish_extend()
@@ -5067,11 +5745,14 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(5)
                     .max_items(2)
-                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    .set_item(|b| {
+                        b.finish_extend()
+                            .one_of(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    })
             })
             .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
@@ -5086,11 +5767,14 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.finish_extend().number().minimum(5.).maximum(0.))
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    .set_item(|b| {
+                        b.finish_extend()
+                            .one_of(|b| b.finish_extend().number().minimum(5.).maximum(0.))
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    })
             })
             .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
@@ -5105,11 +5789,14 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
-                    .append(|b| b.finish_extend().integer().minimum(10).maximum(5))
+                    .set_item(|b| {
+                        b.finish_extend()
+                            .one_of(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                            .one_of(|b| b.finish_extend().integer().minimum(10).maximum(5))
+                    })
             })
             .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
@@ -5124,11 +5811,14 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    .set_item(|b| {
+                        b.finish_extend()
+                            .one_of(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    })
             })
             .one_of(|b| b.finish_extend().number().minimum(42.).maximum(20.))
             .one_of(|b| {
@@ -5143,11 +5833,14 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    .set_item(|b| {
+                        b.finish_extend()
+                            .one_of(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    })
             })
             .one_of(|b| b.finish_extend().number().minimum(20.).maximum(f64::NAN))
             .one_of(|b| {
@@ -5162,11 +5855,14 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    .set_item(|b| {
+                        b.finish_extend()
+                            .one_of(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    })
             })
             .one_of(|b| b.finish_extend().number().minimum(f64::NAN).maximum(42.))
             .one_of(|b| {
@@ -5181,11 +5877,14 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    .set_item(|b| {
+                        b.finish_extend()
+                            .one_of(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    })
             })
             .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
@@ -5200,11 +5899,14 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    .set_item(|b| {
+                        b.finish_extend()
+                            .one_of(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    })
             })
             .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
@@ -5224,11 +5926,14 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| b.finish_extend().number().minimum(0.).maximum(5.))
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    .set_item(|b| {
+                        b.finish_extend()
+                            .one_of(|b| b.finish_extend().number().minimum(0.).maximum(5.))
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
+                    })
             })
             .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
@@ -5247,14 +5952,17 @@ mod tests {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| {
+                    .set_item(|b| {
                         b.finish_extend()
-                            .one_of(|b| b.finish_extend().number().minimum(5.).maximum(0.))
+                            .one_of(|b| {
+                                b.finish_extend()
+                                    .one_of(|b| b.finish_extend().number().minimum(5.).maximum(0.))
+                            })
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
                     })
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| b.finish_extend().number().minimum(20.).maximum(42.))
             .one_of(|b| {
@@ -5305,15 +6013,15 @@ mod tests {
     #[test]
     fn check_invalid_data_schema_multiple_of() {
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
-            .array()
-            .append(|b| b.finish_extend().number().multiple_of(0.))
+            .vec()
+            .set_item(|b| b.finish_extend().number().multiple_of(0.))
             .into();
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMultipleOf);
 
         let data_schema: UncheckedDataSchemaFromOther<Nil> = DataSchemaBuilder::default()
-            .array()
-            .append(|b| b.finish_extend().number().multiple_of(-2.))
+            .vec()
+            .set_item(|b| b.finish_extend().number().multiple_of(-2.))
             .into();
 
         assert_eq!(data_schema.check().unwrap_err(), Error::InvalidMultipleOf);
@@ -5324,17 +6032,20 @@ mod tests {
         let data_schema: PartialDataSchema<Nil, Nil, Nil> = PartialDataSchemaBuilder::default()
             .one_of(|b| {
                 b.finish_extend()
-                    .array()
+                    .vec()
                     .min_items(2)
                     .max_items(5)
-                    .append(|b| {
+                    .set_item(|b| {
                         b.finish_extend()
-                            .number()
-                            .minimum(0.)
-                            .maximum(5.)
-                            .multiple_of(2.)
+                            .one_of(|b| {
+                                b.finish_extend()
+                                    .number()
+                                    .minimum(0.)
+                                    .maximum(5.)
+                                    .multiple_of(2.)
+                            })
+                            .one_of(|b| b.finish_extend().integer().minimum(5).maximum(10))
                     })
-                    .append(|b| b.finish_extend().integer().minimum(5).maximum(10))
             })
             .one_of(|b| {
                 b.finish_extend()
@@ -5457,7 +6168,7 @@ mod tests {
     }
 
     #[test]
-    fn extend_data_schema_with_array() {
+    fn extend_data_schema_with_vec() {
         let data_schema: DataSchemaFromOther<Cons<ThingExtB, Cons<ThingExtA, Nil>>> =
             DataSchemaBuilder::<
                 Cons<ThingExtB, Cons<ThingExtA, Nil>>,
@@ -5471,7 +6182,7 @@ mod tests {
             })
             .finish_extend()
             .title("title")
-            .array_ext(|b| {
+            .vec_ext(|b| {
                 b.ext(ArraySchemaExtA { b: A(2) })
                     .ext_with(|| ArraySchemaExtB {
                         e: B("world".to_string()),
@@ -5506,6 +6217,61 @@ mod tests {
                     }),
                     max_items: Some(10),
                     items: Default::default(),
+                    min_items: Default::default(),
+                })),
+            }
+        );
+    }
+
+    #[test]
+    fn extend_data_schema_with_tuple() {
+        let data_schema: DataSchemaFromOther<Cons<ThingExtB, Cons<ThingExtA, Nil>>> =
+            DataSchemaBuilder::<
+                Cons<ThingExtB, Cons<ThingExtA, Nil>>,
+                Cons<ArraySchemaExtB, Cons<ArraySchemaExtA, Nil>>,
+                _,
+                _,
+            >::empty()
+            .ext(DataSchemaExtA { a: A(1) })
+            .ext_with(|| DataSchemaExtB {
+                d: B("hello".to_string()),
+            })
+            .finish_extend()
+            .title("title")
+            .tuple_ext(|b| {
+                b.ext(ArraySchemaExtA { b: A(2) })
+                    .ext_with(|| ArraySchemaExtB {
+                        e: B("world".to_string()),
+                    })
+            })
+            .try_into()
+            .unwrap();
+
+        assert_eq!(
+            data_schema,
+            DataSchema {
+                title: Some("title".to_string()),
+                other: Nil::cons(DataSchemaExtA { a: A(1) }).cons(DataSchemaExtB {
+                    d: B("hello".to_string())
+                }),
+                attype: Default::default(),
+                titles: Default::default(),
+                description: Default::default(),
+                descriptions: Default::default(),
+                constant: Default::default(),
+                default: Default::default(),
+                unit: Default::default(),
+                one_of: Default::default(),
+                enumeration: Default::default(),
+                read_only: Default::default(),
+                write_only: Default::default(),
+                format: Default::default(),
+                subtype: Some(DataSchemaSubtype::Array(ArraySchema {
+                    other: Nil::cons(ArraySchemaExtA { b: A(2) }).cons(ArraySchemaExtB {
+                        e: B("world".to_string())
+                    }),
+                    items: Some(BoxedElemOrVec::Vec(Vec::new())),
+                    max_items: Default::default(),
                     min_items: Default::default(),
                 })),
             }
@@ -5600,9 +6366,9 @@ mod tests {
     }
 
     #[test]
-    fn valid_unchecked_array_data_schema() {
+    fn valid_unchecked_tuple_data_schema() {
         let data_schema = UncheckedArraySchema::<Nil, Nil, Nil> {
-            items: Some(vec![
+            items: Some(BoxedElemOrVec::Vec(vec![
                 UncheckedDataSchema {
                     titles: Some({
                         let mut multilang = MultiLanguageBuilder::default();
@@ -5633,15 +6399,14 @@ mod tests {
                     }),
                     ..Default::default()
                 },
-            ]),
-            min_items: Some(1),
+            ])),
             ..Default::default()
         };
 
         assert_eq!(
             ArraySchema::try_from(data_schema).unwrap(),
             ArraySchema {
-                items: Some(vec![
+                items: Some(BoxedElemOrVec::Vec(vec![
                     DataSchema {
                         titles: Some(
                             [
@@ -5680,17 +6445,16 @@ mod tests {
                         ),
                         ..Default::default()
                     },
-                ]),
-                min_items: Some(1),
+                ])),
                 ..Default::default()
             }
         );
     }
 
     #[test]
-    fn invalid_unchecked_array_data_schema() {
+    fn invalid_unchecked_tuple_data_schema() {
         let data_schema = UncheckedArraySchema::<Nil, Nil, Nil> {
-            items: Some(vec![
+            items: Some(BoxedElemOrVec::Vec(vec![
                 UncheckedDataSchema {
                     titles: Some({
                         let mut multilang = MultiLanguageBuilder::default();
@@ -5721,7 +6485,84 @@ mod tests {
                     }),
                     ..Default::default()
                 },
-            ]),
+            ])),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            ArraySchema::try_from(data_schema).unwrap_err(),
+            Error::InvalidLanguageTag("e1n".to_string()),
+        );
+    }
+
+    #[test]
+    fn valid_unchecked_vec_data_schema() {
+        let data_schema = UncheckedArraySchema::<Nil, Nil, Nil> {
+            items: Some(BoxedElemOrVec::Elem(Box::new(UncheckedDataSchema {
+                titles: Some({
+                    let mut multilang = MultiLanguageBuilder::default();
+                    multilang.add("it", "title1").add("en", "title2");
+                    multilang
+                }),
+                descriptions: Some({
+                    let mut multilang = MultiLanguageBuilder::default();
+                    multilang
+                        .add("it", "description1")
+                        .add("en", "description2");
+                    multilang
+                }),
+                ..Default::default()
+            }))),
+            min_items: Some(1),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            ArraySchema::try_from(data_schema).unwrap(),
+            ArraySchema {
+                items: Some(BoxedElemOrVec::Elem(Box::new(DataSchema {
+                    titles: Some(
+                        [
+                            ("it".parse().unwrap(), "title1".to_string()),
+                            ("en".parse().unwrap(), "title2".to_string())
+                        ]
+                        .into_iter()
+                        .collect()
+                    ),
+                    descriptions: Some(
+                        [
+                            ("it".parse().unwrap(), "description1".to_string()),
+                            ("en".parse().unwrap(), "description2".to_string())
+                        ]
+                        .into_iter()
+                        .collect()
+                    ),
+                    ..Default::default()
+                },))),
+                min_items: Some(1),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn invalid_unchecked_vec_data_schema() {
+        let data_schema = UncheckedArraySchema::<Nil, Nil, Nil> {
+            items: Some(BoxedElemOrVec::Elem(Box::new(UncheckedDataSchema {
+                titles: Some({
+                    let mut multilang = MultiLanguageBuilder::default();
+                    multilang.add("it", "title1").add("en", "title2");
+                    multilang
+                }),
+                descriptions: Some({
+                    let mut multilang = MultiLanguageBuilder::default();
+                    multilang
+                        .add("it", "description1")
+                        .add("e1n", "description2");
+                    multilang
+                }),
+                ..Default::default()
+            }))),
             min_items: Some(1),
             ..Default::default()
         };

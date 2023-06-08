@@ -785,9 +785,18 @@ impl<DS, AS, OS> Default for DataSchemaSubtype<DS, AS, OS> {
 ))]
 pub struct ArraySchema<DS, AS, OS> {
     /// The characteristics of the JSON array.
-    #[serde(default)]
-    #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub items: Option<Vec<DataSchema<DS, AS, OS>>>,
+    ///
+    /// An item has a different semantic than a `Vec` of one item:
+    ///
+    /// - a _single_ item `T` represents an array of element where every element must follow the
+    /// schema defined by `T`;
+    /// - a `Vec` of one element `T` represent a tuple of one single element, which must follow the
+    /// schema defined by `T`.
+    ///
+    /// In general, using a `Vec` of data schemas expresses a tuple of elements with a 1:1
+    /// correspondence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub items: Option<BoxedElemOrVec<DataSchema<DS, AS, OS>>>,
 
     /// The minimum number of items that have to be in the JSON array.
     pub min_items: Option<u32>,
@@ -800,9 +809,16 @@ pub struct ArraySchema<DS, AS, OS> {
     pub other: AS,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum BoxedElemOrVec<T> {
+    Elem(Box<T>),
+    Vec(Vec<T>),
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct UncheckedArraySchema<DS, AS, OS> {
-    pub(crate) items: Option<Vec<UncheckedDataSchema<DS, AS, OS>>>,
+    pub(crate) items: Option<BoxedElemOrVec<UncheckedDataSchema<DS, AS, OS>>>,
     pub(crate) min_items: Option<u32>,
     pub(crate) max_items: Option<u32>,
     pub(crate) other: AS,
