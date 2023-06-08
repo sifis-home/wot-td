@@ -49,7 +49,6 @@ pub const TD_CONTEXT_11: &str = "https://www.w3.org/2022/wot/td/v1.1";
 ///
 /// It contains metadata and a description of its interfaces.
 #[serde_as]
-#[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Thing<Other: ExtendableThing = Nil> {
@@ -61,27 +60,33 @@ pub struct Thing<Other: ExtendableThing = Nil> {
     pub context: Value,
 
     /// A unique identifier
-    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub id: String,
 
     /// JSON-LD semantic keywords
     #[serde(rename = "@type", default)]
-    #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub attype: Option<Vec<String>>,
+    #[serde_as(as = "OneOrMany<_>")]
+    pub attype: Vec<String>,
 
     /// Human-readable title to be displayed
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub title: String,
 
     /// Multi-language translations of the title
-    pub titles: Option<MultiLanguage>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub titles: MultiLanguage,
 
     /// Human-readable additional information
-    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
 
     /// Multi-language translations of the description
-    pub descriptions: Option<MultiLanguage>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub descriptions: MultiLanguage,
 
     /// Version information
-    pub version: Option<VersionInfo>,
+    #[serde(default, skip_serializing_if = "VersionInfo::is_empty")]
+    pub version: VersionInfo,
 
     /// Time of creation of this description
     ///
@@ -99,36 +104,44 @@ pub struct Thing<Other: ExtendableThing = Nil> {
     ///
     /// To be used to ask for support.
     // FIXME: use AnyURI
-    pub support: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub support: String,
 
     /// Base URI to be used to resolve all the other relative URIs
     ///
     /// NOTE: the JSON-LD @context is excluded.
     // FIXME: use AnyURI
-    pub base: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub base: String,
 
     /// Property-based [Interaction Affordances]
-    pub properties: Option<HashMap<String, PropertyAffordance<Other>>>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub properties: HashMap<String, PropertyAffordance<Other>>,
 
     /// Action-based [Interaction Affordances]
-    pub actions: Option<HashMap<String, ActionAffordance<Other>>>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub actions: HashMap<String, ActionAffordance<Other>>,
 
     /// Event-based [Interaction Affordances]
-    pub events: Option<HashMap<String, EventAffordance<Other>>>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub events: HashMap<String, EventAffordance<Other>>,
 
     /// Arbitrary resources that relate to the current Thing
     ///
     /// Its meaning depends on the @context and the semantic attributes attached.
-    pub links: Option<Vec<Link>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<Link>,
 
     /// Bulk-operations over the Thing properties
-    pub forms: Option<Vec<Form<Other>>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub forms: Vec<Form<Other>>,
 
     /// Thing-wide Security constraints
     ///
     /// It is a list of names matching the Security Schemes defined in [Thing::security_definitions].
     /// They must be all satisfied in order to access the Thing resources.
     #[serde_as(as = "OneOrMany<_>")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub security: Vec<String>,
 
     /// Security definitions
@@ -136,6 +149,7 @@ pub struct Thing<Other: ExtendableThing = Nil> {
     /// A Map of Security Schemes, the name keys are used in [Form::security] and [Thing::security]
     /// to express all the security constraints that must be satisfied in order to access the
     /// resources.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub security_definitions: HashMap<String, SecurityScheme>,
 
     /// URI template variables
@@ -146,20 +160,22 @@ pub struct Thing<Other: ExtendableThing = Nil> {
     /// the same variable is both declared in Thing-level `uri_variables` and in
     /// [`InteractionAffordance`] level, the `InteractionAffordance` level variable takes
     /// precedence.
-    pub uri_variables: Option<DataSchemaMap<Other>>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub uri_variables: DataSchemaMap<Other>,
 
     /// The WoT profile
     ///
     /// Indicates the WoT Profile mechanisms followed by this Thing Description and the
     /// corresponding Thing implementation.
-    #[serde(default)]
-    #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub profile: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde_as(as = "OneOrMany<_>")]
+    pub profile: Vec<String>,
 
     /// A Map of named data schemas
     ///
     /// To be used in a schema name-value pair inside an [`AdditionalExpectedResponse`] object.
-    pub schema_definitions: Option<DataSchemaMap<Other>>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub schema_definitions: DataSchemaMap<Other>,
 
     /// Thing extension
     #[serde(flatten)]
@@ -292,28 +308,32 @@ impl Thing<Nil> {
 /// documentation](https://www.w3.org/TR/wot-thing-description11/#interactionaffordance) for
 /// further details.
 #[serde_as]
-#[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InteractionAffordance<Other: ExtendableThing> {
     /// JSON-LD keyword to label the object with semantic tags or types.
-    #[serde(rename = "@type", default)]
-    #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub attype: Option<Vec<String>>,
+    #[serde(rename = "@type", default, skip_serializing_if = "Vec::is_empty")]
+    #[serde_as(as = "OneOrMany<_>")]
+    pub attype: Vec<String>,
 
     /// A human-readable title based on a default language.
-    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub title: String,
 
     /// Multi-language human-readable titles.
-    pub titles: Option<MultiLanguage>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub titles: MultiLanguage,
 
     /// Additional human-readable information based on a default language.
-    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
 
     /// Additional human-readable information in different languages.
-    pub descriptions: Option<MultiLanguage>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub descriptions: MultiLanguage,
 
     /// Set of form hypermedia controls that describe how an operation can be performed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub forms: Vec<Form<Other>>,
 
     /// URI template variables
@@ -322,7 +342,8 @@ pub struct InteractionAffordance<Other: ExtendableThing> {
     /// `DataSchema` cannot be an [`ObjectSchema`] or an [`ArraySchema`]. If the same variable is
     /// both declared in [`Thing`]-level `uri_variables` and in `InteractionAffordance` level, the
     /// `InteractionAffordance` level variable takes precedence.
-    pub uri_variables: Option<DataSchemaMap<Other>>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub uri_variables: DataSchemaMap<Other>,
 
     /// Interaction affordance extension
     #[serde(flatten)]
@@ -391,7 +412,6 @@ where
 }
 
 /// An affordance that exposes the state of a `Thing`
-#[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
 pub struct PropertyAffordance<Other: ExtendableThing> {
     /// The interaction affordance.
@@ -408,7 +428,8 @@ pub struct PropertyAffordance<Other: ExtendableThing> {
     ///
     /// [`ObserveProperty`]: FormOperation::ObserveProperty
     /// [`UnobserveProperty`]: FormOperation::UnobserveProperty
-    pub observable: Option<bool>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub observable: bool,
 
     /// Property affordance extension.
     #[serde(flatten)]
@@ -465,7 +486,6 @@ where
 }
 
 /// An affordance that allows to inkvoke a function of the `Thing`.
-#[skip_serializing_none]
 #[derive(Deserialize, Serialize)]
 pub struct ActionAffordance<Other: ExtendableThing> {
     /// The interaction affordance.
@@ -473,23 +493,25 @@ pub struct ActionAffordance<Other: ExtendableThing> {
     pub interaction: InteractionAffordance<Other>,
 
     /// The input data schema of the action.
+    #[serde(with = "maybe_empty_data_schema")]
     pub input: Option<DataSchemaFromOther<Other>>,
 
     /// The output data schema of the action.
+    #[serde(with = "maybe_empty_data_schema")]
     pub output: Option<DataSchemaFromOther<Other>>,
 
     /// Whether the action is safe or not.
     ///
     /// In case it is `true`, when the action is invoked there is no internal state that is being
     /// changed.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub safe: bool,
 
     /// Whether the action is idempotent or not.
     ///
     /// In case it is `true`, the action can be called repeatedly with the same result based on the
     /// same input.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub idempotent: bool,
 
     /// Whether the action is synchronous or not.
@@ -498,11 +520,41 @@ pub struct ActionAffordance<Other: ExtendableThing> {
     /// the result of the action and no further querying about the status of the action is needed.
     ///
     /// If this is `None`, no claim on the synchronicity of the action can be made.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub synchronous: Option<bool>,
 
     /// Action affordance extension
     #[serde(flatten)]
     pub other: Other::ActionAffordance,
+}
+
+mod maybe_empty_data_schema {
+    use serde::{Deserializer, Serializer};
+
+    use crate::extend::ExtendableThing;
+
+    use super::DataSchemaFromOther;
+
+    pub(super) fn serialize<S, Other>(
+        data_schema: &Option<DataSchemaFromOther<Other>>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        Other: ExtendableThing,
+    {
+        todo!()
+    }
+
+    pub(super) fn deserialize<'de, D, Other>(
+        deserializer: D,
+    ) -> Result<Option<DataSchemaFromOther<Other>>, D::Error>
+    where
+        D: Deserializer<'de>,
+        Other: ExtendableThing,
+    {
+        todo!()
+    }
 }
 
 impl<Other> fmt::Debug for ActionAffordance<Other>
