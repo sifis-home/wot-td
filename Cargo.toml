@@ -3,6 +3,7 @@
 resolver = "2"
 members = [
     "wot-td",
+    "wot-td-derive",
     "fuzz",
 ]
 

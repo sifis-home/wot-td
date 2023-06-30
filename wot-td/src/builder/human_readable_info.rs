@@ -10,15 +10,15 @@ use super::MultiLanguageBuilder;
 pub struct HumanReadableInfo {
     /// JSON-LD @type
     /// The meaning of each @type is given by the current JSON-LD @context.
-    pub(super) attype: Option<Vec<String>>,
+    pub(super) attype: Vec<String>,
     /// Human readable title in the default language
-    pub(super) title: Option<String>,
+    pub(super) title: String,
     /// Human redable title, multilanguage
-    pub(super) titles: Option<MultiLanguageBuilder<String>>,
+    pub(super) titles: MultiLanguageBuilder<String>,
     /// Human readable description in the default language
-    pub(super) description: Option<String>,
+    pub(super) description: String,
     /// Human readable description, multilanguage
-    pub(super) descriptions: Option<MultiLanguageBuilder<String>>,
+    pub(super) descriptions: MultiLanguageBuilder<String>,
 }
 
 /// Trait shared across builders dealing with the same information
@@ -63,14 +63,12 @@ pub trait BuildableHumanReadableInfo {
 
 impl BuildableHumanReadableInfo for HumanReadableInfo {
     fn attype(mut self, value: impl Into<String>) -> Self {
-        self.attype
-            .get_or_insert_with(Default::default)
-            .push(value.into());
+        self.attype.push(value.into());
         self
     }
 
     fn title(mut self, value: impl Into<String>) -> Self {
-        self.title = Some(value.into());
+        self.title = value.into();
         self
     }
 
@@ -80,12 +78,12 @@ impl BuildableHumanReadableInfo for HumanReadableInfo {
     {
         let mut builder = MultiLanguageBuilder::default();
         f(&mut builder);
-        self.titles = Some(builder);
+        self.titles = builder;
         self
     }
 
     fn description(mut self, value: impl Into<String>) -> Self {
-        self.description = Some(value.into());
+        self.description = value.into();
         self
     }
 
@@ -95,7 +93,7 @@ impl BuildableHumanReadableInfo for HumanReadableInfo {
     {
         let mut builder = MultiLanguageBuilder::default();
         f(&mut builder);
-        self.descriptions = Some(builder);
+        self.descriptions = builder;
         self
     }
 }

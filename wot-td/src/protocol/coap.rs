@@ -1,6 +1,6 @@
 //! CoAP Binding Template
 
-use crate::extend::ExtendableThing;
+use crate::extend::{ExtendablePiece, ExtendableThing};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::{serde_as, skip_serializing_none};
@@ -68,6 +68,17 @@ pub struct Form {
     pub content_format: Option<u16>,
 }
 
+impl ExtendablePiece for Form {
+    fn is_empty(&self) -> bool {
+        self.method.is_none()
+            && self.blockwise.is_none()
+            && self.qblockwise.is_none()
+            && self.hop_limit.is_none()
+            && self.accept.is_none()
+            && self.content_format.is_none()
+    }
+}
+
 /// CoAP Protocol ExpectedResponse fields
 #[serde_as]
 #[skip_serializing_none]
@@ -75,6 +86,12 @@ pub struct Form {
 pub struct ExpectedResponse {
     #[serde(rename = "cov:contentFormat")]
     pub content_format: Option<u16>,
+}
+
+impl ExtendablePiece for ExpectedResponse {
+    fn is_empty(&self) -> bool {
+        self.content_format.is_none()
+    }
 }
 
 /// Extension for the CoAP protocol

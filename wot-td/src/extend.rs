@@ -10,9 +10,41 @@ use serde::{Deserialize, Serialize};
 use crate::hlist::{Cons, Nil};
 
 /// Requirement trait for extending a Thing Description element
-pub trait ExtendablePiece: Serialize + for<'a> Deserialize<'a> {}
+pub trait ExtendablePiece: Serialize + for<'a> Deserialize<'a> {
+    /// Returns true when the piece is empty.
+    ///
+    /// This can be used when the piece needs to be serialized, but it is unnecessary because it is
+    /// empty.
+    ///
+    /// It is recommended to return true only when a serialization would really produce an empty
+    /// structure.
+    fn is_empty(&self) -> bool;
+}
 
-impl<T> ExtendablePiece for T where T: Serialize + for<'a> Deserialize<'a> {}
+impl ExtendablePiece for () {
+    #[inline]
+    fn is_empty(&self) -> bool {
+        true
+    }
+}
+
+impl ExtendablePiece for Nil {
+    #[inline]
+    fn is_empty(&self) -> bool {
+        true
+    }
+}
+
+impl<Head, Tail> ExtendablePiece for Cons<Head, Tail>
+where
+    Head: ExtendablePiece,
+    Tail: ExtendablePiece,
+{
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.head.is_empty() && self.tail.is_empty()
+    }
+}
 
 /// Main extension trait
 ///

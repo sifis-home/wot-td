@@ -1,6 +1,6 @@
 //! HTTP Binding Template
 
-use crate::extend::ExtendableThing;
+use crate::extend::{ExtendablePiece, ExtendableThing};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, skip_serializing_none};
 
@@ -38,6 +38,12 @@ pub struct Response {
     pub status_code_value: Option<usize>,
 }
 
+impl ExtendablePiece for Response {
+    fn is_empty(&self) -> bool {
+        self.headers.is_empty() && self.status_code_value.is_none()
+    }
+}
+
 /// Extended fields for Form
 #[serde_as]
 #[skip_serializing_none]
@@ -45,6 +51,12 @@ pub struct Response {
 pub struct Form {
     #[serde(rename = "htv:methodName")]
     pub method_name: Option<Method>,
+}
+
+impl ExtendablePiece for Form {
+    fn is_empty(&self) -> bool {
+        self.method_name.is_none()
+    }
 }
 
 /// HTTP Protocol extension

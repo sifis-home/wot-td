@@ -720,39 +720,45 @@ where
 
 /// Metadata that describes the data format used.
 #[serde_as]
-#[skip_serializing_none]
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSchema<DS, AS, OS> {
     /// JSON-LD keyword to label the object with semantic tags or types.
-    #[serde(rename = "@type", default)]
-    #[serde_as(as = "Option<OneOrMany<_>>")]
-    pub attype: Option<Vec<String>>,
+    #[serde(rename = "@type", default, skip_serializing_if = "Vec::is_empty")]
+    #[serde_as(as = "OneOrMany<_>")]
+    pub attype: Vec<String>,
 
     /// Human-readable title to be displayed
-    pub title: Option<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub title: String,
 
     /// Multi-language translations of the title
-    pub titles: Option<MultiLanguage>,
+    #[serde(skip_serializing_if = "MultiLanguage::is_empty")]
+    pub titles: MultiLanguage,
 
     /// Human-readable additional information
-    pub description: Option<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub description: String,
 
     /// Multi-language translations of the description
-    pub descriptions: Option<MultiLanguage>,
+    #[serde(skip_serializing_if = "MultiLanguage::is_empty")]
+    pub descriptions: MultiLanguage,
 
     /// A constant value for the data schema.
-    #[serde(rename = "const")]
+    #[serde(rename = "const", skip_serializing_if = "Option::is_none")]
     pub constant: Option<Value>,
 
     /// A default value for the data schema.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default: Option<Value>,
 
     /// Unit information used for the data schema (e.g. Km, g, m/s^2)
-    pub unit: Option<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub unit: String,
 
     /// Used to ensure that the data is valid against one of the specified schemas.
-    pub one_of: Option<Vec<Self>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub one_of: Vec<Self>,
 
     /// A restricted set of values.
     #[serde(rename = "enum")]
@@ -1821,6 +1827,7 @@ const fn is_false(b: &bool) -> bool {
 mod test {
     use serde_json::json;
     use time::macros::datetime;
+    use wot_td_derive::ExtendablePiece;
 
     use crate::hlist::Cons;
 
@@ -1841,7 +1848,7 @@ mod test {
 
         let expected_thing = Thing {
             context: TD_CONTEXT_11.into(),
-            id: Some("urn:dev:ops:32473-WoTLamp-1234".to_string()),
+            id: "urn:dev:ops:32473-WoTLamp-1234".to_string(),
             title: "MyLampThing".to_string(),
             security_definitions: [("nosec".to_string(), SecurityScheme::default())]
                 .into_iter()
@@ -2140,59 +2147,75 @@ mod test {
     #[derive(Serialize, Deserialize)]
     struct A(i32);
 
+    impl A {
+        fn is_default(&self) -> bool {
+            self.0 == 42
+        }
+    }
+
     impl Default for A {
         fn default() -> Self {
             A(42)
         }
     }
 
-    #[derive(Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize, ExtendablePiece)]
     struct ThingExtA {
+        #[extendable_piece(is_empty_when = "A::is_default")]
         a: A,
     }
 
-    #[derive(Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize, ExtendablePiece)]
     struct IntAffExtA {
+        #[extendable_piece(is_empty_when = "A::is_default")]
         b: A,
     }
 
-    #[derive(Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize, ExtendablePiece)]
     struct ActionAffExtA {
+        #[extendable_piece(is_empty_when = "A::is_default")]
         c: A,
     }
 
-    #[derive(Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize, ExtendablePiece)]
     struct PropAffExtA {
+        #[extendable_piece(is_empty_when = "A::is_default")]
         d: A,
     }
 
-    #[derive(Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize, ExtendablePiece)]
     struct EventAffExtA {
+        #[extendable_piece(is_empty_when = "A::is_default")]
         e: A,
     }
 
-    #[derive(Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize, ExtendablePiece)]
     struct FormExtA {
+        #[extendable_piece(is_empty_when = "A::is_default")]
         f: A,
     }
 
-    #[derive(Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize, ExtendablePiece)]
     struct RespExtA {
+        #[extendable_piece(is_empty_when = "A::is_default")]
         g: A,
     }
 
-    #[derive(Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize, ExtendablePiece)]
     struct DataSchemaExtA {
+        #[extendable_piece(is_empty_when = "A::is_default")]
         h: A,
     }
 
-    #[derive(Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize, ExtendablePiece)]
     struct ObjectSchemaExtA {
+        #[extendable_piece(is_empty_when = "A::is_default")]
         i: A,
     }
 
-    #[derive(Default, Serialize, Deserialize)]
+    #[derive(Default, Serialize, Deserialize, ExtendablePiece)]
     struct ArraySchemaExtA {
+        #[extendable_piece(is_empty_when = "A::is_default")]
         j: A,
     }
 

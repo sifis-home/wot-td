@@ -63,19 +63,19 @@ use super::{
 /// [`ThingBuilder::build`](crate::builder::ThingBuilder::build).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct UncheckedDataSchema<DS, AS, OS> {
-    attype: Option<Vec<String>>,
-    title: Option<String>,
-    titles: Option<MultiLanguageBuilder<String>>,
-    description: Option<String>,
-    descriptions: Option<MultiLanguageBuilder<String>>,
+    attype: Vec<String>,
+    title: String,
+    titles: MultiLanguageBuilder<String>,
+    description: String,
+    descriptions: MultiLanguageBuilder<String>,
     constant: Option<Value>,
     default: Option<Value>,
-    unit: Option<String>,
-    one_of: Option<Vec<Self>>,
+    unit: String,
+    one_of: Vec<Self>,
     enumeration: Option<Vec<Value>>,
     read_only: bool,
     write_only: bool,
-    format: Option<String>,
+    format: String,
     subtype: Option<UncheckedDataSchemaSubtype<DS, AS, OS>>,
     other: DS,
 }
@@ -109,12 +109,12 @@ pub(crate) type UncheckedDataSchemaMap<Other> = HashMap<
 pub struct PartialDataSchemaBuilder<DS, AS, OS, Status> {
     constant: Option<Value>,
     default: Option<Value>,
-    unit: Option<String>,
+    unit: String,
     one_of: Vec<UncheckedDataSchema<DS, AS, OS>>,
     enumeration: Vec<Value>,
     read_only: bool,
     write_only: bool,
-    format: Option<String>,
+    format: String,
 
     /// Data schema extension.
     pub other: DS,
@@ -241,12 +241,12 @@ where
 pub struct PartialDataSchema<DS, AS, OS> {
     pub(super) constant: Option<Value>,
     pub(super) default: Option<Value>,
-    pub(super) unit: Option<String>,
-    pub(super) one_of: Option<Vec<UncheckedDataSchema<DS, AS, OS>>>,
+    pub(super) unit: String,
+    pub(super) one_of: Vec<UncheckedDataSchema<DS, AS, OS>>,
     pub(super) enumeration: Option<Vec<Value>>,
     pub(super) read_only: bool,
     pub(super) write_only: bool,
-    pub(super) format: Option<String>,
+    pub(super) format: String,
     pub(super) subtype: Option<UncheckedDataSchemaSubtype<DS, AS, OS>>,
 
     /// Data schema extension.
@@ -2232,11 +2232,11 @@ pub(crate) use buildable_data_schema_delegate;
 pub(crate) use impl_delegate_buildable_data_schema;
 use serde_json::Value;
 
-macro_rules! trait_opt_field_builder {
+macro_rules! trait_field_builder {
     ($($field:ident : $ty:ty),* $(,)?) => {
         $(
             fn $field(mut self, value: impl Into<$ty>) -> Self {
-                self.$field = Some(value.into());
+                self.$field = value.into();
                 self
             }
         )*
@@ -2250,7 +2250,7 @@ impl_delegate_buildable_hr_info! (
 impl<DS, AS, OS, Status> BuildableDataSchema<DS, AS, OS, Status>
     for PartialDataSchemaBuilder<DS, AS, OS, Status>
 {
-    trait_opt_field_builder!(unit: String, format: String);
+    trait_field_builder!(unit: String, format: String);
 
     fn default_value(mut self, value: impl Into<Value>) -> Self {
         self.default = Some(value.into());
@@ -2735,7 +2735,7 @@ where
             constant,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -2783,7 +2783,7 @@ where
             constant,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -2845,7 +2845,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -2909,7 +2909,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -2979,7 +2979,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -3027,7 +3027,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -3088,7 +3088,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -3145,7 +3145,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -3206,7 +3206,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -3263,7 +3263,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -3329,7 +3329,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -3391,7 +3391,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -3457,7 +3457,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -3519,7 +3519,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration: None,
             read_only,
             write_only,
@@ -3645,7 +3645,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration,
             read_only,
             write_only,
@@ -3691,7 +3691,7 @@ where
             constant: None,
             default,
             unit,
-            one_of: None,
+            one_of: Default::default(),
             enumeration,
             read_only,
             write_only,
@@ -3731,7 +3731,6 @@ where
                 },
         } = builder.inner.into();
 
-        let one_of = Some(one_of);
         Self {
             attype,
             title,
@@ -3782,7 +3781,6 @@ where
             _marker: _,
         } = builder.inner.into();
 
-        let one_of = Some(one_of);
         Self {
             constant: None,
             default,

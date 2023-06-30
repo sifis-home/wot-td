@@ -2360,7 +2360,6 @@ where
         } = builder;
 
         let forms = forms.into_iter().map(Form::from).collect();
-        let uri_variables = uri_variables.is_empty().not().then_some(uri_variables);
         let other = other.into();
 
         Self {
@@ -2529,13 +2528,13 @@ where
 }
 
 pub(crate) struct UncheckedInteractionAffordance<Other: ExtendableThing> {
-    attype: Option<Vec<String>>,
-    title: Option<String>,
-    titles: Option<MultiLanguageBuilder<String>>,
-    description: Option<String>,
-    descriptions: Option<MultiLanguageBuilder<String>>,
+    attype: Vec<String>,
+    title: String,
+    titles: MultiLanguageBuilder<String>,
+    description: String,
+    descriptions: MultiLanguageBuilder<String>,
     forms: Vec<Form<Other>>,
-    uri_variables: Option<UncheckedDataSchemaMap<Other>>,
+    uri_variables: UncheckedDataSchemaMap<Other>,
     other: Other::InteractionAffordance,
 }
 
@@ -2573,18 +2572,12 @@ impl<Other: ExtendableThing> TryFrom<UncheckedInteractionAffordance<Other>>
             other,
         } = affordance;
 
-        let titles = titles.map(|titles| titles.build()).transpose()?;
-        let descriptions = descriptions
-            .map(|descriptions| descriptions.build())
-            .transpose()?;
+        let titles = titles.build()?;
+        let descriptions = descriptions.build()?;
         let uri_variables = uri_variables
-            .map(|uri_variables| {
-                uri_variables
-                    .into_iter()
-                    .map(|(key, value)| value.try_into().map(|value| (key, value)))
-                    .collect()
-            })
-            .transpose()?;
+            .into_iter()
+            .map(|(key, value)| value.try_into().map(|value| (key, value)))
+            .collect()?;
 
         Ok(Self {
             attype,

@@ -1,6 +1,8 @@
 //! MQTT Binding Template
 
-use crate::extend::ExtendableThing;
+use std::ops::Not;
+
+use crate::extend::{ExtendablePiece, ExtendableThing};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, skip_serializing_none, OneOrMany};
 
@@ -46,6 +48,16 @@ pub struct Form {
     #[serde(rename = "mqv:filter", skip_serializing_if = "Vec::is_empty", default)]
     #[serde_as(as = "OneOrMany<_>")]
     pub filter: Vec<String>,
+}
+
+impl ExtendablePiece for Form {
+    fn is_empty(&self) -> bool {
+        self.retain.not()
+            && self.control_packet.is_none()
+            && self.qos.is_none()
+            && self.topic.is_none()
+            && self.filter.is_empty()
+    }
 }
 
 /// MQTT Protocol extension
