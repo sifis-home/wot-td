@@ -11,14 +11,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 
 [dependencies.wot-td]
-path = ".."
-
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
-
-[profile.release]
-debug = 1
+path = "../wot-td"
 
 [[bin]]
 name = "fuzz_target_1"

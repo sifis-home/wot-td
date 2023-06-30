@@ -1,20 +1,10 @@
-[package]
-name = "wot-td"
-version = "0.3.1"
-edition = "2021"
-description = "Web of Things (WoT) Thing Description manipulation"
-license = "MIT"
-repository = "https://github.com/sifis-home/wot-td"
-keywords = ["wot", "WebofThings"]
+[workspace]
 
-[dependencies]
-oxilangtag = { version = "0.1.3", features = ["serde"] }
-serde = { version = "1.0.137", features = ["derive"] }
-serde_json = "1.0.81"
-serde_repr = "0.1.9"
-serde_with = "2.0.0"
-thiserror = "1.0.31"
-time = { version = "0.3.11", features = ["serde", "serde-well-known"] }
+resolver = "2"
+members = [
+    "wot-td",
+    "fuzz",
+]
 
-[dev-dependencies]
-time = { version = "0.3.9", features = ["macros"] }
+[profile.release.package.wot-td-fuzz]
+debug = 1
