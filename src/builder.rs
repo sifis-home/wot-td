@@ -224,13 +224,12 @@ use crate::{
 
 use self::{
     affordance::{
-        AffordanceBuilder, BuildableAffordance, CheckableInteractionAffordanceBuilder, IntoUsable,
+        AffordanceBuilder, BuildableAffordance, CheckableInteractionAffordanceBuilder,
         UsableActionAffordanceBuilder, UsableEventAffordanceBuilder,
         UsablePropertyAffordanceBuilder,
     },
     data_schema::{
-        uri_variables_contains_arrays_objects, CheckableDataSchema, PartialDataSchemaBuilder,
-        UncheckedDataSchemaFromOther,
+        uri_variables_contains_arrays_objects, CheckableDataSchema, UncheckedDataSchemaFromOther,
     },
 };
 
